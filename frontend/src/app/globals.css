@@ -1,26 +1,223 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --primary-1: 255 255 255;
+  --contrast-primary-1: 29 29 29;
+  --primary-2: 247 250 255;
+  --contrast-primary-2: 29 29 29;
+  --primary-3: 241 248 255;
+  --contrast-primary-3: 29 29 29;
+  --primary-4: 233 243 255;
+  --contrast-primary-4: 29 29 29;
+  --primary-5: 224 238 255;
+  --contrast-primary-5: 29 29 29;
+  --primary-6: 213 230 255;
+  --contrast-primary-6: 29 29 29;
+  --primary-7: 198 218 253;
+  --contrast-primary-7: 29 29 29;
+  --primary-8: 182 205 246;
+  --contrast-primary-8: 29 29 29;
+  --primary-9: 52 109 219;
+  --contrast-primary-9: 255 255 255;
+  --primary-10: 57 115 225;
+  --contrast-primary-10: 255 255 255;
+  --primary-11: 87 110 152;
+  --contrast-primary-11: 255 255 255;
+  --primary-12: 24 29 38;
+  --contrast-primary-12: 255 255 255;
+  --primary-original: 52 109 219;
+  --contrast-primary-original: 255 255 255;
+  --tint-1: 255 255 255;
+  --contrast-tint-1: 29 29 29;
+  --tint-2: 249 250 251;
+  --contrast-tint-2: 29 29 29;
+  --tint-3: 246 247 250;
+  --contrast-tint-3: 29 29 29;
+  --tint-4: 240 242 246;
+  --contrast-tint-4: 29 29 29;
+  --tint-5: 234 237 242;
+  --contrast-tint-5: 29 29 29;
+  --tint-6: 226 230 236;
+  --contrast-tint-6: 29 29 29;
+  --tint-7: 213 217 224;
+  --contrast-tint-7: 29 29 29;
+  --tint-8: 200 205 213;
+  --contrast-tint-8: 29 29 29;
+  --tint-9: 121 133 155;
+  --contrast-tint-9: 255 255 255;
+  --tint-10: 110 122 143;
+  --contrast-tint-10: 255 255 255;
+  --tint-11: 106 110 119;
+  --contrast-tint-11: 255 255 255;
+  --tint-12: 28 29 31;
+  --contrast-tint-12: 255 255 255;
+  --tint-original: 120 120 120;
+  --contrast-tint-original: 255 255 255;
+  --neutral-1: 255 255 255;
+  --contrast-neutral-1: 29 29 29;
+  --neutral-2: 250 250 250;
+  --contrast-neutral-2: 29 29 29;
+  --neutral-3: 247 247 247;
+  --contrast-neutral-3: 29 29 29;
+  --neutral-4: 242 242 242;
+  --contrast-neutral-4: 29 29 29;
+  --neutral-5: 237 237 237;
+  --contrast-neutral-5: 29 29 29;
+  --neutral-6: 229 229 229;
+  --contrast-neutral-6: 29 29 29;
+  --neutral-7: 217 217 217;
+  --contrast-neutral-7: 29 29 29;
+  --neutral-8: 204 204 204;
+  --contrast-neutral-8: 29 29 29;
+  --neutral-9: 120 120 120;
+  --contrast-neutral-9: 255 255 255;
+  --neutral-10: 121 121 121;
+  --contrast-neutral-10: 255 255 255;
+  --neutral-11: 110 110 110;
+  --contrast-neutral-11: 255 255 255;
+  --neutral-12: 29 29 29;
+  --contrast-neutral-12: 255 255 255;
+  --neutral-original: 120 120 120;
+  --contrast-neutral-original: 255 255 255;
+  --header-background: 52 109 219;
+  --header-link: 255 255 255;
+  --info-1: 255 255 255;
+  --contrast-info-1: 29 29 29;
+  --info-2: 250 250 250;
+  --contrast-info-2: 29 29 29;
+  --info-3: 247 247 247;
+  --contrast-info-3: 29 29 29;
+  --info-4: 242 242 242;
+  --contrast-info-4: 29 29 29;
+  --info-5: 237 237 237;
+  --contrast-info-5: 29 29 29;
+  --info-6: 229 229 229;
+  --contrast-info-6: 29 29 29;
+  --info-7: 217 217 217;
+  --contrast-info-7: 29 29 29;
+  --info-8: 204 204 204;
+  --contrast-info-8: 29 29 29;
+  --info-9: 120 120 120;
+  --contrast-info-9: 255 255 255;
+  --info-10: 121 121 121;
+  --contrast-info-10: 255 255 255;
+  --info-11: 110 110 110;
+  --contrast-info-11: 255 255 255;
+  --info-12: 29 29 29;
+  --contrast-info-12: 255 255 255;
+  --info-original: 120 120 120;
+  --contrast-info-original: 255 255 255;
+  --warning-1: 255 255 255;
+  --contrast-warning-1: 29 29 29;
+  --warning-2: 254 249 244;
+  --contrast-warning-2: 29 29 29;
+  --warning-3: 255 245 236;
+  --contrast-warning-3: 29 29 29;
+  --warning-4: 255 239 225;
+  --contrast-warning-4: 29 29 29;
+  --warning-5: 254 233 214;
+  --contrast-warning-5: 29 29 29;
+  --warning-6: 250 224 200;
+  --contrast-warning-6: 29 29 29;
+  --warning-7: 242 211 182;
+  --contrast-warning-7: 29 29 29;
+  --warning-8: 233 197 164;
+  --contrast-warning-8: 29 29 29;
+  --warning-9: 254 154 0;
+  --contrast-warning-9: 29 29 29;
+  --warning-10: 187 92 0;
+  --contrast-warning-10: 255 255 255;
+  --warning-11: 138 102 66;
+  --contrast-warning-11: 255 255 255;
+  --warning-12: 35 28 21;
+  --contrast-warning-12: 255 255 255;
+  --warning-original: 254 154 0;
+  --contrast-warning-original: 29 29 29;
+  --danger-1: 255 255 255;
+  --contrast-danger-1: 29 29 29;
+  --danger-2: 255 247 246;
+  --contrast-danger-2: 29 29 29;
+  --danger-3: 255 242 239;
+  --contrast-danger-3: 29 29 29;
+  --danger-4: 255 234 230;
+  --contrast-danger-4: 29 29 29;
+  --danger-5: 255 226 221;
+  --contrast-danger-5: 29 29 29;
+  --danger-6: 255 215 210;
+  --contrast-danger-6: 29 29 29;
+  --danger-7: 255 200 193;
+  --contrast-danger-7: 29 29 29;
+  --danger-8: 254 184 177;
+  --contrast-danger-8: 29 29 29;
+  --danger-9: 251 44 54;
+  --contrast-danger-9: 255 255 255;
+  --danger-10: 228 0 33;
+  --contrast-danger-10: 255 255 255;
+  --danger-11: 158 87 81;
+  --contrast-danger-11: 255 255 255;
+  --danger-12: 39 25 23;
+  --contrast-danger-12: 255 255 255;
+  --danger-original: 251 44 54;
+  --contrast-danger-original: 255 255 255;
+  --success-1: 255 255 255;
+  --contrast-success-1: 29 29 29;
+  --success-2: 245 252 246;
+  --contrast-success-2: 29 29 29;
+  --success-3: 238 252 240;
+  --contrast-success-3: 29 29 29;
+  --success-4: 229 249 231;
+  --contrast-success-4: 29 29 29;
+  --success-5: 219 246 222;
+  --contrast-success-5: 29 29 29;
+  --success-6: 207 240 210;
+  --contrast-success-6: 29 29 29;
+  --success-7: 190 229 194;
+  --contrast-success-7: 29 29 29;
+  --success-8: 172 218 177;
+  --contrast-success-8: 29 29 29;
+  --success-9: 0 201 80;
+  --contrast-success-9: 29 29 29;
+  --success-10: 0 152 23;
+  --contrast-success-10: 255 255 255;
+  --success-11: 74 124 82;
+  --contrast-success-11: 255 255 255;
+  --success-12: 22 32 23;
+  --contrast-success-12: 255 255 255;
+  --success-original: 0 201 80;
+  --contrast-success-original: 29 29 29;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-geist-mono);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  background: rgb(var(--primary-1));
+  color: rgb(var(--primary-12));
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
