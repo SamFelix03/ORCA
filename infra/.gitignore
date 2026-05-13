@@ -1,0 +1,13 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Secrets/env
+*.pem
+.env
+.env.*
+
+# Runtime/debug
+*.log

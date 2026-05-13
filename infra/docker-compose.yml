@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  orca-frontend:
+    image: node:20-alpine
+    working_dir: /workspace/frontend
+    command: sh -c "corepack enable && pnpm dev"
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./env/frontend.env
+    volumes:
+      - ..:/workspace
+
+  orca-api:
+    image: node:20-alpine
+    working_dir: /workspace/api
+    command: sh -c "corepack enable && pnpm dev"
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./env/api.env
+    volumes:
+      - ..:/workspace
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: orca
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: orca
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - "6379:6379"

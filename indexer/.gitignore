@@ -1,0 +1,16 @@
+# Node deps/build
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Goldsky/generated
+.goldsky/
+generated/
+
+# Runtime/debug
+*.log
+
+# Env
+.env
+.env.*

@@ -1,0 +1,17 @@
+# Node deps/build
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Runtime/debug
+*.log
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal

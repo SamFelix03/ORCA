@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AgentType {
+  scout
+  risk
+  executor
+  audit
+}
+
+enum SignalStatus {
+  pending
+  approved
+  rejected
+  executing
+  executed
+  failed
+}
+
+enum SessionStatus {
+  pending
+  active
+  expired
+  rejected
+}
+
+enum AlertSeverity {
+  info
+  warning
+  critical
+}
+
+model Agent {
+  id                String     @id @default(cuid())
+  did               String     @unique
+  type              AgentType
+  vaultAddress      String
+  passportSessionId String?
+  online            Boolean    @default(false)
+  spendingUsedUsdc  Decimal    @db.Decimal(20, 6) @default(0)
+  spendingCapUsdc   Decimal    @db.Decimal(20, 6) @default(0)
+  poaiScore         Decimal    @db.Decimal(20, 6) @default(0)
+  lastActionAt      DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  signals Signal[] @relation("ScoutSignals")
+}
+
+model Signal {
+  id                  String       @id @default(cuid())
+  scoutDid            String
+  scout               Agent        @relation("ScoutSignals", fields: [scoutDid], references: [did])
+  srcChain            Int
+  dstChain            Int
+  srcProtocol         String
+  dstProtocol         String
+  netDeltaApy         Decimal      @db.Decimal(12, 6)
+  suggestedAmountUsdc Decimal      @db.Decimal(20, 6)
+  status              SignalStatus @default(pending)
+  riskDecisionReason  String?
+  txHash              String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  execution Execution?
+}
+
+model Execution {
+  id          String    @id @default(cuid())
+  signalId    String    @unique
+  signal      Signal    @relation(fields: [signalId], references: [id])
+  executorDid String
+  txHash      String
+  lzMessageId String?
+  status      String
+  slippageBps Int?
+  createdAt   DateTime  @default(now())
+}
+
+model Position {
+  id          String   @id @default(cuid())
+  chainId     Int
+  chainName   String
+  protocol    String
+  asset       String
+  amountUsdc  Decimal  @db.Decimal(20, 6)
+  apy         Decimal  @db.Decimal(8, 4)
+  healthFactor Decimal @db.Decimal(8, 4)
+  lastUpdated DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Session {
+  id                String        @id @default(cuid())
+  externalSessionId String?       @unique
+  agentDid          String
+  maxAmountPerTxUsdc Decimal      @db.Decimal(20, 6)
+  maxTotalAmountUsdc Decimal      @db.Decimal(20, 6)
+  usedAmountUsdc    Decimal       @db.Decimal(20, 6) @default(0)
+  ttlSeconds        Int
+  status            SessionStatus @default(pending)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+model AttributionRecord {
+  id          String   @id @default(cuid())
+  agentDid    String
+  actionType  String
+  inputHash   String
+  outcomeHash String
+  valueDelta  Decimal  @db.Decimal(20, 6)
+  epochId     Int
+  blockNumber BigInt?
+  createdAt   DateTime @default(now())
+}
+
+model Epoch {
+  id               Int      @id
+  startBlock       BigInt?
+  endBlock         BigInt?
+  totalRewardsKite Decimal  @db.Decimal(20, 6) @default(0)
+  status           String   @default("open")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Alert {
+  id         String        @id @default(cuid())
+  type       String
+  severity   AlertSeverity
+  message    String
+  resolvedAt DateTime?
+  createdAt  DateTime      @default(now())
+}

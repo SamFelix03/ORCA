@@ -1,0 +1,16 @@
+# Node deps
+node_modules/
+
+# Hardhat artifacts
+artifacts/
+cache/
+typechain-types/
+coverage/
+
+# Runtime/debug
+*.log
+
+# Env
+.env
+.env.*
+!.env.example

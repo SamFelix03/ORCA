@@ -1,0 +1,7 @@
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+
+# Runtime/debug
+*.log
