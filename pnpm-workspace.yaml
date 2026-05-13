@@ -1,0 +1,11 @@
+packages:
+  - frontend
+  - api
+  - agents
+  - contracts
+  - indexer
+  - infra
+  - packages/*
+  - tests
+minimumReleaseAge: 20160
+minimumReleaseAgeStrict: true
