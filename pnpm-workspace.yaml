@@ -9,3 +9,9 @@ packages:
   - tests
 minimumReleaseAge: 20160
 minimumReleaseAgeStrict: true
+minimumReleaseAgeExclude:
+  - next
+  - "@next/*"
+  - eslint-config-next
+  - react
+  - react-dom

@@ -1,2 +1,18 @@
-docs/
+# Project docs/reference snapshots (local-only)
 reference-frontend/
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build/cache artifacts
+dist/
+coverage/
+.cache/
+.hardhat/
+*.log
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
