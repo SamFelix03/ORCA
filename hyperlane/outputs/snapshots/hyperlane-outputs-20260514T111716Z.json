@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-05-14T11:17:16.794532+00:00",
+  "chains": {
+    "basesepolia": {
+      "metadata": {
+        "blockExplorers": [
+          {
+            "apiKey": "R8CVTG7HDJYD5JDV2GSD5TGQH3J2KJDSSY",
+            "apiUrl": "https://api-sepolia.basescan.org/api",
+            "family": "etherscan",
+            "name": "BaseScan",
+            "url": "https://sepolia.basescan.org"
+          }
+        ],
+        "blocks": {
+          "confirmations": 1,
+          "estimateBlockTime": 2,
+          "reorgPeriod": 1
+        },
+        "chainId": 84532,
+        "deployer": {
+          "name": "Abacus Works",
+          "url": "https://www.hyperlane.xyz"
+        },
+        "displayName": "Base Sepolia",
+        "domainId": 84532,
+        "gasCurrencyCoinGeckoId": "ethereum",
+        "isTestnet": true,
+        "name": "basesepolia",
+        "nativeToken": {
+          "decimals": 18,
+          "name": "Ether",
+          "symbol": "ETH"
+        },
+        "protocol": "ethereum",
+        "rpcUrls": [
+          {
+            "http": "https://sepolia.base.org"
+          },
+          {
+            "http": "https://base-sepolia-rpc.publicnode.com"
+          }
+        ]
+      },
+      "addresses": {
+        "domainRoutingIsmFactory": "0x417fe09713AdC16498a6dcE1a4fc0E60d003D4Aa",
+        "incrementalDomainRoutingIsmFactory": "0x1dCf970eF4BDD381Be6ebdAcFaF5ADAdFe92c113",
+        "interchainAccountRouter": "0x150b1d7AABF5Bb37928824D3dBf4e50144A175D3",
+        "mailbox": "0x68e89453029DC14351bF72104dC30248BB766b69",
+        "merkleTreeHook": "0x6229BC5BB9c37F4B9C823584e7fC7DE844F380DF",
+        "proxyAdmin": "0xB89aedA029aB6444ba9022B4aBcC19ca857619E0",
+        "quotedCalls": "0x634C4A18d512d2c6fF2c9B9504ca2660e5507a0b",
+        "staticAggregationHookFactory": "0xCaac39B83a1Ed28d829d12648FD83123eb4a2041",
+        "staticAggregationIsmFactory": "0xC3Fd1E9B228Fc285dcC8050DA63B793ad113c019",
+        "staticMerkleRootMultisigIsmFactory": "0xE1A2A617976E659b2c42204B87937037dcE6B99e",
+        "staticMerkleRootWeightedMultisigIsmFactory": "0x51dC9cE9f288f07C7b6a5aF62836197ca4458E93",
+        "staticMessageIdMultisigIsmFactory": "0xC64Ab8760d89b567F51C060EC31Da9a7f6C4C01b",
+        "staticMessageIdWeightedMultisigIsmFactory": "0x1cd4e7b3B225485A92b2094164b891237aBAf5F4",
+        "testRecipient": "0x1C61AD8288036df7e14C6A9B5D9e11b6631D6890",
+        "validatorAnnounce": "0x895593F5DA13e9486236740883659623Ec01Dc4a"
+      }
+    },
+    "kitetestnet": {
+      "metadata": {
+        "blockExplorers": [
+          {
+            "apiUrl": "https://testnet.kitescan.ai/api",
+            "family": "blockscout",
+            "name": "kite-testnet explorer",
+            "url": "https://testnet.kitescan.ai"
+          }
+        ],
+        "blocks": {
+          "confirmations": 1,
+          "estimateBlockTime": 2,
+          "reorgPeriod": 0
+        },
+        "chainId": 2368,
+        "displayName": "Kitetestnet",
+        "domainId": 2368,
+        "isTestnet": true,
+        "name": "kitetestnet",
+        "nativeToken": {
+          "decimals": 18,
+          "name": "Kite",
+          "symbol": "KITE"
+        },
+        "protocol": "ethereum",
+        "rpcUrls": [
+          {
+            "http": "https://rpc-testnet.gokite.ai"
+          }
+        ],
+        "transactionOverrides": {
+          "gasPrice": 20000000000
+        },
+        "technicalStack": "other"
+      },
+      "addresses": {
+        "domainRoutingIsmFactory": "0xb09Adbd0CBFf2F62BAD98A6Ec46620E581A3831c",
+        "incrementalDomainRoutingIsmFactory": "0x82602F0888a8ee5b276523daFE74b46FFc7e3051",
+        "interchainAccountRouter": "0xe6692b5e9a229E66569f3d94092ad301D1fE6B43",
+        "mailbox": "0x0d5b681C5887617d68200B45F3947c99Cf402188",
+        "merkleTreeHook": "0xd6Ea22b0932529F9B92A944a8c8A6d2b70af8aE2",
+        "proxyAdmin": "0x2c1f31d27645be47E0907D2eAa6A4f36F045BaE0",
+        "quotedCalls": "0x385b53238468b5B453129B192aaAA1d869788885",
+        "staticAggregationHookFactory": "0x805651a9377DeC00F4e6b719db3aA5221536D1B9",
+        "staticAggregationIsmFactory": "0x5aDf80928f6f0Fa2C2D9Abb2FBf66e89557989bd",
+        "staticMerkleRootMultisigIsmFactory": "0x71cA3A72aB0d4b9898674B78C474ED1325D6Dc0b",
+        "staticMerkleRootWeightedMultisigIsmFactory": "0x84a55a9e35dC1A966b7b1494560240Cb3f879871",
+        "staticMessageIdMultisigIsmFactory": "0xC420bA7e7c1115Ce46d460921f1ead58F0Ed7f69",
+        "staticMessageIdWeightedMultisigIsmFactory": "0xAdBEE71c3fB30aB99cd414269CbeE0bBF50f1747",
+        "testRecipient": "0xc5E78532225B18e174FeCe089A854ac628179476",
+        "validatorAnnounce": "0x077Dc8fd76e3E547aE52E538520c0621AACB22D0"
+      }
+    },
+    "sepolia": {
+      "metadata": {
+        "name": "sepolia",
+        "displayName": "Ethereum Sepolia",
+        "chainId": 11155111,
+        "domainId": 11155111,
+        "protocol": "ethereum",
+        "isTestnet": true,
+        "nativeToken": {
+          "name": "Ether",
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "rpcUrls": [
+          {
+            "http": "https://ethereum-sepolia-rpc.publicnode.com"
+          }
+        ],
+        "blockExplorers": [
+          {
+            "name": "Etherscan",
+            "url": "https://sepolia.etherscan.io",
+            "apiUrl": "https://api-sepolia.etherscan.io/api",
+            "family": "etherscan"
+          }
+        ],
+        "blocks": {
+          "confirmations": 1,
+          "estimateBlockTime": 12,
+          "reorgPeriod": 1
+        }
+      },
+      "addresses": {
+        "domainRoutingIsmFactory": "0x80447743E23d650B576e4AF51f7AD18936E1697b",
+        "incrementalDomainRoutingIsmFactory": "0x6cB0dC0Dcd1A465adbaA401540E68C7aA58e6550",
+        "interchainAccountRouter": "0xe658eaB90bB238a23B1BA39b3F84997Bca766fd9",
+        "mailbox": "0xCDF3D9c1E132e4b37A362CF0f11f384b673Aa908",
+        "merkleTreeHook": "0xE9A5E7fd74E75B4e379d9f8692ed336200D1eB8d",
+        "proxyAdmin": "0xB25088d0F98EcDcA0B5994a902B1D2C3Be09C2ef",
+        "quotedCalls": "0x8555d1B647f91a2E083A066DDd29e2902c758e68",
+        "staticAggregationHookFactory": "0xaddaccf16b4F1CB4BcFdf1846238Ada25EFeCa88",
+        "staticAggregationIsmFactory": "0x6d403C3d5b4Ffe7F79Ba4062E9741c31f35c3A39",
+        "staticMerkleRootMultisigIsmFactory": "0xf84aa16e9cf3cF908f93F441E30b2895fD92c326",
+        "staticMerkleRootWeightedMultisigIsmFactory": "0x0DAE31220616AFaA2Ba91322526d06Bf1CedEE8D",
+        "staticMessageIdMultisigIsmFactory": "0x68491CE1f69E8B0DFC25a1F6DE51A1a15825E612",
+        "staticMessageIdWeightedMultisigIsmFactory": "0x884036B75A2616bc57e2A8eC02AB9A37486d7cDd",
+        "testRecipient": "0xd10Cb9D7aE5594481013aEe538fd2c9E7Ad91b0f",
+        "validatorAnnounce": "0xa261FC1faf2cFcf3F83948d230260c4C5FAc14Db"
+      }
+    }
+  },
+  "warpRoutes": {
+    "USDC": {
+      "kitetestnet-basesepolia-config.yaml": {
+        "tokens": [
+          {
+            "addressOrDenom": "0xb0f59799fF2e5a2957185C84fD960a76E0A3c2Cc",
+            "chainName": "kitetestnet",
+            "collateralAddressOrDenom": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+            "connections": [
+              {
+                "token": "ethereum|basesepolia|0x2eD22aA87C87E4B0139552d50CB5B049E369C295"
+              }
+            ],
+            "decimals": 18,
+            "name": "Test USD",
+            "standard": "EvmHypCollateral",
+            "symbol": "USDT"
+          },
+          {
+            "addressOrDenom": "0x2eD22aA87C87E4B0139552d50CB5B049E369C295",
+            "chainName": "basesepolia",
+            "connections": [
+              {
+                "token": "ethereum|kitetestnet|0xb0f59799fF2e5a2957185C84fD960a76E0A3c2Cc"
+              }
+            ],
+            "decimals": 18,
+            "name": "Test USD",
+            "standard": "EvmHypSynthetic",
+            "symbol": "USDT"
+          }
+        ]
+      },
+      "kitetestnet-basesepolia-deploy.yaml": {
+        "basesepolia": {
+          "interchainSecurityModule": "0x5809a5c27D1385676BDeeB653D4FaD2286098137",
+          "isNft": false,
+          "mailbox": "0x68e89453029DC14351bF72104dC30248BB766b69",
+          "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+          "proxyAdmin": {
+            "address": "0xB89aedA029aB6444ba9022B4aBcC19ca857619E0",
+            "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844"
+          },
+          "type": "synthetic"
+        },
+        "kitetestnet": {
+          "interchainSecurityModule": "0x515d59Ebb0F48bBC20dFD52C29b6a693375f16B4",
+          "mailbox": "0x0d5b681C5887617d68200B45F3947c99Cf402188",
+          "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+          "proxyAdmin": {
+            "address": "0x2c1f31d27645be47E0907D2eAa6A4f36F045BaE0",
+            "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844"
+          },
+          "token": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+          "type": "collateral"
+        }
+      }
+    },
+    "USDT": {
+      "kitetestnet-sepolia-config.yaml": {
+        "tokens": [
+          {
+            "addressOrDenom": "0x6d67f572a72A1E4CDdDE3F4696E1e7550Ff6d5F1",
+            "chainName": "kitetestnet",
+            "collateralAddressOrDenom": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+            "connections": [
+              {
+                "token": "ethereum|sepolia|0x9EC2e54cE40cb44D8986cbDDDB7B728272255C1A"
+              }
+            ],
+            "decimals": 18,
+            "name": "Test USD",
+            "standard": "EvmHypCollateral",
+            "symbol": "USDT"
+          },
+          {
+            "addressOrDenom": "0x9EC2e54cE40cb44D8986cbDDDB7B728272255C1A",
+            "chainName": "sepolia",
+            "connections": [
+              {
+                "token": "ethereum|kitetestnet|0x6d67f572a72A1E4CDdDE3F4696E1e7550Ff6d5F1"
+              }
+            ],
+            "decimals": 18,
+            "name": "Test USD",
+            "standard": "EvmHypSynthetic",
+            "symbol": "USDT"
+          }
+        ]
+      },
+      "kitetestnet-sepolia-deploy.yaml": {
+        "kitetestnet": {
+          "mailbox": "0x0d5b681C5887617d68200B45F3947c99Cf402188",
+          "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+          "proxyAdmin": {
+            "address": "0x2c1f31d27645be47E0907D2eAa6A4f36F045BaE0",
+            "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844"
+          },
+          "token": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+          "type": "collateral"
+        },
+        "sepolia": {
+          "isNft": false,
+          "mailbox": "0xCDF3D9c1E132e4b37A362CF0f11f384b673Aa908",
+          "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+          "proxyAdmin": {
+            "address": "0xB25088d0F98EcDcA0B5994a902B1D2C3Be09C2ef",
+            "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844"
+          },
+          "type": "synthetic"
+        }
+      }
+    }
+  }
+}

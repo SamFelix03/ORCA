@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "deployedAt": "2026-05-14T13:16:41.418Z",
+  "network": "kiteTestnet",
+  "chainId": 2368,
+  "deployer": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "treasuryMultisig": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "executorVault": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "configs": {
+    "mailboxAddress": "0x0d5b681C5887617d68200B45F3947c99Cf402188",
+    "localDomain": "2368",
+    "trustedDomain": "84532",
+    "trustedRemotes": [
+      {
+        "domain": 11155111,
+        "remote": "0x0000000000000000000000009ec2e54ce40cb44d8986cbdddb7b728272255c1a"
+      },
+      {
+        "domain": 421614,
+        "remote": "0x000000000000000000000000e3ccd4ec6e62b84aeb4db49fc50a2ce9c11d2153"
+      },
+      {
+        "domain": 11155420,
+        "remote": "0x000000000000000000000000dd416c32eba6066c273d5083b1aca227046bb5c9"
+      },
+      {
+        "domain": 84532,
+        "remote": "0x0000000000000000000000002ed22aa87c87e4b0139552d50cb5b049e369c295"
+      }
+    ],
+    "trustedSenders": [
+      {
+        "domain": 11155111,
+        "remote": "0x0000000000000000000000009ec2e54ce40cb44d8986cbdddb7b728272255c1a"
+      },
+      {
+        "domain": 421614,
+        "remote": "0x000000000000000000000000e3ccd4ec6e62b84aeb4db49fc50a2ce9c11d2153"
+      },
+      {
+        "domain": 11155420,
+        "remote": "0x000000000000000000000000dd416c32eba6066c273d5083b1aca227046bb5c9"
+      },
+      {
+        "domain": 84532,
+        "remote": "0x0000000000000000000000002ed22aa87c87e4b0139552d50cb5b049e369c295"
+      }
+    ],
+    "bridgeGuardThresholdUsdc": "50000000000",
+    "spendingWindow": "86400",
+    "spendingBudget": "5000000000",
+    "spendingMaxPerTx": "500000000",
+    "multisigSigners": [
+      "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844"
+    ],
+    "multisigThreshold": 1
+  },
+  "contracts": {
+    "ORCARegistry": "0xCFAF1e5a2df41738472029869Be7fA5e375C7A1f",
+    "SpendingRuleEnforcer": "0x2fc7308a6D40c68fc47990eD29656fF7c8F6FBB2",
+    "PoAIAttribution": "0xc82e04234549D48b961d8Cb3F3c60609dDF3F006",
+    "LZBridgeGuard": "0x13abDAb2202635980d11F01a203966340a2Cf342",
+    "ORCAOApp": "0xaF07a971725ed340665806916918f319B55F9F09",
+    "RemoteAdapter": "0xd6c80903725C62ea6c7418fa10d38a1e67c54729",
+    "x402ChannelManager": "0x7b058e908e433a6C4843706D17Ab6576139FE0Da",
+    "ClientAgentVault": "0xfb1C896899ad2452605359191D179A8Eb538828b",
+    "ORCAMultisigTreasury": "0xcf4FAaF1645023566229c499CB9fcE7f286bed45"
+  }
+}

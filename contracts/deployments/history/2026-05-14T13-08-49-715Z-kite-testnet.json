@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "deployedAt": "2026-05-14T13:08:49.715Z",
+  "network": "kiteTestnet",
+  "chainId": 2368,
+  "deployer": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "treasuryMultisig": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "executorVault": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "configs": {
+    "mailboxAddress": "0x0d5b681C5887617d68200B45F3947c99Cf402188",
+    "localDomain": "2368",
+    "trustedDomain": "84532",
+    "trustedRemotes": [
+      {
+        "domain": 11155111,
+        "remote": "0x0000000000000000000000009ec2e54ce40cb44d8986cbdddb7b728272255c1a"
+      },
+      {
+        "domain": 421614,
+        "remote": "0x000000000000000000000000e3ccd4ec6e62b84aeb4db49fc50a2ce9c11d2153"
+      },
+      {
+        "domain": 11155420,
+        "remote": "0x000000000000000000000000dd416c32eba6066c273d5083b1aca227046bb5c9"
+      },
+      {
+        "domain": 84532,
+        "remote": "0x0000000000000000000000002ed22aa87c87e4b0139552d50cb5b049e369c295"
+      }
+    ],
+    "trustedSenders": [
+      {
+        "domain": 11155111,
+        "remote": "0x0000000000000000000000009ec2e54ce40cb44d8986cbdddb7b728272255c1a"
+      },
+      {
+        "domain": 421614,
+        "remote": "0x000000000000000000000000e3ccd4ec6e62b84aeb4db49fc50a2ce9c11d2153"
+      },
+      {
+        "domain": 11155420,
+        "remote": "0x000000000000000000000000dd416c32eba6066c273d5083b1aca227046bb5c9"
+      },
+      {
+        "domain": 84532,
+        "remote": "0x0000000000000000000000002ed22aa87c87e4b0139552d50cb5b049e369c295"
+      }
+    ],
+    "bridgeGuardThresholdUsdc": "50000000000",
+    "spendingWindow": "86400",
+    "spendingBudget": "5000000000",
+    "spendingMaxPerTx": "500000000"
+  },
+  "contracts": {
+    "ORCARegistry": "0x4072C0dDfeF1AF74e208C51F7d821228FC402a0C",
+    "SpendingRuleEnforcer": "0xEC57715Fc783623B0c45e14F421064F464CfA31b",
+    "PoAIAttribution": "0xcaD5782ab53a1268A6504480a84e281F3c56B036",
+    "LZBridgeGuard": "0xEDA90449a4773436E68962d1B7Bb11A612D2f07e",
+    "ORCAOApp": "0xEFCDD27489D01B82eE9d48937A3DB4E93Ea3A895",
+    "RemoteAdapter": "0x8E1C40cC3CF0a26707f165699cd01C46d15FF1Cf",
+    "x402ChannelManager": "0x477C28Bb78e31a451284e92faF035547C50424d8"
+  }
+}

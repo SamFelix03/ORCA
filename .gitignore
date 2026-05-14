@@ -16,3 +16,6 @@ coverage/
 .DS_Store
 .vscode/
 .idea/
+
+# Local Hyperlane runtime state (contains machine-specific data)
+hyperlane/local/

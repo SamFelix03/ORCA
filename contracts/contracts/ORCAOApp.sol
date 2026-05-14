@@ -2,34 +2,54 @@
 pragma solidity ^0.8.24;
 
 import "./Ownable.sol";
-import "./interfaces/ILayerZeroEndpointV2.sol";
+import "./LZBridgeGuard.sol";
+import "./interfaces/IMailbox.sol";
 
 contract ORCAOApp is Ownable {
-    ILayerZeroEndpointV2 public immutable endpoint;
+    uint8 public constant MESSAGE_VERSION = 1;
+    IMailbox public immutable mailbox;
+    LZBridgeGuard public bridgeGuard;
     address public executorVault;
-    uint256 public bridgeGuardLimitUsdc;
+    uint32 public immutable localDomain;
 
-    mapping(uint32 => bytes32) public trustedPeers;
+    mapping(uint32 => bytes32) public trustedRemotes;
+    mapping(bytes32 => bool) public executedPayloads;
 
-    event TrustedPeerSet(uint32 indexed dstEid, bytes32 peer);
+    event TrustedRemoteSet(uint32 indexed domain, bytes32 remote);
+    event BridgeGuardUpdated(address indexed previousGuard, address indexed newGuard);
     event CrossChainRebalanceRequested(
-        uint32 indexed dstEid,
+        uint32 indexed dstDomain,
         address indexed fromProtocol,
         address indexed toProtocol,
         uint256 amount,
-        bytes options
+        bytes32 destinationAdapter,
+        bytes32 transferId,
+        bytes32 dispatchId,
+        bytes payload
     );
+    event CrossChainMessageReceived(bytes32 indexed transferId, uint32 indexed originDomain, bytes payload);
 
     error NotExecutorVault();
-    error UnsupportedDestination();
-    error MissingTrustedPeer();
+    error MissingTrustedRemote();
+    error InvalidPayload();
+    error MailboxOnly();
 
-    constructor(address initialOwner, address endpointV2, address initialExecutorVault, uint256 guardLimitUsdc)
+    constructor(
+        address initialOwner,
+        address mailboxAddress,
+        address initialExecutorVault,
+        address bridgeGuardAddress,
+        uint32 chainDomain
+    )
         Ownable(initialOwner)
     {
-        endpoint = ILayerZeroEndpointV2(endpointV2);
+        require(mailboxAddress != address(0), "ORCAOApp: invalid mailbox");
+        require(initialExecutorVault != address(0), "ORCAOApp: invalid executor vault");
+        require(chainDomain != 0, "ORCAOApp: invalid local domain");
+        mailbox = IMailbox(mailboxAddress);
         executorVault = initialExecutorVault;
-        bridgeGuardLimitUsdc = guardLimitUsdc;
+        bridgeGuard = LZBridgeGuard(bridgeGuardAddress);
+        localDomain = chainDomain;
     }
 
     function setExecutorVault(address newExecutorVault) external onlyOwner {
@@ -37,26 +57,76 @@ contract ORCAOApp is Ownable {
         executorVault = newExecutorVault;
     }
 
-    function setBridgeGuardLimitUsdc(uint256 newLimit) external onlyOwner {
-        bridgeGuardLimitUsdc = newLimit;
+    function setBridgeGuard(address newGuard) external onlyOwner {
+        require(newGuard != address(0), "ORCAOApp: invalid bridge guard");
+        emit BridgeGuardUpdated(address(bridgeGuard), newGuard);
+        bridgeGuard = LZBridgeGuard(newGuard);
     }
 
-    function setTrustedPeer(uint32 dstEid, bytes32 peer) external onlyOwner {
-        trustedPeers[dstEid] = peer;
-        emit TrustedPeerSet(dstEid, peer);
+    function setTrustedRemote(uint32 domain, bytes32 remote) external onlyOwner {
+        trustedRemotes[domain] = remote;
+        emit TrustedRemoteSet(domain, remote);
     }
 
     function executeCrossChainRebalance(
-        uint32 dstEid,
+        uint32 dstDomain,
+        bytes32 destinationAdapter,
         address fromProtocol,
         address toProtocol,
         uint256 amount,
-        bytes calldata options
+        bytes calldata hookMetadata
     ) external {
         if (msg.sender != executorVault) revert NotExecutorVault();
-        if (!endpoint.isSupportedEid(dstEid)) revert UnsupportedDestination();
-        if (trustedPeers[dstEid] == bytes32(0)) revert MissingTrustedPeer();
+        if (trustedRemotes[dstDomain] == bytes32(0) || trustedRemotes[dstDomain] != destinationAdapter) {
+            revert MissingTrustedRemote();
+        }
+        require(fromProtocol != address(0) && toProtocol != address(0), "ORCAOApp: invalid protocol");
+        require(amount > 0, "ORCAOApp: invalid amount");
 
-        emit CrossChainRebalanceRequested(dstEid, fromProtocol, toProtocol, amount, options);
+        bytes32 transferId = keccak256(
+            abi.encodePacked(
+                block.chainid,
+                localDomain,
+                msg.sender,
+                dstDomain,
+                destinationAdapter,
+                fromProtocol,
+                toProtocol,
+                amount,
+                keccak256(hookMetadata),
+                block.timestamp
+            )
+        );
+        bridgeGuard.requireApproval(transferId, amount);
+        bytes memory payload =
+            abi.encode(MESSAGE_VERSION, transferId, localDomain, fromProtocol, toProtocol, amount, block.timestamp);
+        bytes32 dispatchId = mailbox.dispatch(dstDomain, destinationAdapter, payload);
+
+        emit CrossChainRebalanceRequested(
+            dstDomain, fromProtocol, toProtocol, amount, destinationAdapter, transferId, dispatchId, payload
+        );
+    }
+
+    function handle(uint32 originDomain, bytes32 sender, bytes calldata payload) external payable {
+        if (msg.sender != address(mailbox)) revert MailboxOnly();
+        require(trustedRemotes[originDomain] == sender, "ORCAOApp: untrusted sender");
+
+        (
+            uint8 version,
+            bytes32 transferId,
+            uint32 sourceDomain,
+            address fromProtocol,
+            address toProtocol,
+            uint256 amount,
+            uint256 timestamp
+        ) = abi.decode(payload, (uint8, bytes32, uint32, address, address, uint256, uint256));
+        if (version != MESSAGE_VERSION) revert InvalidPayload();
+        require(sourceDomain == originDomain, "ORCAOApp: origin mismatch");
+        require(fromProtocol != address(0) && toProtocol != address(0), "ORCAOApp: invalid protocol");
+        require(amount > 0 && timestamp > 0, "ORCAOApp: invalid payload");
+        require(!executedPayloads[transferId], "ORCAOApp: payload already processed");
+
+        executedPayloads[transferId] = true;
+        emit CrossChainMessageReceived(transferId, originDomain, payload);
     }
 }

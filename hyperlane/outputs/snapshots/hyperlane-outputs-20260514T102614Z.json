@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-05-14T10:26:14.446344+00:00",
+  "chains": {
+    "kitetestnet": {
+      "metadata": {
+        "blockExplorers": [
+          {
+            "apiUrl": "https://testnet.kitescan.ai/api",
+            "family": "blockscout",
+            "name": "kite-testnet explorer",
+            "url": "https://testnet.kitescan.ai"
+          }
+        ],
+        "blocks": {
+          "confirmations": 1,
+          "estimateBlockTime": 2,
+          "reorgPeriod": 0
+        },
+        "chainId": 2368,
+        "displayName": "Kitetestnet",
+        "domainId": 2368,
+        "isTestnet": true,
+        "name": "kitetestnet",
+        "nativeToken": {
+          "decimals": 18,
+          "name": "Kite",
+          "symbol": "KITE"
+        },
+        "protocol": "ethereum",
+        "rpcUrls": [
+          {
+            "http": "https://rpc-testnet.gokite.ai"
+          }
+        ],
+        "transactionOverrides": {
+          "gasPrice": 20000000000
+        },
+        "technicalStack": "other"
+      },
+      "addresses": {}
+    }
+  },
+  "warpRoutes": {}
+}

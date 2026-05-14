@@ -32,7 +32,7 @@ The four agents form a deterministic pipeline:
 3. Executor Agent (transaction authority)
 - Only agent allowed to execute rebalance actions.
 - Converts approved instruction into AA `UserOperation` batch.
-- Executes local-chain or cross-chain (LayerZero path).
+- Executes local-chain or cross-chain (Hyperlane mailbox path).
 - Reports execution outcome and slippage.
 
 4. Audit Agent (immutable attribution)
@@ -56,7 +56,7 @@ From `idea.md` and requirements, ORCA is defined by these mandatory primitives:
 - Execution wallet model: ERC-4337 AA vaults (`ClientAgentVault` pattern).
 - Agent-to-agent economics: x402 micropayments.
 - Treasury governance: Ash/Safe-style multisig with threshold guardrails.
-- Cross-chain execution: LayerZero v2 OApp path.
+- Cross-chain execution: Hyperlane mailbox + trusted remote path.
 - Attribution economy: PoAI per-action recording and epoch reward distribution.
 - Data substrate: Goldsky indexing and webhook/event ingestion; Lucid integration context.
 
@@ -125,7 +125,7 @@ Current runtime behavior before DB seed:
 Primary bus: Redis Streams (as required doc suggests).
 
 Stream families:
-- `orca.scout.signals`
+- `orca:signals:scout` (default Scout stream key in current runtime)
 - `orca.risk.decisions`
 - `orca.executor.executions`
 - `orca.audit.records`
@@ -295,7 +295,7 @@ Status codes:
   - treasury UI/API placeholders present
   - live multisig reads/actions pending
 
-- KM-05 LayerZero v2: Scaffolded
+- KM-05 Hyperlane Mailbox + Warp Route: Scaffolded
   - OApp contract entry exists
   - trusted peer + receive execution path pending
 
@@ -313,12 +313,12 @@ Status codes:
 
 ### 6.2 Agent Modules
 
-- SC-* (Scout): Planned
+- SC-* (Scout): Implemented (live integration runtime in `agents/src/orca_scout`)
 - RK-* (Risk): Planned
 - EX-* (Executor): Planned
 - AU-* (Audit): Planned
 
-Agent runtime intentionally not yet implemented per user direction.
+Scout runtime is implemented. Risk/Executor/Audit remain planned.
 
 ### 6.3 Backend Modules (BE-01..BE-09)
 

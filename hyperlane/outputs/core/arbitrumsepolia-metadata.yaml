@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../schema.json
+name: arbitrumsepolia
+displayName: Arbitrum Sepolia
+chainId: 421614
+domainId: 421614
+protocol: ethereum
+isTestnet: true
+nativeToken:
+  name: Ether
+  symbol: ETH
+  decimals: 18
+rpcUrls:
+  - http: https://sepolia-rollup.arbitrum.io/rpc
+blockExplorers:
+  - name: Arbiscan
+    family: etherscan
+    url: https://sepolia.arbiscan.io
+    apiUrl: https://api-sepolia.arbiscan.io/api
+blocks:
+  confirmations: 1
+  estimateBlockTime: 1
+  reorgPeriod: 0

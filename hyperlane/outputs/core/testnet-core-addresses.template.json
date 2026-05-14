@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "",
+  "chains": {
+    "kitetestnet": {
+      "domainId": 2368,
+      "mailbox": "0x0d5b681C5887617d68200B45F3947c99Cf402188",
+      "interchainGasPaymaster": "",
+      "defaultIsm": "",
+      "validatorAnnounce": "0x077Dc8fd76e3E547aE52E538520c0621AACB22D0",
+      "proxyAdmin": "0x2c1f31d27645be47E0907D2eAa6A4f36F045BaE0"
+    },
+    "basesepolia": {
+      "domainId": 84532,
+      "mailbox": "0x68e89453029DC14351bF72104dC30248BB766b69",
+      "interchainGasPaymaster": "",
+      "defaultIsm": "",
+      "validatorAnnounce": "0x895593F5DA13e9486236740883659623Ec01Dc4a",
+      "proxyAdmin": "0xB89aedA029aB6444ba9022B4aBcC19ca857619E0"
+    },
+    "sepolia": {
+      "domainId": 11155111,
+      "mailbox": "",
+      "interchainGasPaymaster": "",
+      "defaultIsm": "",
+      "validatorAnnounce": "",
+      "proxyAdmin": ""
+    },
+    "arbitrumsepolia": {
+      "domainId": 421614,
+      "mailbox": "",
+      "interchainGasPaymaster": "",
+      "defaultIsm": "",
+      "validatorAnnounce": "",
+      "proxyAdmin": ""
+    },
+    "optimismsepolia": {
+      "domainId": 11155420,
+      "mailbox": "",
+      "interchainGasPaymaster": "",
+      "defaultIsm": "",
+      "validatorAnnounce": "",
+      "proxyAdmin": ""
+    },
+    "fuji": {
+      "domainId": 43113,
+      "mailbox": "",
+      "interchainGasPaymaster": "",
+      "defaultIsm": "",
+      "validatorAnnounce": "",
+      "proxyAdmin": ""
+    }
+  }
+}

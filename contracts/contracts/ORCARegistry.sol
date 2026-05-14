@@ -15,44 +15,106 @@ contract ORCARegistry is Ownable {
         address vault;
         AgentType agentType;
         bool active;
+        uint256 registeredAt;
+        uint256 updatedAt;
     }
 
     mapping(bytes32 => Agent) public agents;
+    mapping(AgentType => bytes32[]) private didsByType;
     uint256 public currentEpochId;
+    address public treasuryController;
+    bool public epochActive;
+    mapping(uint256 => uint256) public epochStartedAt;
+    mapping(uint256 => uint256) public epochEndedAt;
 
     event AgentRegistered(bytes32 indexed did, address indexed vault, AgentType agentType);
     event AgentStatusUpdated(bytes32 indexed did, bool active);
+    event AgentVaultUpdated(bytes32 indexed did, address indexed previousVault, address indexed newVault);
+    event TreasuryControllerUpdated(address indexed previousController, address indexed newController);
     event EpochStarted(uint256 indexed epochId, uint256 startedAt);
     event EpochEnded(uint256 indexed epochId, uint256 endedAt);
 
     constructor(address initialOwner) Ownable(initialOwner) {}
 
-    function registerAgent(bytes32 did, address vault, AgentType agentType) external onlyOwner {
+    modifier onlyOwnerOrTreasury() {
+        require(msg.sender == owner || msg.sender == treasuryController, "ORCARegistry: unauthorized");
+        _;
+    }
+
+    function setTreasuryController(address newController) external onlyOwner {
+        emit TreasuryControllerUpdated(treasuryController, newController);
+        treasuryController = newController;
+    }
+
+    function registerAgent(bytes32 did, address vault, AgentType agentType) external onlyOwnerOrTreasury {
         require(did != bytes32(0), "ORCARegistry: did required");
         require(vault != address(0), "ORCARegistry: vault required");
+        require(agents[did].registeredAt == 0, "ORCARegistry: already registered");
 
-        agents[did] = Agent({vault: vault, agentType: agentType, active: true});
+        agents[did] = Agent({
+            vault: vault,
+            agentType: agentType,
+            active: true,
+            registeredAt: block.timestamp,
+            updatedAt: block.timestamp
+        });
+        didsByType[agentType].push(did);
         emit AgentRegistered(did, vault, agentType);
     }
 
-    function setAgentStatus(bytes32 did, bool active) external onlyOwner {
+    function setAgentStatus(bytes32 did, bool active) external onlyOwnerOrTreasury {
         require(agents[did].vault != address(0), "ORCARegistry: unknown agent");
         agents[did].active = active;
+        agents[did].updatedAt = block.timestamp;
         emit AgentStatusUpdated(did, active);
     }
 
-    function startEpoch(uint256 epochId) external onlyOwner {
+    function setAgentVault(bytes32 did, address newVault) external onlyOwnerOrTreasury {
+        require(newVault != address(0), "ORCARegistry: vault required");
+        Agent storage agent = agents[did];
+        require(agent.vault != address(0), "ORCARegistry: unknown agent");
+        address previousVault = agent.vault;
+        agent.vault = newVault;
+        agent.updatedAt = block.timestamp;
+        emit AgentVaultUpdated(did, previousVault, newVault);
+    }
+
+    function startEpoch(uint256 epochId) external onlyOwnerOrTreasury {
+        require(!epochActive, "ORCARegistry: epoch already active");
         require(epochId > currentEpochId, "ORCARegistry: epoch must increase");
         currentEpochId = epochId;
+        epochActive = true;
+        epochStartedAt[epochId] = block.timestamp;
         emit EpochStarted(epochId, block.timestamp);
     }
 
-    function endEpoch(uint256 epochId) external onlyOwner {
+    function endEpoch(uint256 epochId) external onlyOwnerOrTreasury {
+        require(epochActive, "ORCARegistry: no active epoch");
         require(epochId == currentEpochId, "ORCARegistry: wrong epoch");
+        epochActive = false;
+        epochEndedAt[epochId] = block.timestamp;
         emit EpochEnded(epochId, block.timestamp);
     }
 
     function getVaultForAgent(bytes32 did) external view returns (address) {
         return agents[did].vault;
+    }
+
+    function isRegisteredAgent(bytes32 did) external view returns (bool) {
+        return agents[did].registeredAt != 0;
+    }
+
+    function isActiveAgent(bytes32 did) external view returns (bool) {
+        Agent storage agent = agents[did];
+        return agent.registeredAt != 0 && agent.active;
+    }
+
+    function getAgentCountByType(AgentType agentType) external view returns (uint256) {
+        return didsByType[agentType].length;
+    }
+
+    function getAgentDidByTypeAt(AgentType agentType, uint256 index) external view returns (bytes32) {
+        require(index < didsByType[agentType].length, "ORCARegistry: index out of bounds");
+        return didsByType[agentType][index];
     }
 }

@@ -1,13 +1,18 @@
-# ORCA Contracts (Initial Scaffold)
+# ORCA Contracts
 
-This package contains the first-pass ORCA contract layer scaffold aligned to the requirements.
+This package contains ORCA control-plane contracts for registry, spending rules, attribution, Hyperlane mailbox routing, and x402 channel primitives.
 
 ## Contracts
 
 - `ORCARegistry.sol`
 - `SpendingRuleEnforcer.sol`
 - `PoAIAttribution.sol`
-- `ORCAOApp.sol` (LayerZero integration stub)
+- `ORCAOApp.sol`
+- `LZBridgeGuard.sol`
+- `RemoteAdapter.sol`
+- `x402ChannelManager.sol`
+- `ClientAgentVault.sol`
+- `ORCAMultisigTreasury.sol`
 
 ## Kite Network Defaults
 
@@ -15,9 +20,19 @@ This package contains the first-pass ORCA contract layer scaffold aligned to the
 - Testnet chain id: `2368`
 - Mainnet RPC: `https://rpc.gokite.ai`
 - Testnet RPC: `https://rpc-testnet.gokite.ai`
-- LayerZero EndpointV2 (mainnet): `0x6F475642a6e85809B1c36Fa62763669b1b48DD5B`
+- Hyperlane Mailbox (kitetestnet): `0x0d5b681C5887617d68200B45F3947c99Cf402188`
+- Hyperlane Mailbox (basesepolia): `0x68e89453029DC14351bF72104dC30248BB766b69`
 
 ## Notes
 
-- This is intentionally conservative and interface-first.
-- Final production contracts will still need audit hardening, auth refinements, and complete LayerZero receive-path logic.
+- Deploy order and artifact generation are handled by `scripts/deploy.ts`.
+- Deployment outputs are persisted into `deployments/kite-testnet.latest.json` and `deployments/history/`.
+
+## Environment
+
+Copy `.env.example` to `.env` and fill:
+
+- RPC + deploy key (`KITE_*`, `DEPLOYER_PRIVATE_KEY`)
+- deployment owner/operator addresses (`INITIAL_OWNER`, `EXECUTOR_VAULT`, `TREASURY_MULTISIG`)
+- Hyperlane mailbox/domain/trusted-remote config and bridge threshold controls
+- default spending limits for enforcer bootstrapping
