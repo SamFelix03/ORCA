@@ -24,6 +24,7 @@ class RiskConfig(BaseSettings):
     x402_network: str = Field(default="kite-testnet", alias="X402_NETWORK")
     x402_asset_address: str = Field(alias="X402_ASSET_ADDRESS")
     x402_max_amount_required_wei: int = Field(default=1_000_000, alias="X402_MAX_AMOUNT_REQUIRED_WEI")
+    x402_dry_run: bool = Field(default=False, alias="X402_DRY_RUN")
 
     passport_cli_bin: str = Field(default="kpass", alias="PASSPORT_CLI_BIN")
 

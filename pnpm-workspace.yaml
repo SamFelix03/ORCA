@@ -6,6 +6,7 @@ packages:
   - indexer
   - infra
   - packages/*
+  - services/*
   - tests
 minimumReleaseAge: 20160
 minimumReleaseAgeStrict: true

@@ -1,3 +1,4 @@
+import "../load-env.js";
 import { prisma } from "./prisma.js";
 import { keccak256, toUtf8Bytes } from "ethers";
 

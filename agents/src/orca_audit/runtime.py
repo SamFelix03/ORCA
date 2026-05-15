@@ -27,6 +27,12 @@ class AuditRuntime:
 
     async def run_forever(self) -> None:
         await self._run_startup_preflight()
+        self._logger.info(
+            "Audit runtime ready. Listening on streams scout=%r risk=%r execution=%r (30s block).",
+            self._config.scout_signal_stream_key,
+            self._config.risk_instruction_stream_key,
+            self._config.execution_stream_key,
+        )
         while True:
             stream_data = await self._redis.xread(
                 {
@@ -38,6 +44,9 @@ class AuditRuntime:
                 count=20,
             )
             if not stream_data:
+                self._logger.info(
+                    "Audit: idle — no stream activity on scout/risk/execution (will retry).",
+                )
                 continue
             for stream_key, records in stream_data:
                 stream_name = stream_key.decode("utf-8")
@@ -50,8 +59,10 @@ class AuditRuntime:
 
     async def _run_startup_preflight(self) -> None:
         await self._redis.ping()
+        self._logger.info("Audit Redis preflight OK.")
         if not self._poai.is_connected():
             raise RuntimeError("Audit PoAI connectivity preflight failed.")
+        self._logger.info("Audit PoAI RPC preflight OK.")
 
     async def _record_event(self, stream_name: str, payload: dict[str, object]) -> None:
         action_type = ActionType.AUDIT

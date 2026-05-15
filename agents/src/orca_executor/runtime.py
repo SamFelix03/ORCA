@@ -24,7 +24,10 @@ class ExecutorRuntime:
             service_url=config.x402_service_url,
             execute_path=config.x402_execute_path,
             kpass_bin=config.passport_cli_bin,
+            dry_run=config.x402_dry_run,
         )
+        if config.x402_dry_run:
+            self._logger.warning("X402_DRY_RUN=true: Executor micropayments are simulated.")
         self._poai = PoAIClient(
             rpc_url=config.kite_rpc_url,
             chain_id=config.kite_chain_id,
@@ -34,7 +37,15 @@ class ExecutorRuntime:
 
     async def run_forever(self) -> None:
         await self._run_startup_preflight()
+        self._logger.info(
+            "Executor runtime ready. Subscribing to Redis stream %r (Risk instructions). Blocking up to 30s.",
+            self._config.risk_instruction_stream_key,
+        )
+        first_cycle = True
         while True:
+            if first_cycle:
+                self._logger.info("Executor: establishing Passport session…")
+                first_cycle = False
             await self._ensure_passport_session()
             stream_data = await self._redis.xread(
                 {self._config.risk_instruction_stream_key: "$"},
@@ -42,6 +53,10 @@ class ExecutorRuntime:
                 count=20,
             )
             if not stream_data:
+                self._logger.info(
+                    "Executor: idle — no Risk instructions on %r (will retry).",
+                    self._config.risk_instruction_stream_key,
+                )
                 continue
             for _, records in stream_data:
                 for event_id, fields in records:
@@ -53,9 +68,12 @@ class ExecutorRuntime:
 
     async def _run_startup_preflight(self) -> None:
         await self._redis.ping()
+        self._logger.info("Executor Redis preflight OK.")
         self._passport.check_ready()
+        self._logger.info("Executor Passport CLI preflight OK.")
         if not self._poai.is_connected():
             raise RuntimeError("Executor PoAI connectivity preflight failed.")
+        self._logger.info("Executor PoAI RPC preflight OK.")
 
     async def _ensure_passport_session(self) -> None:
         self._passport.ensure_active_session(

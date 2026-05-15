@@ -95,7 +95,13 @@ class ScoutRuntime:
             config.x402_service_url,
             config.x402_execute_path,
             config.passport_cli_bin,
+            dry_run=config.x402_dry_run,
         )
+        if config.x402_dry_run:
+            self._logger.warning(
+                "X402_DRY_RUN=true: Scout micropayments are simulated (no kpass HTTP execute). "
+                "Unset for production paid flows."
+            )
         self._passport = PassportCLI(config.passport_cli_bin)
         self._poai = PoAIClient(
             config.kite_rpc_url,

@@ -1,0 +1,14 @@
+{
+    "name": "x402-hello-world-kite",
+    "version": "1.0.0",
+    "description": "Hello World x402 payment-gated server + client for Kite testnet",
+    "scripts": {
+      "server": "node server.js",
+      "client": "node client.js"
+    },
+    "dependencies": {
+      "axios": "^1.7.2",
+      "ethers": "^6.13.0",
+      "express": "^4.19.2"
+    }
+  }

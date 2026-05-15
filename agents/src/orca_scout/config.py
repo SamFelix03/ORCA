@@ -66,6 +66,11 @@ class ScoutConfig(BaseSettings):
     x402_asset_address: str = Field(alias="X402_ASSET_ADDRESS")
     x402_network: str = Field(default="kite-testnet", alias="X402_NETWORK")
     x402_max_amount_required_wei: int = Field(default=1_000_000, alias="X402_MAX_AMOUNT_REQUIRED_WEI")
+    x402_dry_run: bool = Field(
+        default=False,
+        alias="X402_DRY_RUN",
+        description="Skip kpass x402 execute; emit placeholder tx hash (dev without X402_SERVICE_URL).",
+    )
 
     scout_llm_enabled: bool = Field(default=False, alias="SCOUT_LLM_ENABLED")
     groq_api_key: str = Field(default="", alias="GROQ_API_KEY")

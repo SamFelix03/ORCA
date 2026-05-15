@@ -3,6 +3,7 @@
   "private": true,
   "packageManager": "pnpm@10.19.0",
   "scripts": {
+    "dev:x402-provider": "pnpm --filter @orca/x402-provider dev",
     "dev:api": "pnpm --dir api dev",
     "dev:frontend": "pnpm --dir frontend dev",
     "dev": "pnpm -r --parallel --filter @orca/api --filter frontend dev",

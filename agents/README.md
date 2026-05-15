@@ -28,7 +28,9 @@ pip install -e .
 
 ## Configure
 
-Copy `.env.example` to `.env` and fill all required live integrations:
+Copy `.env.example` to `.env` and fill all required live integrations.
+
+Do **not** append API-only variables (`DATABASE_URL`, `JWT_SECRET`, `WEBHOOK_SECRET`) here: if `REDIS_URL` is set twice, the later empty value overrides the real URL and agents crash at startup.
 
 - Market data providers (`SCOUT_MARKET_DATA_PROVIDER`, `DEFILLAMA_*`, optional protocol enrichers)
 - Legacy Lucid fallback (`LUCID_*`, only if provider mode is `lucid`)
@@ -36,10 +38,11 @@ Copy `.env.example` to `.env` and fill all required live integrations:
 - Bridge quote provider (`BRIDGE_FEE_*`, optional; defaults to 0 bridge cost when unset)
 - Optional Groq LLM selector (`SCOUT_LLM_ENABLED`, `GROQ_*`) for final opportunity selection
 - Passport CLI + session policy (`PASSPORT_*`)
-- x402 config (`X402_*`; direct Passport session flow supported without endpoint URL)
+- x402 config (`X402_*`; run `pnpm dev:x402-provider` for a local `/execute` URL, or `X402_DRY_RUN=true` without HTTP — see `services/x402-provider/README.md`)
 - Kite chain + PoAI contract (`KITE_*`, `POAI_CONTRACT_ADDRESS`)
 - Allowed Hyperlane route pairs (`SCOUT_ALLOWED_ROUTE_PAIRS`)
 - Optional route auto-load artifact (`SCOUT_ROUTES_ARTIFACT_PATH`)
+- Risk / Executor / Audit (`RISK_PRIVATE_KEY`, `EXECUTOR_AGENT_DID`, `EXECUTOR_PRIVATE_KEY`, `AUDIT_AGENT_DID`, `AUDIT_PRIVATE_KEY`; see `.env.example` stream keys)
 
 Additional execution-intent requirements (when `SCOUT_EXECUTION_INTENT_ENABLED=true`):
 
@@ -74,6 +77,18 @@ or:
 ```bash
 orca-scout
 ```
+
+## Run Risk, Executor, Audit
+
+From `agents/` with `.env` filled (including `REDIS_URL`, keys, and DIDs):
+
+```bash
+orca-risk
+orca-executor
+orca-audit
+```
+
+or `python -m orca_risk.main`, etc.
 
 ## Module Map
 

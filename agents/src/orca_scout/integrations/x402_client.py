@@ -15,11 +15,14 @@ class X402Client:
         execute_path: str,
         kpass_bin: str = "kpass",
         timeout_seconds: float = 30.0,
+        *,
+        dry_run: bool = False,
     ) -> None:
         self._service_url = service_url.rstrip("/")
         self._execute_path = execute_path
         self._kpass_bin = kpass_bin
         self._timeout_seconds = timeout_seconds
+        self._dry_run = dry_run
 
     def _build_resource_url(self) -> str:
         if not self._service_url:
@@ -122,6 +125,11 @@ class X402Client:
             "asset": asset_address,
             "memo": f"signal:{signal_id}",
         }
+        if self._dry_run:
+            return {
+                "txHash": "0x" + "11" * 32,
+                "raw": {"dryRun": True, "payload": payload},
+            }
         return await self._execute_paid_request(payload)
 
     async def close(self) -> None:
