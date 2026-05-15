@@ -4,6 +4,7 @@ from typing import Any
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
+import logging
 
 
 class GoldskyClient:
@@ -16,6 +17,7 @@ class GoldskyClient:
         subgraph_id: str,
     ) -> None:
         self._client = httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=timeout_seconds)
+        self._logger = logging.getLogger("orca_scout.provider.goldsky")
         self._headers = {
             "Authorization": f"Bearer {api_key}",
             "Accept": "application/json",
@@ -40,7 +42,9 @@ class GoldskyClient:
         )
         response.raise_for_status()
         body = response.json()
-        return body.get("data", {})
+        data = body.get("data", {})
+        self._logger.info("Goldsky recent_events_keys=%s", ",".join(sorted(data.keys())) if isinstance(data, dict) else "none")
+        return data
 
     async def close(self) -> None:
         await self._client.aclose()

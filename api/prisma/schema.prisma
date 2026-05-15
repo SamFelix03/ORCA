@@ -76,6 +76,7 @@ model Execution {
   id          String    @id @default(cuid())
   signalId    String    @unique
   signal      Signal    @relation(fields: [signalId], references: [id])
+  instructionId String?
   executorDid String
   txHash      String
   lzMessageId String?
@@ -131,6 +132,37 @@ model Epoch {
   status           String   @default("open")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model SpendingWindow {
+  id           String   @id @default(cuid())
+  agentDid     String
+  windowStart  DateTime
+  windowEnd    DateTime
+  totalSpentUsdc Decimal @db.Decimal(20, 6)
+  capUsdc      Decimal @db.Decimal(20, 6)
+  createdAt    DateTime @default(now())
+}
+
+model ScoutMarketplace {
+  id             String   @id @default(cuid())
+  did            String   @unique
+  ownerAddress   String
+  status         String
+  stakeUsdc      Decimal  @db.Decimal(20, 6) @default(0)
+  reputationScore Decimal @db.Decimal(20, 6) @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ScoutPayout {
+  id         String   @id @default(cuid())
+  scoutDid   String
+  epochId    Int
+  amountUsdc Decimal  @db.Decimal(20, 6)
+  status     String
+  txHash     String?
+  createdAt  DateTime @default(now())
 }
 
 model Alert {

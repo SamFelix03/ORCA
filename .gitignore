@@ -19,3 +19,5 @@ coverage/
 
 # Local Hyperlane runtime state (contains machine-specific data)
 hyperlane/local/
+
+.kite-passport/

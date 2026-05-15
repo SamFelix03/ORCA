@@ -4,6 +4,7 @@ import json
 import re
 from decimal import Decimal
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,14 +26,26 @@ class ScoutConfig(BaseSettings):
         default="2368:11155111,2368:421614,2368:11155420,2368:84532",
         alias="SCOUT_ALLOWED_ROUTE_PAIRS",
     )
+    scout_disable_route_filter: bool = Field(default=False, alias="SCOUT_DISABLE_ROUTE_FILTER")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     redis_url: str = Field(alias="REDIS_URL")
     redis_stream_key: str = Field(default="orca:signals:scout", alias="SCOUT_REDIS_STREAM_KEY")
 
-    lucid_api_base_url: str = Field(alias="LUCID_API_BASE_URL")
-    lucid_api_key: str = Field(alias="LUCID_API_KEY")
+    # Legacy Lucid fields retained for backward compatibility but not primary in hybrid mode.
+    lucid_api_base_url: str = Field(default="", alias="LUCID_API_BASE_URL")
+    lucid_api_key: str = Field(default="", alias="LUCID_API_KEY")
     lucid_timeout_seconds: float = Field(default=10.0, alias="LUCID_TIMEOUT_SECONDS")
     lucid_market_path: str = Field(default="/v1/markets", alias="LUCID_MARKET_PATH")
+    scout_market_data_provider: Literal["hybrid", "lucid"] = Field(default="hybrid", alias="SCOUT_MARKET_DATA_PROVIDER")
+    defillama_api_base_url: str = Field(default="https://yields.llama.fi", alias="DEFILLAMA_API_BASE_URL")
+    defillama_pools_path: str = Field(default="/pools", alias="DEFILLAMA_POOLS_PATH")
+    defillama_timeout_seconds: float = Field(default=10.0, alias="DEFILLAMA_TIMEOUT_SECONDS")
+    defillama_min_tvl_usd: float = Field(default=100_000, alias="DEFILLAMA_MIN_TVL_USD")
+    aave_data_api_base_url: str = Field(default="", alias="AAVE_DATA_API_BASE_URL")
+    aave_data_api_key: str = Field(default="", alias="AAVE_DATA_API_KEY")
+    compound_data_api_base_url: str = Field(default="", alias="COMPOUND_DATA_API_BASE_URL")
+    morpho_data_api_base_url: str = Field(default="", alias="MORPHO_DATA_API_BASE_URL")
+    uniswap_data_api_base_url: str = Field(default="", alias="UNISWAP_DATA_API_BASE_URL")
 
     goldsky_api_base_url: str = Field(alias="GOLDSKY_API_BASE_URL")
     goldsky_api_key: str = Field(alias="GOLDSKY_API_KEY")
@@ -40,19 +53,26 @@ class ScoutConfig(BaseSettings):
     goldsky_query_path: str = Field(default="/query", alias="GOLDSKY_QUERY_PATH")
     goldsky_subgraph_id: str = Field(alias="GOLDSKY_SUBGRAPH_ID")
 
-    bridge_fee_api_base_url: str = Field(alias="BRIDGE_FEE_API_BASE_URL")
-    bridge_fee_api_key: str = Field(alias="BRIDGE_FEE_API_KEY")
+    bridge_fee_api_base_url: str = Field(default="", alias="BRIDGE_FEE_API_BASE_URL")
+    bridge_fee_api_key: str = Field(default="", alias="BRIDGE_FEE_API_KEY")
     bridge_fee_path: str = Field(default="/v1/quote", alias="BRIDGE_FEE_PATH")
     bridge_fee_timeout_seconds: float = Field(default=10.0, alias="BRIDGE_FEE_TIMEOUT_SECONDS")
     bridge_fee_response_field: str = Field(default="estimatedFeeUsdc", alias="BRIDGE_FEE_RESPONSE_FIELD")
     bridge_fee_asset_param: str = Field(default="assetSymbol", alias="BRIDGE_FEE_ASSET_PARAM")
 
-    x402_service_url: str = Field(alias="X402_SERVICE_URL")
+    x402_service_url: str = Field(default="", alias="X402_SERVICE_URL")
     x402_execute_path: str = Field(default="/execute", alias="X402_EXECUTE_PATH")
-    x402_api_key: str = Field(alias="X402_API_KEY")
+    x402_api_key: str = Field(default="", alias="X402_API_KEY")
     x402_asset_address: str = Field(alias="X402_ASSET_ADDRESS")
     x402_network: str = Field(default="kite-testnet", alias="X402_NETWORK")
     x402_max_amount_required_wei: int = Field(default=1_000_000, alias="X402_MAX_AMOUNT_REQUIRED_WEI")
+
+    scout_llm_enabled: bool = Field(default=False, alias="SCOUT_LLM_ENABLED")
+    groq_api_key: str = Field(default="", alias="GROQ_API_KEY")
+    groq_model: str = Field(default="llama-3.1-8b-instant", alias="GROQ_MODEL")
+    groq_base_url: str = Field(default="https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
+    groq_timeout_seconds: float = Field(default=15.0, alias="GROQ_TIMEOUT_SECONDS")
+    groq_max_candidates: int = Field(default=5, ge=1, le=20, alias="GROQ_MAX_CANDIDATES")
 
     kite_rpc_url: str = Field(alias="KITE_RPC_URL")
     kite_chain_id: int = Field(alias="KITE_CHAIN_ID")
@@ -199,11 +219,21 @@ class ScoutConfig(BaseSettings):
 
     @model_validator(mode="after")
     def _validate_routes_and_intents(self) -> "ScoutConfig":
+        if self.scout_market_data_provider == "hybrid":
+            if not self.defillama_api_base_url or not self.defillama_pools_path:
+                raise ValueError("Hybrid market provider requires DEFILLAMA_API_BASE_URL and DEFILLAMA_POOLS_PATH.")
+        elif self.scout_market_data_provider == "lucid":
+            if not self.lucid_api_base_url or not self.lucid_api_key:
+                raise ValueError("Lucid mode requires LUCID_API_BASE_URL and LUCID_API_KEY.")
+
         routes = self.allowed_route_pairs_set()
-        if not routes:
+        if not self.scout_disable_route_filter and not routes:
             raise ValueError(
-                "No allowed route pairs configured. Set SCOUT_ALLOWED_ROUTE_PAIRS or provide a valid artifact path."
+                "No allowed route pairs configured. Set SCOUT_ALLOWED_ROUTE_PAIRS, provide a valid artifact path, "
+                "or set SCOUT_DISABLE_ROUTE_FILTER=true for demo mode."
             )
+        if self.scout_llm_enabled and not self.groq_api_key.strip():
+            raise ValueError("SCOUT_LLM_ENABLED=true requires GROQ_API_KEY.")
         if self.execution_intent_enabled:
             if not self.client_agent_vault_address or not self.orca_oapp_address:
                 raise ValueError(

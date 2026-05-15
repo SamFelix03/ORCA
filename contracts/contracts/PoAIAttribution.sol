@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./Ownable.sol";
+import "./interfaces/IERC20.sol";
 
 contract PoAIAttribution is Ownable {
     enum ActionType {
@@ -27,11 +28,13 @@ contract PoAIAttribution is Ownable {
     mapping(uint256 => uint256) public epochTotalSignals;
     mapping(uint256 => uint256) public epochTotalExecutions;
     address public rewardDistributor;
+    IERC20 public rewardToken;
 
     event AgentRegistrationUpdated(bytes32 indexed agentDID, bool registered);
     event ActionRecorded(uint256 indexed epochId, bytes32 indexed agentDID, ActionType actionType, int256 valueDelta);
     event EpochRewardsDistributed(uint256 indexed epochId, uint256 recordCount, address indexed distributor);
     event RewardDistributorUpdated(address indexed previousDistributor, address indexed newDistributor);
+    event RewardTokenUpdated(address indexed token);
 
     constructor(address initialOwner) Ownable(initialOwner) {}
 
@@ -49,6 +52,12 @@ contract PoAIAttribution is Ownable {
     function setRewardDistributor(address newDistributor) external onlyOwner {
         emit RewardDistributorUpdated(rewardDistributor, newDistributor);
         rewardDistributor = newDistributor;
+    }
+
+    function setRewardToken(address token) external onlyOwner {
+        require(token != address(0), "PoAIAttribution: invalid token");
+        rewardToken = IERC20(token);
+        emit RewardTokenUpdated(token);
     }
 
     function recordAction(uint256 epochId, AttributionRecord calldata record)
@@ -72,7 +81,12 @@ contract PoAIAttribution is Ownable {
 
     function distributeEpochRewards(uint256 epochId) external onlyOwner {
         require(!epochDistributed[epochId], "PoAIAttribution: already distributed");
+        require(address(rewardToken) != address(0), "PoAIAttribution: reward token not set");
+        require(rewardDistributor != address(0), "PoAIAttribution: reward distributor not set");
+        uint256 rewardBalance = rewardToken.balanceOf(address(this));
+        require(rewardBalance > 0, "PoAIAttribution: no rewards funded");
         epochDistributed[epochId] = true;
+        require(rewardToken.transfer(rewardDistributor, rewardBalance), "PoAIAttribution: transfer failed");
         emit EpochRewardsDistributed(epochId, epochRecords[epochId].length, rewardDistributor);
     }
 

@@ -145,13 +145,14 @@ Reference Documentation:
 ⦁	Goldsky-Kite AI Integration: https://docs.gokite.ai/kite-chain/11-goldsky-kite-integration
 ⦁	Goldsky Documentation: ⦁	https://docs.goldsky.com
 
-2.8  Lucid Data Layer
-The Lucid integration gives ORCA agents structured, AI-native access to on-chain DeFi data across all supported chains — formatted for LLM reasoning rather than raw RPC calls.
-[KM-08]  Lucid-Kite AI Data Access  —  Data / AI-native
-Scout Agent queries Lucid for yield rates, TVL, utilization ratios, and historical APY across Aave, Compound, Morpho, and Uniswap v3 positions on all supported chains. Lucid returns structured JSON suitable for LLM context windows.
+2.8  Hybrid Market Data Layer
+ORCA Scout uses a hybrid data layer that combines DefiLlama as a broad multi-chain APY/TVL feed with protocol-specific enrichers for utilization and protocol nuances. This keeps data structured for agent reasoning while avoiding a single-provider dependency.
+[KM-08]  Hybrid Scout Data Access  —  Data / AI-native
+Scout Agent queries DefiLlama for yield rates/TVL and enriches utilization context through Aave, Compound, Morpho, and Uniswap-specific adapters where available. The output remains structured JSON suitable for LLM context windows and ranking.
 
 Reference Documentation:
-⦁	Lucid-Kite AI Integration: https://docs.gokite.ai/kite-chain/12-lucid-kite-integration
+⦁	DefiLlama API Docs: https://api-docs.defillama.com/
+⦁	Lucid-Kite AI Integration (legacy fallback): https://docs.gokite.ai/kite-chain/12-lucid-kite-integration
 
 
   03  Smart Contract Layer  
@@ -227,10 +228,10 @@ Reference Documentation:
 4.2  Agent 1 — Scout Agent
 The Scout Agent is a continuously running process that monitors yield opportunities across 6+ chains and delivers signed signals to the Risk Agent via x402 micropayment.
 [AG-01]  Scout Agent  —  Agent Runtime
-Scans Goldsky + Lucid data every 60 seconds. For each chain, computes net yield after bridge gas cost. Emits a YieldSignal struct if the opportunity delta exceeds the configurable threshold.
+Scans Goldsky + hybrid market data every 60 seconds. For each chain, computes net yield after bridge gas cost. Emits a YieldSignal struct if the opportunity delta exceeds the configurable threshold.
 Scout Agent Modules:
 Module ID	Name	Responsibility
-SC-01	YieldScanner	Queries Lucid API for current APY across Aave, Compound, Morpho, Uniswap v3 pools on all chains
+SC-01	YieldScanner	Queries DefiLlama + protocol enrichers for APY/TVL/utilization across Aave, Compound, Morpho, Uniswap v3 pools
 SC-02	BridgeCostEstimator	Calls bridge quote estimator for each potential rebalance route
 SC-03	OpportunityRanker	Computes net yield delta = (target APY - current APY) - annualized bridge cost
 SC-04	SignalBroadcaster	Serializes YieldSignal, sends x402 micropayment to Risk Agent, pushes to Redis Stream
@@ -252,7 +253,7 @@ class YieldSignal(TypedDict):
   timestamp: int
 
 Reference Documentation:
-⦁	Lucid-Kite AI Integration: https://docs.gokite.ai/kite-chain/12-lucid-kite-integration
+⦁	DefiLlama API Docs: https://api-docs.defillama.com/
 ⦁	Goldsky-Kite AI Integration: https://docs.gokite.ai/kite-chain/11-goldsky-kite-integration
 ⦁	LangChain Python Docs: https://python.langchain.com/docs/introduction/
 
@@ -451,7 +452,7 @@ Phase 1 — Foundation (Days 1–2)
 6.	Implement BE-01 Auth Module (SIWE) + BE-09 WebSocket Gateway skeleton
 
 Phase 2 — Agent Core (Days 3–4)
-1.	Implement Scout Agent: SC-01 YieldScanner (Lucid) + SC-02 BridgeCostEstimator + SC-04 SignalBroadcaster
+1.	Implement Scout Agent: SC-01 YieldScanner (hybrid data layer) + SC-02 BridgeCostEstimator + SC-04 SignalBroadcaster
 2.	Implement Risk Agent: RK-02 CollateralMonitor (APRO) + RK-04 SpendingRuleChecker + RK-05 RebalanceSimulator
 3.	Open x402 payment channels between Scout↔Risk and Risk↔Executor
 4.	Wire Redis Streams for inter-agent communication
@@ -496,8 +497,8 @@ KM-04	Ash Multisig (Safe fork)	Governance	Ash Wallet on Kite L1	Required
 KM-05	Hyperlane Mailbox + Warp Route	Cross-chain	Hyperlane, Domain IDs	Required
 KM-06	PoAI Attribution Hooks	Incentives	Proof of Attributed Intelligence	Required
 KM-07	Goldsky Subgraph + Webhooks	Indexing	Goldsky-Kite Integration	Required
-KM-08	Lucid Data Layer	Data	Lucid-Kite Integration	Required
-SC-01	YieldScanner	Scout Agent	Lucid API	Required
+KM-08	Hybrid Market Data Layer	Data	DefiLlama + protocol enrichers	Required
+SC-01	YieldScanner	Scout Agent	DefiLlama + enrichers	Required
 SC-02	BridgeCostEstimator	Scout Agent	Bridge quote API (Hyperlane-compatible)	Required
 SC-03	OpportunityRanker	Scout Agent	Python / LangChain	Required
 SC-04	SignalBroadcaster	Scout Agent	x402 micropayment	Required
@@ -588,7 +589,7 @@ FE-11	SettingsForm	Frontend	BE-02 + multisig	Required
 10.6  Data & Indexing
 ⦁	Goldsky-Kite AI Integration: https://docs.gokite.ai/kite-chain/11-goldsky-kite-integration
 ⦁	Goldsky Documentation: ⦁	https://docs.goldsky.com
-⦁	Lucid-Kite AI Integration: https://docs.gokite.ai/kite-chain/12-lucid-kite-integration
+⦁	DefiLlama API Docs: https://api-docs.defillama.com/
 
 10.7  Kite Node
 ⦁	Kite Node Overview: https://docs.gokite.ai/kite-chain/7-kite-node

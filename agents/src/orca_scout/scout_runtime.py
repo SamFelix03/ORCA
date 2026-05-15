@@ -7,14 +7,22 @@ from redis.asyncio import Redis
 
 from orca_scout.config import ScoutConfig
 from orca_scout.integrations.bridge_fee_client import BridgeFeeClient
+from orca_scout.integrations.defillama_client import DefiLlamaClient
 from orca_scout.integrations.goldsky_client import GoldskyClient
 from orca_scout.integrations.lucid_client import LucidClient
 from orca_scout.integrations.passport_cli import PassportCLI
 from orca_scout.integrations.poai_client import PoAIClient
+from orca_scout.integrations.protocol_enrichers import (
+    AaveUtilizationEnricher,
+    CompoundUtilizationEnricher,
+    MorphoUtilizationEnricher,
+    UniswapUtilizationEnricher,
+)
 from orca_scout.integrations.x402_client import X402Client
 from orca_scout.services.bridge_cost_estimator import BridgeCostEstimator
 from orca_scout.services.opportunity_ranker import OpportunityRanker
 from orca_scout.services.execution_intent_builder import ExecutionIntentBuilder
+from orca_scout.services.llm_opportunity_selector import LLMOpportunitySelector, pick_with_fallback
 from orca_scout.services.passport_signer import PassportSigner
 from orca_scout.services.poai_reporter import PoAIReporter
 from orca_scout.services.signal_broadcaster import SignalBroadcaster
@@ -27,12 +35,40 @@ class ScoutRuntime:
         self._logger = logging.getLogger("orca_scout.runtime")
 
         self._redis = Redis.from_url(config.redis_url, decode_responses=False)
-        self._lucid = LucidClient(
-            config.lucid_api_base_url,
-            config.lucid_api_key,
-            config.lucid_timeout_seconds,
-            config.lucid_market_path,
-        )
+        if config.scout_market_data_provider == "hybrid":
+            self._market_feed = DefiLlamaClient(
+                config.defillama_api_base_url,
+                config.defillama_pools_path,
+                config.defillama_timeout_seconds,
+                config.defillama_min_tvl_usd,
+            )
+            self._enrichers = [
+                AaveUtilizationEnricher(
+                    config.aave_data_api_base_url,
+                    config.aave_data_api_key,
+                    config.defillama_timeout_seconds,
+                ),
+                CompoundUtilizationEnricher(
+                    config.compound_data_api_base_url,
+                    config.defillama_timeout_seconds,
+                ),
+                MorphoUtilizationEnricher(
+                    config.morpho_data_api_base_url,
+                    config.defillama_timeout_seconds,
+                ),
+                UniswapUtilizationEnricher(
+                    config.uniswap_data_api_base_url,
+                    config.defillama_timeout_seconds,
+                ),
+            ]
+        else:
+            self._market_feed = LucidClient(
+                config.lucid_api_base_url,
+                config.lucid_api_key,
+                config.lucid_timeout_seconds,
+                config.lucid_market_path,
+            )
+            self._enrichers = []
         self._goldsky = GoldskyClient(
             config.goldsky_api_base_url,
             config.goldsky_api_key,
@@ -40,18 +76,24 @@ class ScoutRuntime:
             config.goldsky_query_path,
             config.goldsky_subgraph_id,
         )
-        self._bridge_fee = BridgeFeeClient(
-            config.bridge_fee_api_base_url,
-            config.bridge_fee_api_key,
-            config.bridge_fee_path,
-            config.bridge_fee_timeout_seconds,
-            config.bridge_fee_response_field,
-            config.bridge_fee_asset_param,
-        )
+        self._bridge_fee: BridgeFeeClient | None = None
+        if config.bridge_fee_api_base_url and config.bridge_fee_api_key:
+            self._bridge_fee = BridgeFeeClient(
+                config.bridge_fee_api_base_url,
+                config.bridge_fee_api_key,
+                config.bridge_fee_path,
+                config.bridge_fee_timeout_seconds,
+                config.bridge_fee_response_field,
+                config.bridge_fee_asset_param,
+            )
+        else:
+            self._logger.warning(
+                "Bridge fee service not configured; bridge cost deduction disabled (assumed 0 APY impact)."
+            )
         self._x402 = X402Client(
             config.x402_service_url,
             config.x402_execute_path,
-            config.x402_api_key,
+            config.passport_cli_bin,
         )
         self._passport = PassportCLI(config.passport_cli_bin)
         self._poai = PoAIClient(
@@ -61,9 +103,21 @@ class ScoutRuntime:
             config.scout_private_key,
         )
 
-        self._scanner = YieldScanner(self._lucid, self._goldsky)
+        self._scanner = YieldScanner(self._market_feed, self._goldsky, self._enrichers)
         self._estimator = BridgeCostEstimator(self._bridge_fee, config.settlement_asset_symbol)
-        self._ranker = OpportunityRanker(self._estimator, config.allowed_route_pairs_set())
+        allowed_routes = None if config.scout_disable_route_filter else config.allowed_route_pairs_set()
+        if allowed_routes is None:
+            self._logger.warning("Route filter disabled (SCOUT_DISABLE_ROUTE_FILTER=true): demo mode is active.")
+        self._ranker = OpportunityRanker(self._estimator, allowed_routes)
+        self._llm_selector: LLMOpportunitySelector | None = None
+        if config.scout_llm_enabled:
+            self._llm_selector = LLMOpportunitySelector(
+                api_key=config.groq_api_key,
+                model=config.groq_model,
+                base_url=config.groq_base_url,
+                timeout_seconds=config.groq_timeout_seconds,
+                max_candidates=config.groq_max_candidates,
+            )
         self._intent_builder = ExecutionIntentBuilder(
             enabled=config.execution_intent_enabled,
             client_agent_vault_address=config.client_agent_vault_address,
@@ -96,11 +150,8 @@ class ScoutRuntime:
         self._logger.info("Starting Scout runtime loop.")
         await self._run_startup_preflight()
         while True:
-            try:
-                self._ensure_passport_session()
-                await self._run_single_scan()
-            except Exception as exc:  # noqa: BLE001
-                self._logger.exception("Scout cycle failed: %s", exc)
+            self._ensure_passport_session()
+            await self._run_single_scan()
             await asyncio.sleep(self._config.scan_interval_seconds)
 
     def _ensure_passport_session(self) -> None:
@@ -133,7 +184,7 @@ class ScoutRuntime:
     async def _run_single_scan(self) -> None:
         markets = await self._scanner.scan()
         if not markets:
-            self._logger.warning("No markets received from Lucid/Goldsky.")
+            self._logger.warning("No markets received from market providers/Goldsky.")
             return
 
         ranked = await self._ranker.rank(
@@ -147,6 +198,25 @@ class ScoutRuntime:
             return
 
         best = ranked[0]
+        self._logger.info(
+            "Deterministic best=%s@%d->%s@%d net_delta=%s",
+            best.src_protocol,
+            best.src_chain,
+            best.dst_protocol,
+            best.dst_chain,
+            str(best.net_delta_apy),
+        )
+        if self._llm_selector is not None:
+            llm_choice = await self._llm_selector.select_best(ranked)
+            best = pick_with_fallback(ranked, llm_choice) or ranked[0]
+            self._logger.info(
+                "LLM-selected best=%s@%d->%s@%d net_delta=%s",
+                best.src_protocol,
+                best.src_chain,
+                best.dst_protocol,
+                best.dst_chain,
+                str(best.net_delta_apy),
+            )
         intent = self._intent_builder.build(best)
         signal = self._signer.sign_opportunity(best, execution_intent=intent)
         event_id, signal_hash = await self._broadcaster.broadcast(signal)
@@ -163,7 +233,14 @@ class ScoutRuntime:
 
     async def close(self) -> None:
         await self._redis.aclose()
-        await self._lucid.close()
+        close_feed = getattr(self._market_feed, "close", None)
+        if close_feed is not None:
+            await close_feed()
+        for enricher in self._enrichers:
+            await enricher.close()
         await self._goldsky.close()
-        await self._bridge_fee.close()
+        if self._bridge_fee is not None:
+            await self._bridge_fee.close()
+        if self._llm_selector is not None:
+            await self._llm_selector.close()
         await self._x402.close()

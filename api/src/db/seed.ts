@@ -99,6 +99,19 @@ async function main(): Promise<void> {
     ],
   });
 
+  const seededSignals = await prisma.signal.findMany({ take: 1, orderBy: { createdAt: "asc" } });
+  if (seededSignals.length > 0) {
+    await prisma.execution.create({
+      data: {
+        signalId: seededSignals[0].id,
+        instructionId: "inst-seed-1",
+        executorDid: "did:kite:orca/executor-1",
+        txHash: "0xexecutedseed",
+        status: "executed",
+      },
+    });
+  }
+
   await prisma.session.createMany({
     data: [
       {
@@ -156,6 +169,26 @@ async function main(): Promise<void> {
         epochId: 42,
       },
     ],
+  });
+
+  await prisma.scoutMarketplace.create({
+    data: {
+      did: "did:kite:orca/scout-external-1",
+      ownerAddress: "0x5555555555555555555555555555555555555555",
+      status: "active",
+      stakeUsdc: 1000,
+      reputationScore: 87.5,
+    },
+  });
+
+  await prisma.scoutPayout.create({
+    data: {
+      scoutDid: "did:kite:orca/scout-external-1",
+      epochId: 42,
+      amountUsdc: 54.75,
+      status: "pending",
+      txHash: null,
+    },
   });
 
   console.log("Seed complete.");

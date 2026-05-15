@@ -14,7 +14,8 @@ const webhookSchema = z.object({
 });
 
 export async function registerAlertRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/alerts", async (): Promise<AlertsResponse> => {
+  app.get("/alerts", async (request): Promise<AlertsResponse> => {
+    await app.authenticate(request);
     return { alerts: await listAlerts() };
   });
 
@@ -24,11 +25,12 @@ export async function registerAlertRoutes(app: FastifyInstance): Promise<void> {
       const rawBody = JSON.stringify(request.body ?? {});
       const signature = request.headers["x-orca-signature"] as string | undefined;
 
-      if (config.webhookSecret) {
-        const valid = verifyHmacSha256(rawBody, signature, config.webhookSecret);
-        if (!valid) {
-          return reply.status(401).send({ ok: false, error: "Invalid signature" });
-        }
+      if (!config.webhookSecret) {
+        throw new Error("WEBHOOK_SECRET is required in strict mode");
+      }
+      const valid = verifyHmacSha256(rawBody, signature, config.webhookSecret);
+      if (!valid) {
+        return reply.status(401).send({ ok: false, error: "Invalid signature" });
       }
 
       const parsed = webhookSchema.safeParse(request.body);

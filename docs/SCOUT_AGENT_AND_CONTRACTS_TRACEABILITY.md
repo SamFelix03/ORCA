@@ -4,7 +4,8 @@ This document maps external documentation requirements to ORCA implementation fi
 
 ## External Sources Referenced
 
-- Kite Lucid integration: <https://docs.gokite.ai/kite-chain/12-lucid-kite-integration>
+- DefiLlama API docs: <https://api-docs.defillama.com/>
+- Kite Lucid integration (legacy fallback): <https://docs.gokite.ai/kite-chain/12-lucid-kite-integration>
 - Kite Goldsky integration: <https://docs.gokite.ai/kite-chain/11-goldsky-kite-integration>
 - Kite Passport introduction: <https://docs.gokite.ai/kite-agent-passport/kite-agent-passport>
 - Kite Passport CLI reference: <https://docs.gokite.ai/kite-agent-passport/cli-reference>
@@ -19,10 +20,10 @@ This document maps external documentation requirements to ORCA implementation fi
 
 | Requirement | Source Constraint | ORCA Implementation |
 | --- | --- | --- |
-| SC-01 YieldScanner consumes Lucid + Goldsky signals | Lucid and Goldsky pages define data access and indexing usage on Kite | `agents/src/orca_scout/services/yield_scanner.py`, `agents/src/orca_scout/integrations/lucid_client.py`, `agents/src/orca_scout/integrations/goldsky_client.py` |
+| SC-01 YieldScanner consumes hybrid market + indexer signals | Hybrid market strategy uses DefiLlama as primary feed, protocol enrichers for utilization, and Goldsky for context checks | `agents/src/orca_scout/services/yield_scanner.py`, `agents/src/orca_scout/integrations/defillama_client.py`, `agents/src/orca_scout/integrations/protocol_enrichers.py`, `agents/src/orca_scout/integrations/goldsky_client.py` |
 | SC-02 Bridge cost estimator uses bridge-quote concepts | Hyperlane migration replaces endpoint-specific checks with domain-aware quote routing | `agents/src/orca_scout/integrations/bridge_fee_client.py` |
 | SC-03 Opportunity ranking uses net APY minus bridge cost | ORCA docs define net delta formula | `agents/src/orca_scout/services/opportunity_ranker.py` |
-| SC-04 Signal broadcast sends x402 payment and Redis stream event | Passport service provider guide details x402 402 challenge and settlement model | `agents/src/orca_scout/integrations/x402_client.py`, `agents/src/orca_scout/services/signal_broadcaster.py` |
+| SC-04 Signal broadcast sends x402 payment and Redis stream event | Passport service provider guide + x402 buyer flow (HTTP 402 challenge, Passport session payment resolution) | `agents/src/orca_scout/integrations/x402_client.py`, `agents/src/orca_scout/services/signal_broadcaster.py` |
 | SC-05 Scout signs outbound signal payload | Passport docs and CLI describe session controls and agent-driven automation | `agents/src/orca_scout/integrations/passport_cli.py`, `agents/src/orca_scout/services/passport_signer.py` |
 | SC-06 Scout reports accepted actions to PoAI | ORCA contract requirements include `recordAction` attribution writes | `agents/src/orca_scout/integrations/poai_client.py` |
 | Agent runtime loop every 60 seconds with resilient operation | ORCA runtime spec requires continuous scanning | `agents/src/orca_scout/scout_runtime.py`, `agents/src/orca_scout/main.py` |
@@ -37,9 +38,9 @@ This document maps external documentation requirements to ORCA implementation fi
 
 The implementation includes `.env.example` templates for:
 
-- Live Lucid and Goldsky endpoints/credentials.
+- Live market data and indexer endpoints/credentials (`DEFILLAMA_*`, optional protocol enrichers, `GOLDSKY_*`).
 - Passport automation and signing/session controls.
-- x402 service endpoint and facilitator details.
+- x402 paid endpoint URL (the service must implement HTTP 402 challenge/settlement flow).
 - Kite RPC/chain/deployer settings for testnet deployment.
 - Contract addresses needed by Scout runtime once deployment completes.
 
@@ -51,7 +52,7 @@ To run Scout without friction, the following must be true:
 - `kpass` binary is available and authenticated for non-interactive session commands.
 - Redis is reachable and writable at configured `REDIS_URL`.
 - Kite RPC is reachable and the Scout signer has native gas for PoAI writes.
-- Lucid, Goldsky, bridge quote, and x402 credentials are valid.
+- DefiLlama (and optional enrichers), Goldsky, bridge quote, and x402 credentials are valid.
 - Route constraints are explicitly configured (`SCOUT_ALLOWED_ROUTE_PAIRS`) or loaded from artifact.
 - If execution intents are enabled, protocol address map and trusted remotes are fully configured.
 

@@ -1,8 +1,11 @@
 import type {
   AgentRecord,
   AlertRecord,
+  ExecutionRecord,
   PoAIRewardRecord,
   PositionRecord,
+  ScoutMarketplaceRecord,
+  ScoutPayoutRecord,
   SessionRecord,
   SignalRecord,
   TreasuryOverview,
@@ -47,6 +50,18 @@ export interface SignalsResponse {
   signals: SignalRecord[];
 }
 
+export interface SignalResponse {
+  signal: SignalRecord;
+}
+
+export interface ExecutionsResponse {
+  executions: ExecutionRecord[];
+}
+
+export interface ExecutionResponse {
+  execution: ExecutionRecord;
+}
+
 export interface SessionsResponse {
   sessions: SessionRecord[];
 }
@@ -71,4 +86,12 @@ export interface PoAIAgentHistoryResponse {
 
 export interface AlertsResponse {
   alerts: AlertRecord[];
+}
+
+export interface ScoutsResponse {
+  scouts: ScoutMarketplaceRecord[];
+}
+
+export interface ScoutPayoutsResponse {
+  payouts: ScoutPayoutRecord[];
 }

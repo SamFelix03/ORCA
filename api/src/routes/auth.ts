@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { AuthNonceResponse, AuthVerifyResponse } from "@orca/shared";
+import { issueJwt } from "../lib/jwt.js";
 
 export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: { address: string } }>("/auth/nonce", async (request): Promise<AuthNonceResponse> => {
@@ -15,9 +16,15 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Body: { address: string; signature: string; nonce: string } }>(
     "/auth/verify",
-    async (): Promise<AuthVerifyResponse> => {
+    async (request): Promise<AuthVerifyResponse> => {
+      const address = request.body?.address;
+      const signature = request.body?.signature;
+      const nonce = request.body?.nonce;
+      if (!address || !signature || !nonce) {
+        throw new Error("address, signature and nonce are required");
+      }
       return {
-        token: `mock-jwt-${crypto.randomUUID()}`,
+        token: issueJwt({ sub: address, nonce }),
         expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
       };
     }

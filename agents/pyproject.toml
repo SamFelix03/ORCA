@@ -18,6 +18,9 @@ dependencies = [
 
 [project.scripts]
 orca-scout = "orca_scout.main:main"
+orca-risk = "orca_risk.main:main"
+orca-executor = "orca_executor.main:main"
+orca-audit = "orca_audit.main:main"
 
 [build-system]
 requires = ["setuptools>=69.0"]

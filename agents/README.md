@@ -30,11 +30,13 @@ pip install -e .
 
 Copy `.env.example` to `.env` and fill all required live integrations:
 
-- Lucid (`LUCID_*`)
+- Market data providers (`SCOUT_MARKET_DATA_PROVIDER`, `DEFILLAMA_*`, optional protocol enrichers)
+- Legacy Lucid fallback (`LUCID_*`, only if provider mode is `lucid`)
 - Goldsky (`GOLDSKY_*`)
-- Bridge quote provider (`BRIDGE_FEE_*`)
+- Bridge quote provider (`BRIDGE_FEE_*`, optional; defaults to 0 bridge cost when unset)
+- Optional Groq LLM selector (`SCOUT_LLM_ENABLED`, `GROQ_*`) for final opportunity selection
 - Passport CLI + session policy (`PASSPORT_*`)
-- x402 payment relay (`X402_*`)
+- x402 config (`X402_*`; direct Passport session flow supported without endpoint URL)
 - Kite chain + PoAI contract (`KITE_*`, `POAI_CONTRACT_ADDRESS`)
 - Allowed Hyperlane route pairs (`SCOUT_ALLOWED_ROUTE_PAIRS`)
 - Optional route auto-load artifact (`SCOUT_ROUTES_ARTIFACT_PATH`)
@@ -53,7 +55,9 @@ Additional execution-intent requirements (when `SCOUT_EXECUTION_INTENT_ENABLED=t
 - `KITE_RPC_URL` is reachable.
 - Scout private key wallet has gas on Kite testnet.
 - `POAI_CONTRACT_ADDRESS` is deployed and writable by the Scout signer.
-- Lucid/Goldsky/Bridge/x402 credentials are valid.
+- Lucid/Goldsky/x402 credentials are valid.
+- If `BRIDGE_FEE_API_BASE_URL` and `BRIDGE_FEE_API_KEY` are unset, Scout runs with 0 bridge-cost deduction.
+- If `SCOUT_MARKET_DATA_PROVIDER=hybrid`, DefiLlama endpoint is reachable and enrichment provider URLs are set where available.
 - If using artifact route auto-load, `SCOUT_ROUTES_ARTIFACT_PATH` exists.
 - If using execution intents, protocol map + trusted remotes are fully populated.
 
@@ -108,6 +112,16 @@ Expected logs in healthy startup/cycle:
 Quick troubleshooting:
 
 - Passport errors: verify `PASSPORT_CLI_BIN` and active user auth in `kpass`.
-- No opportunities: verify Lucid response shape and route pairs.
+- No opportunities: verify DefiLlama pool feed availability (or Lucid response in legacy mode) and route pairs.
 - No execution intent: fill `SCOUT_PROTOCOL_ADDRESS_MAP` and `HYP_TRUSTED_REMOTES`.
 - Redis stream issues: check `SCOUT_REDIS_STREAM_KEY` and Redis connectivity.
+
+## Scout Data Provider Strategy
+
+Scout now defaults to a hybrid provider architecture:
+
+- Primary market feed: DefiLlama pools API (APY + TVL + chain/protocol coverage)
+- Utilization enrichment (best-effort): Aave / Compound / Morpho / Uniswap adapters
+- Legacy mode retained: Lucid-only market feed by setting `SCOUT_MARKET_DATA_PROVIDER=lucid`
+
+In hybrid mode, enricher failures are non-fatal and Scout continues with base market data.

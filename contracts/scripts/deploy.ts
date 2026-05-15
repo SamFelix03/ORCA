@@ -122,7 +122,7 @@ async function main(): Promise<void> {
   ]);
   await treasury.waitForDeployment();
 
-  await (await enforcer.setVault(executorVault)).wait();
+  await (await enforcer.setVault(await vault.getAddress())).wait();
   await (await enforcer.configureRule(spendingWindow, spendingBudget, spendingMaxPerTx, Math.floor(Date.now() / 1000))).wait();
 
   await (await bridgeGuard.setAuthorizedCaller(await oapp.getAddress(), true)).wait();

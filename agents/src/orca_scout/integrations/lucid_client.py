@@ -22,6 +22,10 @@ class LucidClient:
         payload = response.json()
         return self._parse_markets(payload)
 
+    # Backward-compat alias when runtime treats feed as generic provider.
+    async def fetch_base_markets(self) -> list[YieldMarket]:
+        return await self.fetch_markets()
+
     def _parse_markets(self, payload: Any) -> list[YieldMarket]:
         items = payload.get("markets", payload if isinstance(payload, list) else [])
         markets: list[YieldMarket] = []

@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { label: "Sessions", href: "/sessions" },
   { label: "Treasury", href: "/treasury" },
   { label: "PoAI", href: "/poai" },
+  { label: "Marketplace", href: "/marketplace" },
   { label: "Settings", href: "/settings" },
 ];
 

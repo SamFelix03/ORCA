@@ -38,6 +38,20 @@ export interface SignalRecord {
   status: SignalStatus;
   riskDecisionReason?: string;
   txHash?: string;
+  paymentTxHash?: string;
+  executionId?: string;
+  createdAt: string;
+}
+
+export interface ExecutionRecord {
+  id: string;
+  signalId: string;
+  instructionId?: string;
+  executorDid: string;
+  txHash: string;
+  lzMessageId?: string;
+  status: string;
+  slippageBps?: number;
   createdAt: string;
 }
 
@@ -75,4 +89,24 @@ export interface AlertRecord {
   message: string;
   createdAt: string;
   resolvedAt: string | null;
+}
+
+export interface ScoutMarketplaceRecord {
+  id: string;
+  did: string;
+  ownerAddress: string;
+  status: "pending" | "active" | "suspended";
+  stakeUsdc: number;
+  reputationScore: number;
+  createdAt: string;
+}
+
+export interface ScoutPayoutRecord {
+  id: string;
+  scoutDid: string;
+  epochId: number;
+  amountUsdc: number;
+  status: "pending" | "settled" | "failed";
+  txHash?: string;
+  createdAt: string;
 }

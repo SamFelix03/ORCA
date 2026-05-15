@@ -10,4 +10,6 @@ export const config = {
   spendingRuleEnforcerAddress: process.env.SPENDING_RULE_ENFORCER_ADDRESS ?? "",
   poaiAttributionAddress: process.env.POAI_ATTRIBUTION_ADDRESS ?? "",
   webhookSecret: process.env.WEBHOOK_SECRET ?? "",
+  jwtSecret: process.env.JWT_SECRET ?? "",
+  strictMode: (process.env.STRICT_MODE ?? "true").toLowerCase() === "true",
 };

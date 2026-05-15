@@ -49,13 +49,15 @@ class PassportCLI:
         ttl: str,
         assets: str,
     ) -> str:
+        requested_assets = {item.strip().upper() for item in assets.split(",") if item.strip()}
+
         sessions = self._run(["agent:session", "list", "--status", "active"])
         active = sessions.get("sessions", [])
         if active:
-            session_id = active[0].get("sessionId")
-            if session_id:
-                self._run(["agent:session", "use", "--session-id", session_id])
-                return str(session_id)
+            matching_session_id = self._find_matching_session_id(active, requested_assets)
+            if matching_session_id:
+                self._run(["agent:session", "use", "--session-id", matching_session_id])
+                return matching_session_id
 
         created = self._run(
             [
@@ -72,7 +74,7 @@ class PassportCLI:
                 "--assets",
                 assets,
                 "--payment-approach",
-                "x402_http",
+                "x402",
             ]
         )
         request_id = created.get("requestId")
@@ -84,8 +86,37 @@ class PassportCLI:
         if not fresh:
             raise RuntimeError("No active Passport session available after creation request.")
 
-        session_id = fresh[0].get("sessionId")
+        matching_session_id = self._find_matching_session_id(fresh, requested_assets)
+        session_id = matching_session_id or self._extract_session_id(fresh[0])
         if not session_id:
             raise RuntimeError("Passport returned active session without sessionId.")
         self._run(["agent:session", "use", "--session-id", str(session_id)])
         return str(session_id)
+
+    @staticmethod
+    def _extract_session_id(session: dict[str, Any]) -> str:
+        session_id = session.get("sessionId") or session.get("id")
+        return str(session_id) if session_id else ""
+
+    def _find_matching_session_id(self, sessions: list[dict[str, Any]], requested_assets: set[str]) -> str:
+        if not requested_assets:
+            for session in sessions:
+                session_id = self._extract_session_id(session)
+                if session_id:
+                    return session_id
+            return ""
+
+        for session in sessions:
+            delegation = session.get("delegation")
+            policy = delegation.get("payment_policy") if isinstance(delegation, dict) else {}
+            assets = policy.get("assets") if isinstance(policy, dict) else []
+            session_assets = {
+                str(item).strip().upper()
+                for item in assets
+                if isinstance(item, str) and item.strip()
+            }
+            if requested_assets.issubset(session_assets):
+                session_id = self._extract_session_id(session)
+                if session_id:
+                    return session_id
+        return ""

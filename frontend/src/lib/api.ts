@@ -1,10 +1,14 @@
 import type {
   AgentsResponse,
   AlertsResponse,
+  ExecutionsResponse,
   PoAIAgentHistoryResponse,
   PoAIEpochRewardsResponse,
   PositionsResponse,
+  ScoutPayoutsResponse,
+  ScoutsResponse,
   SessionsResponse,
+  SignalResponse,
   SignalsResponse,
   TreasuryPendingResponse,
   TreasuryResponse,
@@ -54,6 +58,8 @@ export const orcaApi = {
   positions: () => apiGet<PositionsResponse>("/positions"),
   agents: () => apiGet<AgentsResponse>("/agents"),
   signals: () => apiGet<SignalsResponse>("/signals"),
+  signalById: (id: string) => apiGet<SignalResponse>(`/signals/${encodeURIComponent(id)}`),
+  executions: () => apiGet<ExecutionsResponse>("/executions"),
   sessions: () => apiGet<SessionsResponse>("/sessions"),
   approveSession: (sessionId: string) => apiPost<{ ok: boolean; error?: string }>("/sessions/approve", { sessionId }),
   expireSession: (sessionId: string) => apiDelete<{ ok: boolean; error?: string }>(`/sessions/${encodeURIComponent(sessionId)}`),
@@ -62,4 +68,8 @@ export const orcaApi = {
   poaiEpoch: (id: number) => apiGet<PoAIEpochRewardsResponse>(`/poai/epoch/${id}/rewards`),
   poaiAgent: (did: string) => apiGet<PoAIAgentHistoryResponse>(`/poai/agents/${encodeURIComponent(did)}/history`),
   alerts: () => apiGet<AlertsResponse>("/alerts"),
+  scouts: () => apiGet<ScoutsResponse>("/scouts"),
+  registerScout: (payload: { did: string; ownerAddress: string; stakeUsdc: number }) =>
+    apiPost<{ scout: { id: string; did: string; ownerAddress: string; status: string; stakeUsdc: number; reputationScore: number; createdAt: string } }>("/scouts/register", payload),
+  scoutPayouts: (did?: string) => apiGet<ScoutPayoutsResponse>(`/scouts/payouts/${did ? encodeURIComponent(did) : ""}`),
 };

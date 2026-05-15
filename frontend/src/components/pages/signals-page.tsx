@@ -40,6 +40,7 @@ export function SignalsPage() {
                 <DataTh>Net APY</DataTh>
                 <DataTh>Amount</DataTh>
                 <DataTh>Status</DataTh>
+                <DataTh>Risk Reason</DataTh>
                 <DataTh>Tx Hash</DataTh>
               </tr>
             </DataThead>
@@ -55,6 +56,7 @@ export function SignalsPage() {
                       {signal.status}
                     </StatusPill>
                   </DataTd>
+                  <DataTd>{signal.riskDecisionReason ?? "-"}</DataTd>
                   <DataTd className="font-mono text-xs">{signal.txHash ?? "-"}</DataTd>
                 </tr>
               ))}

@@ -3,20 +3,39 @@ from __future__ import annotations
 import logging
 
 from orca_scout.integrations.goldsky_client import GoldskyClient
-from orca_scout.integrations.lucid_client import LucidClient
+from orca_scout.integrations.protocol_enrichers import UtilizationEnricher
 from orca_scout.models import YieldMarket
 
 
 class YieldScanner:
-    def __init__(self, lucid_client: LucidClient, goldsky_client: GoldskyClient) -> None:
-        self._lucid = lucid_client
+    def __init__(
+        self,
+        market_feed_client: object,
+        goldsky_client: GoldskyClient,
+        enrichers: list[UtilizationEnricher] | None = None,
+    ) -> None:
+        self._market_feed_client = market_feed_client
         self._goldsky = goldsky_client
+        self._enrichers = enrichers or []
         self._logger = logging.getLogger("orca_scout.yield_scanner")
 
     async def scan(self) -> list[YieldMarket]:
         # Keep the Goldsky pull in the control loop even when Lucid is the main APY source.
-        try:
-            await self._goldsky.fetch_recent_protocol_events()
-        except Exception as exc:  # noqa: BLE001
-            self._logger.warning("Goldsky fetch failed; continuing with Lucid scan: %s", exc)
-        return await self._lucid.fetch_markets()
+        await self._goldsky.fetch_recent_protocol_events()
+
+        fetch_markets = getattr(self._market_feed_client, "fetch_markets")
+        markets = await fetch_markets()
+        self._logger.info("Market feed returned markets=%d", len(markets))
+        for enricher in self._enrichers:
+            before = len(markets)
+            markets = await enricher.enrich(markets)
+            self._logger.info("Enricher %s completed markets_before=%d markets_after=%d", enricher, before, len(markets))
+        if markets:
+            top = sorted(markets, key=lambda item: item.apy, reverse=True)[:3]
+            self._logger.info(
+                "Scan top_markets=%s",
+                " | ".join(
+                    f"{item.protocol}@{item.chain_id}:apy={item.apy} util={item.utilization} tvl={item.tvl_usdc}" for item in top
+                ),
+            )
+        return markets

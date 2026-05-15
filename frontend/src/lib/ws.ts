@@ -5,12 +5,8 @@ export function connectOrcaEvents(onEvent: (event: WsEnvelope) => void): WebSock
   const ws = new WebSocket(ORCA_WS_URL);
 
   ws.onmessage = (message) => {
-    try {
-      const parsed = JSON.parse(message.data as string) as WsEnvelope;
-      onEvent(parsed);
-    } catch {
-      // Ignore malformed payloads during early scaffold.
-    }
+    const parsed = JSON.parse(message.data as string) as WsEnvelope;
+    onEvent(parsed);
   };
 
   return ws;

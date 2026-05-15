@@ -4,6 +4,7 @@ export type WsEventType =
   | "signal.created"
   | "signal.updated"
   | "execution.settled"
+  | "execution.created"
   | "alert.created"
   | "session.requested"
   | "session.updated";
@@ -12,6 +13,7 @@ export interface WsEventMap {
   "signal.created": { signal: SignalRecord };
   "signal.updated": { signal: SignalRecord };
   "execution.settled": { signalId: string; txHash: string; status: "success" | "failed" };
+  "execution.created": { executionId: string; signalId: string; status: string };
   "alert.created": { alert: AlertRecord };
   "session.requested": { session: SessionRecord };
   "session.updated": { session: SessionRecord };
