@@ -109,10 +109,20 @@ export function toPoaiRewardRecord(record: AttributionRecord): PoAIRewardRecord 
 }
 
 export function toScoutMarketplaceRecord(row: ScoutMarketplace): ScoutMarketplaceRecord {
+  const bondWei =
+    row.bondAmountWei && row.bondAmountWei !== "0" ? row.bondAmountWei : undefined;
+  const vault = row.vaultAddress?.trim();
+  const didHash = row.didHashHex?.trim();
+
   return {
     id: row.id,
     did: row.did,
+    didHashHex: didHash || undefined,
     ownerAddress: row.ownerAddress,
+    vaultAddress: vault || undefined,
+    bondAmountWei: bondWei,
+    chainId: row.chainId,
+    registrationTxHash: row.registrationTxHash ?? undefined,
     status: row.status as ScoutMarketplaceRecord["status"],
     stakeUsdc: decimalToNumber(row.stakeUsdc),
     reputationScore: decimalToNumber(row.reputationScore),

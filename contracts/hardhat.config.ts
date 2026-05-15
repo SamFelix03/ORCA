@@ -1,5 +1,9 @@
+import path from "node:path";
+import dotenv from "dotenv";
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 const KITE_MAINNET_RPC = process.env.KITE_MAINNET_RPC ?? "https://rpc.gokite.ai";
 const KITE_TESTNET_RPC = process.env.KITE_TESTNET_RPC ?? "https://rpc-testnet.gokite.ai";

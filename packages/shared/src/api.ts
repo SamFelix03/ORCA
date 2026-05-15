@@ -95,3 +95,53 @@ export interface ScoutsResponse {
 export interface ScoutPayoutsResponse {
   payouts: ScoutPayoutRecord[];
 }
+
+export interface ScoutRegistrationChallengeResponse {
+  nonce: string;
+  deadline: number;
+  domain: {
+    name: string;
+    version: string;
+    chainId: number;
+  };
+  types: Record<string, Array<{ name: string; type: string }>>;
+  primaryType: string;
+  registryAddress: string;
+  stakeTokenAddress: string;
+  stakeDecimals: number;
+  didHashHex?: string;
+}
+
+export interface ScoutRegistrationAttestRequest {
+  domainName?: string;
+  chainId?: number;
+  registryAddress: string;
+  stakeDecimals?: number;
+  did: string;
+  vault: string;
+  bondAmountWei: string;
+  ownerAddress: string;
+  nonce: string;
+  deadline: string;
+  signature: string;
+  messageDidHash: string;
+}
+
+export interface ScoutRegistrationAttestResponse {
+  marketplaceId: string;
+  did: string;
+  didHashHex: string;
+  vaultAddress: string;
+  bondAmountWei: string;
+  chainId: number;
+}
+
+export interface ScoutRegistrationTxDataResponse {
+  to: string;
+  data: string;
+  marketplaceId: string;
+}
+
+export interface ScoutRegistrationConfirmResponse {
+  scout: ScoutMarketplaceRecord;
+}

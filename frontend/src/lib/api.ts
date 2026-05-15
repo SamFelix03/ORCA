@@ -5,7 +5,12 @@ import type {
   PoAIAgentHistoryResponse,
   PoAIEpochRewardsResponse,
   PositionsResponse,
+  ScoutMarketplaceRecord,
   ScoutPayoutsResponse,
+  ScoutRegistrationAttestRequest,
+  ScoutRegistrationChallengeResponse,
+  ScoutRegistrationConfirmResponse,
+  ScoutRegistrationTxDataResponse,
   ScoutsResponse,
   SessionsResponse,
   SignalResponse,
@@ -69,7 +74,14 @@ export const orcaApi = {
   poaiAgent: (did: string) => apiGet<PoAIAgentHistoryResponse>(`/poai/agents/${encodeURIComponent(did)}/history`),
   alerts: () => apiGet<AlertsResponse>("/alerts"),
   scouts: () => apiGet<ScoutsResponse>("/scouts"),
-  registerScout: (payload: { did: string; ownerAddress: string; stakeUsdc: number }) =>
-    apiPost<{ scout: { id: string; did: string; ownerAddress: string; status: string; stakeUsdc: number; reputationScore: number; createdAt: string } }>("/scouts/register", payload),
-  scoutPayouts: (did?: string) => apiGet<ScoutPayoutsResponse>(`/scouts/payouts/${did ? encodeURIComponent(did) : ""}`),
+  scoutRegisterChallenge: (did: string) =>
+    apiGet<ScoutRegistrationChallengeResponse>(`/scouts/register/challenge?did=${encodeURIComponent(did)}`),
+  scoutRegisterAttest: (body: ScoutRegistrationAttestRequest) =>
+    apiPost<{ scout: ScoutMarketplaceRecord }>("/scouts/register", body),
+  scoutRegisterTxData: (marketplaceId: string) =>
+    apiGet<ScoutRegistrationTxDataResponse>(`/scouts/register/tx/${encodeURIComponent(marketplaceId)}`),
+  scoutRegisterConfirm: (body: { marketplaceId: string; txHash: string }) =>
+    apiPost<ScoutRegistrationConfirmResponse>("/scouts/register/confirm", body),
+  scoutPayouts: (did?: string) =>
+    apiGet<ScoutPayoutsResponse>(did ? `/scouts/payouts?did=${encodeURIComponent(did)}` : "/scouts/payouts"),
 };

@@ -145,14 +145,26 @@ model SpendingWindow {
 }
 
 model ScoutMarketplace {
-  id             String   @id @default(cuid())
-  did            String   @unique
-  ownerAddress   String
-  status         String
-  stakeUsdc      Decimal  @db.Decimal(20, 6) @default(0)
-  reputationScore Decimal @db.Decimal(20, 6) @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  did                  String   @unique
+  didHashHex           String   @default("")
+  ownerAddress         String
+  vaultAddress         String   @default("")
+  bondAmountWei        String   @default("0")
+  chainId              Int      @default(2368)
+  registrationTxHash   String?
+  status               String
+  stakeUsdc            Decimal  @db.Decimal(20, 6) @default(0)
+  reputationScore      Decimal  @db.Decimal(20, 6) @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model ScoutRegisterNonce {
+  nonce         String   @id
+  expiresAt     DateTime
+  deadlineUnix  Int
+  used          Boolean  @default(false)
 }
 
 model ScoutPayout {

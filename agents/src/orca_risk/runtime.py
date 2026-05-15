@@ -3,13 +3,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import time
 import uuid
 from hashlib import sha256
 
 from redis.asyncio import Redis
 
 from orca_common.events import RiskInstruction, RiskInstructionEvent, ScoutSignalEvent
+from orca_common.registry_client import OrcaRegistryReader
 from orca_common.signing import DIDMessageSigner
 from orca_risk.config import RiskConfig
 from orca_scout.integrations.passport_cli import PassportCLI
@@ -34,6 +34,11 @@ class RiskRuntime:
             domain_name=config.signal_domain_name,
             domain_version=config.signal_domain_version,
         )
+        reg_addr = config.orca_registry_address.strip()
+        rpc_url = config.kite_rpc_url.strip()
+        self._registry: OrcaRegistryReader | None = None
+        if reg_addr:
+            self._registry = OrcaRegistryReader(rpc_url, reg_addr)
 
     async def run_forever(self) -> None:
         await self._run_startup_preflight()
@@ -71,8 +76,20 @@ class RiskRuntime:
         signal_event = ScoutSignalEvent.model_validate(payload)
         signal = signal_event.signal
 
-        approved = signal.net_delta_apy > 0
-        reason = "Auto-approved by strict risk policy" if approved else "Rejected: non-positive delta"
+        policy_ok = signal.net_delta_apy > 0
+        registry_ok = True
+        if self._registry is not None:
+            registry_ok = await asyncio.to_thread(
+                self._registry.is_active_agent_for_did_string,
+                signal.scout_did,
+            )
+        approved = policy_ok and registry_ok
+        if not registry_ok:
+            reason = "Rejected: scout DID not active on ORCARegistry"
+        elif not policy_ok:
+            reason = "Rejected: non-positive delta"
+        else:
+            reason = "Auto-approved by strict risk policy"
         instruction_id = str(uuid.uuid4())
         signature, timestamp = self._signer.sign_instruction(
             instruction_id=instruction_id,

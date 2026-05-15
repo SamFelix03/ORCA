@@ -153,8 +153,8 @@
   "instances": [
     {
       "abi": "orcaregistry",
-      "address": "0xCFAF1e5a2df41738472029869Be7fA5e375C7A1f",
-      "startBlock": 1,
+      "address": "0x8D50d8ebed112df8FEC47895aDe29Da1110e18B0",
+      "startBlock": 21406226,
       "chain": "kite-ai-testnet"
     }
   ]

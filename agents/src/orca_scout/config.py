@@ -78,6 +78,8 @@ class ScoutConfig(BaseSettings):
     kite_chain_id: int = Field(alias="KITE_CHAIN_ID")
     poai_contract_address: str = Field(alias="POAI_CONTRACT_ADDRESS")
     scout_epoch_id: int = Field(default=1, ge=1, alias="SCOUT_EPOCH_ID")
+    orca_registry_address: str = Field(default="", alias="ORCA_REGISTRY_ADDRESS")
+    scout_require_registry: bool = Field(default=False, alias="SCOUT_REQUIRE_REGISTRY")
 
     passport_cli_bin: str = Field(default="kpass", alias="PASSPORT_CLI_BIN")
     passport_session_task_summary: str = Field(
@@ -153,7 +155,7 @@ class ScoutConfig(BaseSettings):
             raise ValueError("SCOUT_PRIVATE_KEY must be 0x-prefixed 32-byte hex")
         return value
 
-    @field_validator("poai_contract_address", "x402_asset_address", "client_agent_vault_address", "orca_oapp_address")
+    @field_validator("poai_contract_address", "x402_asset_address", "client_agent_vault_address", "orca_oapp_address", "orca_registry_address")
     @classmethod
     def _validate_optional_address(cls, value: str) -> str:
         value = value.strip()
@@ -239,6 +241,9 @@ class ScoutConfig(BaseSettings):
                 raise ValueError(
                     "Execution intent is enabled; set CLIENT_AGENT_VAULT_ADDRESS and ORCA_OAPP_ADDRESS."
                 )
+        if self.scout_require_registry:
+            if not self.orca_registry_address.strip():
+                raise ValueError("SCOUT_REQUIRE_REGISTRY=true requires ORCA_REGISTRY_ADDRESS.")
         return self
 
 

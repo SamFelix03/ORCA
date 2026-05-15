@@ -17,6 +17,9 @@ coverage/
 .vscode/
 .idea/
 
+# Local secrets (never commit real keys)
+.env
+
 # Local Hyperlane runtime state (contains machine-specific data)
 hyperlane/local/
 

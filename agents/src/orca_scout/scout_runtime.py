@@ -5,6 +5,7 @@ import logging
 
 from redis.asyncio import Redis
 
+from orca_common.registry_client import OrcaRegistryReader
 from orca_scout.config import ScoutConfig
 from orca_scout.integrations.bridge_fee_client import BridgeFeeClient
 from orca_scout.integrations.defillama_client import DefiLlamaClient
@@ -144,6 +145,9 @@ class ScoutRuntime:
             config.x402_asset_address,
             config.x402_max_amount_required_wei,
         )
+        self._registry_gate: OrcaRegistryReader | None = None
+        if config.scout_require_registry:
+            self._registry_gate = OrcaRegistryReader(config.kite_rpc_url, config.orca_registry_address)
         self._poai_reporter = PoAIReporter(self._poai, config.scout_epoch_id, self._signer.did_hash())
 
     async def run_forever(self) -> None:
@@ -218,6 +222,16 @@ class ScoutRuntime:
                 str(best.net_delta_apy),
             )
         intent = self._intent_builder.build(best)
+        if self._registry_gate is not None:
+            active = await asyncio.to_thread(
+                self._registry_gate.is_active_agent_for_did_string,
+                self._config.scout_did,
+            )
+            if not active:
+                self._logger.warning(
+                    "Skipping broadcast: SCOUT_REQUIRE_REGISTRY=true but SCOUT_DID is inactive on ORCARegistry."
+                )
+                return
         signal = self._signer.sign_opportunity(best, execution_intent=intent)
         event_id, signal_hash = await self._broadcaster.broadcast(signal)
         poai_tx = await asyncio.to_thread(self._poai_reporter.report_signal, signal, signal_hash)

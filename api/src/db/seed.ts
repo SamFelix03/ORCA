@@ -1,4 +1,5 @@
 import { prisma } from "./prisma.js";
+import { keccak256, toUtf8Bytes } from "ethers";
 
 async function main(): Promise<void> {
   const existingAgents = await prisma.agent.count();
@@ -171,10 +172,18 @@ async function main(): Promise<void> {
     ],
   });
 
+  const demoScoutDid = "did:kite:orca/scout-external-1";
+  const demoDidHashHex = keccak256(toUtf8Bytes(demoScoutDid));
+
   await prisma.scoutMarketplace.create({
     data: {
-      did: "did:kite:orca/scout-external-1",
+      did: demoScoutDid,
+      didHashHex: demoDidHashHex,
       ownerAddress: "0x5555555555555555555555555555555555555555",
+      vaultAddress: "0x6666666666666666666666666666666666666666",
+      bondAmountWei: "1000000000000",
+      chainId: 2368,
+      registrationTxHash: null,
       status: "active",
       stakeUsdc: 1000,
       reputationScore: 87.5,
@@ -183,7 +192,7 @@ async function main(): Promise<void> {
 
   await prisma.scoutPayout.create({
     data: {
-      scoutDid: "did:kite:orca/scout-external-1",
+      scoutDid: demoScoutDid,
       epochId: 42,
       amountUsdc: 54.75,
       status: "pending",

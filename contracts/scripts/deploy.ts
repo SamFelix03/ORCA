@@ -83,9 +83,16 @@ async function main(): Promise<void> {
     throw new Error(`HYP_TRUSTED_SENDERS missing required domains: ${missingSenderDomains.join(",")}`);
   }
 
+  const scoutStakeToken = process.env.SCOUT_STAKE_TOKEN_ADDRESS?.trim();
+  const scoutStakeRecipient =
+    process.env.SCOUT_STAKE_RECIPIENT?.trim() || treasuryMultisig;
+  if (!scoutStakeToken) {
+    throw new Error("Missing required env var SCOUT_STAKE_TOKEN_ADDRESS (ERC20 for BYO scout stake, e.g. testnet USDC)");
+  }
+
   console.log("Deploying contracts with:", owner);
 
-  const registry = await ethers.deployContract("ORCARegistry", [owner]);
+  const registry = await ethers.deployContract("ORCARegistry", [owner, scoutStakeToken, scoutStakeRecipient]);
   await registry.waitForDeployment();
 
   const enforcer = await ethers.deployContract("SpendingRuleEnforcer", [owner]);
@@ -160,6 +167,8 @@ async function main(): Promise<void> {
       spendingMaxPerTx: spendingMaxPerTx.toString(),
       multisigSigners,
       multisigThreshold,
+      scoutStakeToken,
+      scoutStakeRecipient,
     },
     contracts: {
       ORCARegistry: await registry.getAddress(),

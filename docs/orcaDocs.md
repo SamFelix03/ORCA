@@ -154,7 +154,7 @@ Reference Documentation:
 ⦁	DefiLlama API Docs: https://api-docs.defillama.com/
 ⦁	Lucid-Kite AI Integration (legacy fallback): https://docs.gokite.ai/kite-chain/12-lucid-kite-integration
 
-
+
   03  Smart Contract Layer  
 3.1  Contract Architecture Overview
 Contract	Chain	Purpose	Inherits / Uses

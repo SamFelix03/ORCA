@@ -94,7 +94,12 @@ export interface AlertRecord {
 export interface ScoutMarketplaceRecord {
   id: string;
   did: string;
+  didHashHex?: string;
   ownerAddress: string;
+  vaultAddress?: string;
+  bondAmountWei?: string;
+  chainId?: number;
+  registrationTxHash?: string;
   status: "pending" | "active" | "suspended";
   stakeUsdc: number;
   reputationScore: number;

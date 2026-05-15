@@ -11,15 +11,7 @@ import type {
   TreasuryOverview,
 } from "@orca/shared";
 import { prisma } from "../db/prisma.js";
-import {
-  mockAgents,
-  mockAlerts,
-  mockPositions,
-  mockRewards,
-  mockSessions,
-  mockSignals,
-  mockTreasury,
-} from "../lib/mock-store.js";
+import { mockTreasury } from "../lib/mock-store.js";
 import {
   toAgentRecord,
   toAlertRecord,
@@ -201,23 +193,6 @@ export async function createExecutionRecord(payload: {
 export async function listScouts(): Promise<ScoutMarketplaceRecord[]> {
   const rows = await prisma.scoutMarketplace.findMany({ orderBy: { createdAt: "desc" } });
   return rows.map(toScoutMarketplaceRecord);
-}
-
-export async function registerScout(payload: {
-  did: string;
-  ownerAddress: string;
-  stakeUsdc: number;
-}): Promise<ScoutMarketplaceRecord> {
-  const row = await prisma.scoutMarketplace.create({
-    data: {
-      did: payload.did,
-      ownerAddress: payload.ownerAddress,
-      status: "pending",
-      stakeUsdc: payload.stakeUsdc,
-      reputationScore: 0,
-    },
-  });
-  return toScoutMarketplaceRecord(row);
 }
 
 export async function listScoutPayouts(did?: string): Promise<ScoutPayoutRecord[]> {

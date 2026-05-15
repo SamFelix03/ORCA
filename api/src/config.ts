@@ -12,4 +12,8 @@ export const config = {
   webhookSecret: process.env.WEBHOOK_SECRET ?? "",
   jwtSecret: process.env.JWT_SECRET ?? "",
   strictMode: (process.env.STRICT_MODE ?? "true").toLowerCase() === "true",
+  scoutStakeDecimals: Number(process.env.SCOUT_STAKE_DECIMALS ?? "6"),
+  scoutEip712DomainName: process.env.SCOUT_EIP712_DOMAIN_NAME ?? "ORCA_BYO_SCOUT",
+  /** ERC20 scouts must approve before registerPermissionlessScout (same token as registry immutable scoutStakeToken). */
+  scoutStakeTokenAddress: process.env.SCOUT_STAKE_TOKEN_ADDRESS ?? "",
 };
