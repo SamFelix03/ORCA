@@ -12,13 +12,13 @@ async function main(): Promise<void> {
   }
   const app = await buildServer();
   const stopIngestor = await startStreamIngestor(app, config.redisUrl);
+  app.addHook("onClose", async () => {
+    await stopIngestor();
+  });
 
   await app.listen({
     host: config.host,
     port: config.port,
-  });
-  app.addHook("onClose", async () => {
-    await stopIngestor();
   });
 }
 

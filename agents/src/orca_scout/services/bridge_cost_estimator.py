@@ -6,7 +6,7 @@ from orca_scout.integrations.bridge_fee_client import BridgeFeeClient
 
 
 class BridgeCostEstimator:
-    def __init__(self, fee_client: BridgeFeeClient | None, asset_symbol: str = "USDT") -> None:
+    def __init__(self, fee_client: BridgeFeeClient | None, asset_symbol: str = "PIEUSD") -> None:
         self._fee_client = fee_client
         self._asset_symbol = asset_symbol
 

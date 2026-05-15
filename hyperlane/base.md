@@ -114,13 +114,13 @@ msi@DESKTOP-8T9U929:/mnt/c/Users/MSI/hyperlane-run$ sed -n '1,320p' ~/.hyperlane
 tokens:
   - addressOrDenom: "0xb0f59799fF2e5a2957185C84fD960a76E0A3c2Cc"
     chainName: kitetestnet
-    collateralAddressOrDenom: "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63"
+    collateralAddressOrDenom: "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A"
     connections:
       - token: ethereum|basesepolia|0x2eD22aA87C87E4B0139552d50CB5B049E369C295
     decimals: 18
     name: Test USD
     standard: EvmHypCollateral
-    symbol: USDT
+    symbol: PIEUSD
   - addressOrDenom: "0x2eD22aA87C87E4B0139552d50CB5B049E369C295"
     chainName: basesepolia
     connections:
@@ -128,7 +128,7 @@ tokens:
     decimals: 18
     name: Test USD
     standard: EvmHypSynthetic
-    symbol: USDT
+    symbol: PIEUSD
 msi@DESKTOP-8T9U929:/mnt/c/Users/MSI/hyperlane-run$ rg -n "route|router|address|collateral|synthetic|token|kitetestnet|basesepolia" ~/.hyperlane/deployments/warp_routes/USDC
 Command 'rg' not found, but can be installed with:
 sudo snap install ripgrep  # version 12.1.0, or
@@ -142,7 +142,7 @@ DEPLOY_NETWORK=kiteTestnet
 INITIAL_OWNER=
 EXECUTOR_VAULT=
 TREASURY_MULTISIG=
-SETTLEMENT_TOKEN=0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63
+SETTLEMENT_TOKEN=0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A
 LZ_ENDPOINT_KITE=0x6F475642a6e85809B1c36Fa62763669b1b48DD5B
 LZ_EXECUTOR=0x4208D6E27538189bB48E603D6123A94b8Abe0A0b
 BRIDGE_GUARD_THRESHOLD_USDC=50000000000

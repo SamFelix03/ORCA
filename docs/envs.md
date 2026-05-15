@@ -47,7 +47,7 @@ On-chain execution path: Executor logic is not the full “AA UserOp + OApp + va
 
 PoAI: recordAction only succeeds if your deploy/config matches the contract (e.g. agent DID registered on PoAIAttribution, funded epochs, etc.). Missing registration or wrong epoch will fail at runtime.
 
-Docs vs code: agents/.env.example and strict x402/kpass behavior should be aligned manually (URL requirement, USDC vs USDT for sessions).
+Docs vs code: agents/.env.example and strict x402/kpass behavior should be aligned manually (URL requirement, USDC vs PIEUSD for sessions).
 
 Marketplace / BYO: API + DB models exist; on-chain DID verification / stake / payout settlement still depends on your deployed contracts, indexer, and treasury flows—you must wire addresses and operational steps outside “env only.”
 

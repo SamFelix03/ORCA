@@ -165,7 +165,7 @@ The easiest way to create a HWR deployment config file is with the CLI's config 
 powershellhyperlane warp init
 When prompted:
 
-Chain 1: kiteozone → type: collateral → address: 0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63 (testnet USDC from your ORCA doc)
+Chain 1: kiteozone → type: collateral → address: 0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A (testnet USDC from your ORCA doc)
 Chain 2: sepolia → type: synthetic
 
 Step 8.2 — Deploy the Warp Route

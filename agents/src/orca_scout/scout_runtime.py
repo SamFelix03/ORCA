@@ -96,13 +96,21 @@ class ScoutRuntime:
             config.x402_execute_path,
             config.passport_cli_bin,
             dry_run=config.x402_dry_run,
+            passport_base_url=config.kite_passport_base_url,
+            execution_mode=config.x402_execution_mode,
+            signer_private_key=config.scout_private_key,
+            facilitator_address=config.x402_facilitator_address,
+            rpc_url=config.kite_rpc_url,
+            chain_id=config.kite_chain_id,
+            token_name_fallback=config.x402_token_name_fallback,
+            token_version_fallback=config.x402_token_version_fallback,
         )
         if config.x402_dry_run:
             self._logger.warning(
                 "X402_DRY_RUN=true: Scout micropayments are simulated (no kpass HTTP execute). "
                 "Unset for production paid flows."
             )
-        self._passport = PassportCLI(config.passport_cli_bin)
+        self._passport = PassportCLI(config.passport_cli_bin, base_url=config.kite_passport_base_url)
         self._poai = PoAIClient(
             config.kite_rpc_url,
             config.kite_chain_id,

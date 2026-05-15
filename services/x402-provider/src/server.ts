@@ -10,7 +10,7 @@ const EXECUTE_PATH = process.env.EXECUTE_PATH ?? "/execute";
 const PAY_TO = process.env.X402_PAY_TO?.trim() ?? "";
 const ASSET =
   process.env.X402_ASSET_ADDRESS?.trim() ??
-  "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63";
+  "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A";
 const MAX_AMOUNT = process.env.X402_MAX_AMOUNT_REQUIRED_WEI?.trim() ?? "1000000";
 const MERCHANT_NAME = process.env.X402_MERCHANT_NAME?.trim() ?? "ORCA agent micropayment rail";
 const MAX_TIMEOUT_SECONDS = Number(process.env.X402_MAX_TIMEOUT_SECONDS ?? 300);
@@ -18,6 +18,24 @@ const STUB_MODE = (process.env.X402_PROVIDER_STUB ?? "true").toLowerCase() === "
 const FACILITATOR_URL = (process.env.FACILITATOR_URL ?? "https://facilitator.pieverse.io").replace(/\/$/, "");
 const SKIP_VERIFY = (process.env.X402_SKIP_VERIFY ?? "false").toLowerCase() === "true";
 const DEBUG_PAYMENT_SHAPE = (process.env.X402_DEBUG_PAYMENT_SHAPE ?? "false").toLowerCase() === "true";
+const TOKEN_NAME_FALLBACK = process.env.X402_TOKEN_NAME?.trim() || "pieUSD";
+const TOKEN_VERSION_FALLBACK = process.env.X402_TOKEN_VERSION?.trim() || "1";
+const DID_PAY_TO_MAP: Record<string, string> = (() => {
+  const raw = process.env.X402_DID_PAY_TO_MAP_JSON?.trim();
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (!key.trim()) continue;
+      if (typeof value !== "string" || !value.trim()) continue;
+      out[key.trim()] = value.trim();
+    }
+    return out;
+  } catch {
+    return {};
+  }
+})();
 
 /** CAIP-2 chain id for Pieverse `exact` on Kite (see facilitator /v2/supported). */
 const CAIP_NETWORK =
@@ -29,17 +47,19 @@ const X402_FACILITATOR_VERSION = 2 as const;
 type JsonObject = Record<string, unknown>;
 
 /** Fields Pieverse/x402 v2 expects for `paymentRequirements` (facilitator verify/settle). */
-function buildV2PaymentRequirements(): JsonObject {
+function buildV2PaymentRequirements(payTo: string): JsonObject {
+  const envExtraRaw = process.env.X402_PAYMENT_EXTRA_JSON?.trim();
+  const extra = envExtraRaw
+    ? (JSON.parse(envExtraRaw) as JsonObject)
+    : ({ name: TOKEN_NAME_FALLBACK, version: TOKEN_VERSION_FALLBACK } as JsonObject);
   return {
     scheme: "exact",
     network: CAIP_NETWORK,
     asset: ASSET,
     amount: MAX_AMOUNT,
-    payTo: PAY_TO,
+    payTo,
     maxTimeoutSeconds: MAX_TIMEOUT_SECONDS,
-    ...(process.env.X402_PAYMENT_EXTRA_JSON?.trim()
-      ? { extra: JSON.parse(process.env.X402_PAYMENT_EXTRA_JSON) as JsonObject }
-      : {}),
+    extra,
   };
 }
 
@@ -57,9 +77,11 @@ function eqUintString(a: unknown, b: unknown): boolean {
 }
 
 /** HTTP 402 `accepts[0]` aligned with v2 terms + Kite-style discovery fields Passport expects. */
-function paymentAcceptChallenge(resourceUrl: string): JsonObject {
-  const core = buildV2PaymentRequirements();
-  const payToDisplay = PAY_TO || "0x0000000000000000000000000000000000000001";
+function paymentAcceptChallenge(resourceUrl: string, paymentRequirements: JsonObject): JsonObject {
+  const core = paymentRequirements;
+  const payToDisplay = typeof paymentRequirements.payTo === "string" && paymentRequirements.payTo
+    ? paymentRequirements.payTo
+    : "0x0000000000000000000000000000000000000001";
   return {
     ...core,
     payTo: payToDisplay,
@@ -86,12 +108,23 @@ function paymentAcceptChallenge(resourceUrl: string): JsonObject {
   };
 }
 
-function challenge(resourceUrl: string) {
+function challenge(resourceUrl: string, paymentRequirements: JsonObject) {
   return {
     error: "X-PAYMENT header is required",
-    accepts: [paymentAcceptChallenge(resourceUrl)],
+    accepts: [paymentAcceptChallenge(resourceUrl, paymentRequirements)],
     x402Version: X402_FACILITATOR_VERSION,
   };
+}
+
+function resolvePayTo(body: unknown): string {
+  if (body && typeof body === "object" && !Array.isArray(body)) {
+    const toDid = (body as Record<string, unknown>).toDid;
+    if (typeof toDid === "string") {
+      const mapped = DID_PAY_TO_MAP[toDid.trim()];
+      if (mapped) return mapped;
+    }
+  }
+  return PAY_TO;
 }
 
 function decodeXPayment(header: string): JsonObject {
@@ -229,18 +262,18 @@ function normalizePaymentPayload(
 }
 
 function extractTxHash(raw: Record<string, unknown>): string {
-  const direct = raw.txHash ?? raw.transactionHash ?? raw.tx_hash;
+  const direct = raw.txHash ?? raw.transactionHash ?? raw.tx_hash ?? raw.transaction;
   if (typeof direct === "string" && direct.startsWith("0x")) return direct;
   const nested = raw.result;
   if (nested && typeof nested === "object") {
     const r = nested as Record<string, unknown>;
-    const h = r.txHash ?? r.transactionHash;
+    const h = r.txHash ?? r.transactionHash ?? r.transaction;
     if (typeof h === "string" && h.startsWith("0x")) return h;
   }
   const data = raw.data;
   if (data && typeof data === "object") {
     const d = data as Record<string, unknown>;
-    const h = d.txHash ?? d.transactionHash;
+    const h = d.txHash ?? d.transactionHash ?? d.transaction;
     if (typeof h === "string" && h.startsWith("0x")) return h;
   }
   return "";
@@ -273,16 +306,16 @@ async function main() {
     );
   }
 
-  if (!STUB_MODE && !PAY_TO) {
-    console.error("[x402-provider] Set X402_PAY_TO (merchant payout wallet on Kite) when X402_PROVIDER_STUB=false.");
+  if (!STUB_MODE && !PAY_TO && Object.keys(DID_PAY_TO_MAP).length === 0) {
+    console.error(
+      "[x402-provider] Set X402_PAY_TO or X402_DID_PAY_TO_MAP_JSON (merchant payout wallets on Kite) when X402_PROVIDER_STUB=false.",
+    );
     process.exit(1);
   }
 
   if (!STUB_MODE && DEBUG_PAYMENT_SHAPE) {
     console.warn("[x402-provider] X402_DEBUG_PAYMENT_SHAPE=true — logs decoded payment shape metadata only.");
   }
-
-  const paymentRequirements = buildV2PaymentRequirements();
 
   const app = Fastify({ logger: true });
 
@@ -295,12 +328,13 @@ async function main() {
     const pathNorm = EXECUTE_PATH.startsWith("/") ? EXECUTE_PATH : `/${EXECUTE_PATH}`;
     const derivedUrl = `${proto}://${host}${pathNorm}`;
     const resourceUrl = PUBLIC_RESOURCE_URL || derivedUrl;
+    const paymentRequirements = buildV2PaymentRequirements(resolvePayTo(req.body));
 
     const rawHeader = req.headers["x-payment"] ?? req.headers["payment-signature"];
     const paymentHeader = typeof rawHeader === "string" ? rawHeader.trim() : "";
 
     if (!paymentHeader) {
-      return reply.code(402).send(challenge(resourceUrl));
+      return reply.code(402).send(challenge(resourceUrl, paymentRequirements));
     }
 
     if (STUB_MODE) {

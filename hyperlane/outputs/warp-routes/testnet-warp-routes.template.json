@@ -2,40 +2,40 @@
   "schemaVersion": 1,
   "updatedAt": "",
   "routes": {
-    "USDT/kitetestnet-basesepolia": {
+    "PIEUSD/kitetestnet-basesepolia": {
       "origin": "kitetestnet",
       "destination": "basesepolia",
       "originRouter": "0xb0f59799fF2e5a2957185C84fD960a76E0A3c2Cc",
       "destinationRouter": "0x2eD22aA87C87E4B0139552d50CB5B049E369C295",
-      "collateralToken": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
-      "symbol": "USDT",
+      "collateralToken": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
+      "symbol": "PIEUSD",
       "status": "deployed"
     },
-    "USDT/kitetestnet-sepolia": {
+    "PIEUSD/kitetestnet-sepolia": {
       "origin": "kitetestnet",
       "destination": "sepolia",
       "originRouter": "0x6d67f572a72A1E4CDdDE3F4696E1e7550Ff6d5F1",
       "destinationRouter": "0x9EC2e54cE40cb44D8986cbDDDB7B728272255C1A",
-      "collateralToken": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
-      "symbol": "USDT",
+      "collateralToken": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
+      "symbol": "PIEUSD",
       "status": "deployed"
     },
-    "USDT/kitetestnet-arbitrumsepolia": {
+    "PIEUSD/kitetestnet-arbitrumsepolia": {
       "origin": "kitetestnet",
       "destination": "arbitrumsepolia",
       "originRouter": "0x2AA2a1264a5a19f7d14Bf8a806f1fdaa12F3E226",
       "destinationRouter": "0xE3CcD4ec6E62b84Aeb4Db49FC50a2Ce9C11D2153",
-      "collateralToken": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
-      "symbol": "USDT",
+      "collateralToken": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
+      "symbol": "PIEUSD",
       "status": "deployed"
     },
-    "USDT/kitetestnet-optimismsepolia": {
+    "PIEUSD/kitetestnet-optimismsepolia": {
       "origin": "kitetestnet",
       "destination": "optimismsepolia",
       "originRouter": "0x755f38E41c4896239b1f43858d302ea3a265bd5c",
       "destinationRouter": "0xdD416C32ebA6066c273d5083b1ACa227046Bb5c9",
-      "collateralToken": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
-      "symbol": "USDT",
+      "collateralToken": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
+      "symbol": "PIEUSD",
       "status": "deployed"
     }
   }

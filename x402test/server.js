@@ -32,8 +32,8 @@ const PORT = 3000;
 
 // Your server's wallet — payments land here after the facilitator settles
 const PAY_TO_ADDRESS    = "0x5732e1bccAEB161E3B93D126010042B0F1b9CFC9"; // replace with yours
-const USDC_TOKEN        = "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63"; // Kite testnet USDC
-const PRICE_IN_WEI      = "10000000000000000";                           // 0.01 USDC
+const PIEUSD_TOKEN      = "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A"; // Kite testnet PIEUSD
+const PRICE_IN_WEI      = "100000000000000000";                          // 0.1 PIEUSD
 const FACILITATOR_URL   = "https://facilitator.pieverse.io";
 const SERVER_PUBLIC_URL = `https://459d-103-98-63-34.ngrok-free.app`;
 
@@ -66,7 +66,7 @@ function make402Body() {
       },
       payTo:             PAY_TO_ADDRESS,
       maxTimeoutSeconds: 300,
-      asset:             USDC_TOKEN,
+      asset:             PIEUSD_TOKEN,
       extra:             null,
       merchantName:      "Hello World Service",
     }],
@@ -183,7 +183,7 @@ app.get("/", (req, res) => {
     status:    "x402 Hello World Server running",
     endpoints: { protected: "/hello", debug: "/hello-debug" },
     payTo:     PAY_TO_ADDRESS,
-    price:     `${PRICE_IN_WEI} wei (0.01 USDC)`,
+    price:     `${PRICE_IN_WEI} wei (0.1 PIEUSD)`,
     scheme:    "gokite-aa",
   });
 });
@@ -195,7 +195,7 @@ app.listen(PORT, () => {
   console.log(`   Debug endpoint     : GET /hello-debug`);
   console.log(`   Scheme             : gokite-aa (Kite Passport agent wallet)`);
   console.log(`   payTo              : ${PAY_TO_ADDRESS}`);
-  console.log(`   price              : ${PRICE_IN_WEI} wei (0.01 USDC)\n`);
+  console.log(`   price              : ${PRICE_IN_WEI} wei (0.1 PIEUSD)\n`);
   console.log(`   ℹ️  Test with:`);
   console.log(`   kpass agent:session execute --url http://localhost:3000/hello --method GET --output json\n`);
 });

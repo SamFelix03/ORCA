@@ -583,7 +583,7 @@ From Goldsky dashboard
 APRO_ORACLE_KITE
 From APRO deployment on Kite mainnet
 SETTLEMENT_TOKEN
-0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63 (testnet USDC)
+0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A (testnet USDC)
 POSTGRES_URL
 postgresql://orca:pass@localhost:5432/orca
 REDIS_URL
@@ -1032,7 +1032,7 @@ https://testnet.kitescan.ai
 Kite Testnet Faucet
 https://faucet.gokite.ai
 Settlement Token (USDC testnet)
-0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63
+0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A
 Settlement Contract
 0x8d9FaD78d5Ce247aA01C140798B9558fd64a63E3
 ClientAgentVault Implementation

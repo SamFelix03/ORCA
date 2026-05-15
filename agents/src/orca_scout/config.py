@@ -21,7 +21,7 @@ class ScoutConfig(BaseSettings):
     min_net_delta_apy: Decimal = Field(default=Decimal("0.50"), alias="SCOUT_MIN_NET_DELTA_APY")
     default_suggested_amount: int = Field(default=10_000, alias="SCOUT_DEFAULT_SUGGESTED_AMOUNT")
     max_suggested_amount: int = Field(default=50_000, alias="SCOUT_MAX_SUGGESTED_AMOUNT")
-    settlement_asset_symbol: str = Field(default="USDT", alias="SCOUT_SETTLEMENT_ASSET_SYMBOL")
+    settlement_asset_symbol: str = Field(default="PIEUSD", alias="SCOUT_SETTLEMENT_ASSET_SYMBOL")
     scout_allowed_route_pairs: str = Field(
         default="2368:11155111,2368:421614,2368:11155420,2368:84532",
         alias="SCOUT_ALLOWED_ROUTE_PAIRS",
@@ -65,6 +65,13 @@ class ScoutConfig(BaseSettings):
     x402_api_key: str = Field(default="", alias="X402_API_KEY")
     x402_asset_address: str = Field(alias="X402_ASSET_ADDRESS")
     x402_network: str = Field(default="kite-testnet", alias="X402_NETWORK")
+    x402_execution_mode: Literal["passport", "direct"] = Field(default="direct", alias="X402_EXECUTION_MODE")
+    x402_facilitator_address: str = Field(
+        default="0x12343e649e6b2b2b77649DFAb88f103c02F3C78b",
+        alias="X402_FACILITATOR_ADDRESS",
+    )
+    x402_token_name_fallback: str = Field(default="pieUSD", alias="X402_TOKEN_NAME_FALLBACK")
+    x402_token_version_fallback: str = Field(default="1", alias="X402_TOKEN_VERSION_FALLBACK")
     x402_max_amount_required_wei: int = Field(default=1_000_000, alias="X402_MAX_AMOUNT_REQUIRED_WEI")
     x402_dry_run: bool = Field(
         default=False,
@@ -87,6 +94,7 @@ class ScoutConfig(BaseSettings):
     scout_require_registry: bool = Field(default=False, alias="SCOUT_REQUIRE_REGISTRY")
 
     passport_cli_bin: str = Field(default="kpass", alias="PASSPORT_CLI_BIN")
+    kite_passport_base_url: str = Field(default="", alias="KITE_PASSPORT_BASE_URL")
     passport_session_task_summary: str = Field(
         default="ORCA Scout signal micropayments and service discovery",
         alias="PASSPORT_SESSION_TASK_SUMMARY",
@@ -94,7 +102,7 @@ class ScoutConfig(BaseSettings):
     passport_session_max_per_tx: int = Field(default=2, alias="PASSPORT_SESSION_MAX_PER_TX")
     passport_session_max_total: int = Field(default=100, alias="PASSPORT_SESSION_MAX_TOTAL")
     passport_session_ttl: str = Field(default="24h", alias="PASSPORT_SESSION_TTL")
-    passport_session_assets: str = Field(default="USDT", alias="PASSPORT_SESSION_ASSETS")
+    passport_session_assets: str = Field(default="PIEUSD", alias="PASSPORT_SESSION_ASSETS")
 
     signal_domain_name: str = Field(default="ORCA Scout Signal", alias="SCOUT_SIGNAL_DOMAIN_NAME")
     signal_domain_version: str = Field(default="1", alias="SCOUT_SIGNAL_DOMAIN_VERSION")
@@ -160,7 +168,14 @@ class ScoutConfig(BaseSettings):
             raise ValueError("SCOUT_PRIVATE_KEY must be 0x-prefixed 32-byte hex")
         return value
 
-    @field_validator("poai_contract_address", "x402_asset_address", "client_agent_vault_address", "orca_oapp_address", "orca_registry_address")
+    @field_validator(
+        "poai_contract_address",
+        "x402_asset_address",
+        "x402_facilitator_address",
+        "client_agent_vault_address",
+        "orca_oapp_address",
+        "orca_registry_address",
+    )
     @classmethod
     def _validate_optional_address(cls, value: str) -> str:
         value = value.strip()

@@ -7,14 +7,19 @@ from typing import Any
 
 
 class PassportCLI:
-    def __init__(self, kpass_bin: str, timeout_seconds: int = 30) -> None:
+    def __init__(self, kpass_bin: str, timeout_seconds: int = 30, base_url: str = "") -> None:
         self._kpass_bin = kpass_bin
         self._timeout_seconds = timeout_seconds
+        self._base_url = base_url.strip()
 
     def _run(self, args: list[str]) -> dict[str, Any]:
+        command = [self._kpass_bin, *args]
+        if self._base_url:
+            command.extend(["--base-url", self._base_url])
+        command.extend(["--output", "json", "--no-interactive"])
         try:
             completed = subprocess.run(
-                [self._kpass_bin, *args, "--output", "json", "--no-interactive"],
+                command,
                 check=True,
                 capture_output=True,
                 text=True,

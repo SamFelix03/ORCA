@@ -407,7 +407,7 @@ HYP_MAILBOX_KITE	0x0d5b681C5887617d68200B45F3947c99Cf402188
 HYP_DOMAIN_KITE	2368
 GOLDSKY_PROJECT_ID	From Goldsky dashboard
 APRO_ORACLE_KITE	From APRO deployment on Kite mainnet
-SETTLEMENT_TOKEN	0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63 (testnet USDC)
+SETTLEMENT_TOKEN	0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A (testnet USDC)
 POSTGRES_URL	postgresql://orca:pass@localhost:5432/orca
 REDIS_URL	redis://localhost:6379
 
@@ -622,7 +622,7 @@ Kite Testnet Chain ID	2368
 Kite Testnet RPC	https://rpc-testnet.gokite.ai
 Kite Testnet Explorer	https://testnet.kitescan.ai
 Kite Testnet Faucet	https://faucet.gokite.ai
-Settlement Token (USDC testnet)	0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63
+Settlement Token (USDC testnet)	0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A
 Settlement Contract	0x8d9FaD78d5Ce247aA01C140798B9558fd64a63E3
 ClientAgentVault Implementation	0xB5AAFCC6DD4DFc2B80fb8BCcf406E1a2Fd559e23
 Bundler RPC	https://bundler-service.staging.gokite.ai/rpc/

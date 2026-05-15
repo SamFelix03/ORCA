@@ -3,9 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 import subprocess
-from typing import Any
+from typing import Any, Literal
 
 from tenacity import retry, stop_after_attempt, wait_exponential
+
+from orca_scout.integrations.x402_direct_execute import X402DirectExecutor
 
 
 class X402Client:
@@ -17,12 +19,35 @@ class X402Client:
         timeout_seconds: float = 30.0,
         *,
         dry_run: bool = False,
+        passport_base_url: str = "",
+        execution_mode: Literal["passport", "direct"] = "passport",
+        signer_private_key: str = "",
+        facilitator_address: str = "0x12343e649e6b2b2b77649DFAb88f103c02F3C78b",
+        rpc_url: str = "",
+        chain_id: int = 2368,
+        token_name_fallback: str = "pieUSD",
+        token_version_fallback: str = "1",
     ) -> None:
         self._service_url = service_url.rstrip("/")
         self._execute_path = execute_path
         self._kpass_bin = kpass_bin
         self._timeout_seconds = timeout_seconds
         self._dry_run = dry_run
+        self._passport_base_url = passport_base_url.strip()
+        self._execution_mode = execution_mode
+        self._direct_executor: X402DirectExecutor | None = None
+        if self._execution_mode == "direct":
+            if not signer_private_key.strip():
+                raise RuntimeError("X402 direct mode requires signer private key")
+            self._direct_executor = X402DirectExecutor(
+                rpc_url=rpc_url,
+                chain_id=chain_id,
+                signer_private_key=signer_private_key,
+                facilitator_address=facilitator_address,
+                token_name_fallback=token_name_fallback,
+                token_version_fallback=token_version_fallback,
+                timeout_seconds=timeout_seconds,
+            )
 
     def _build_resource_url(self) -> str:
         if not self._service_url:
@@ -42,6 +67,8 @@ class X402Client:
             "agent:session",
             "execute",
         ]
+        if self._passport_base_url:
+            command.extend(["--base-url", self._passport_base_url])
         resource_url = self._build_resource_url()
         if not resource_url:
             raise RuntimeError(
@@ -103,7 +130,15 @@ class X402Client:
         return ""
 
     async def _execute_paid_request(self, payload: dict[str, Any]) -> dict[str, Any]:
-        raw = await asyncio.to_thread(self._run_execute, payload)
+        if self._execution_mode == "direct":
+            resource_url = self._build_resource_url()
+            if not resource_url:
+                raise RuntimeError("X402_SERVICE_URL is required for direct x402 mode.")
+            if self._direct_executor is None:
+                raise RuntimeError("Direct x402 executor was not initialized.")
+            raw = await self._direct_executor.execute(resource_url=resource_url, payload=payload)
+        else:
+            raw = await asyncio.to_thread(self._run_execute, payload)
         tx_hash = self._extract_tx_hash(raw)
         if not tx_hash:
             raise RuntimeError("x402 execute response missing txHash; strict mode requires payment transaction hash")
@@ -133,4 +168,6 @@ class X402Client:
         return await self._execute_paid_request(payload)
 
     async def close(self) -> None:
+        if self._direct_executor is not None:
+            await self._direct_executor.close()
         return None

@@ -18,7 +18,7 @@
     "basesepolia": "0x68e89453029DC14351bF72104dC30248BB766b69"
   },
   "routes": {
-    "USDT/kitetestnet-sepolia": {
+    "PIEUSD/kitetestnet-sepolia": {
       "origin": "kitetestnet",
       "destination": "sepolia",
       "originDomain": 2368,
@@ -29,9 +29,9 @@
       "destinationRouter": "0x9EC2e54cE40cb44D8986cbDDDB7B728272255C1A",
       "originRouterBytes32": "0x0000000000000000000000006d67f572a72a1e4cddde3f4696e1e7550ff6d5f1",
       "destinationRouterBytes32": "0x0000000000000000000000009ec2e54ce40cb44d8986cbdddb7b728272255c1a",
-      "token": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63"
+      "token": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A"
     },
-    "USDT/kitetestnet-arbitrumsepolia": {
+    "PIEUSD/kitetestnet-arbitrumsepolia": {
       "origin": "kitetestnet",
       "destination": "arbitrumsepolia",
       "originDomain": 2368,
@@ -42,9 +42,9 @@
       "destinationRouter": "0xE3CcD4ec6E62b84Aeb4Db49FC50a2Ce9C11D2153",
       "originRouterBytes32": "0x0000000000000000000000002aa2a1264a5a19f7d14bf8a806f1fdaa12f3e226",
       "destinationRouterBytes32": "0x000000000000000000000000e3ccd4ec6e62b84aeb4db49fc50a2ce9c11d2153",
-      "token": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63"
+      "token": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A"
     },
-    "USDT/kitetestnet-optimismsepolia": {
+    "PIEUSD/kitetestnet-optimismsepolia": {
       "origin": "kitetestnet",
       "destination": "optimismsepolia",
       "originDomain": 2368,
@@ -55,9 +55,9 @@
       "destinationRouter": "0xdD416C32ebA6066c273d5083b1ACa227046Bb5c9",
       "originRouterBytes32": "0x000000000000000000000000755f38e41c4896239b1f43858d302ea3a265bd5c",
       "destinationRouterBytes32": "0x000000000000000000000000dd416c32eba6066c273d5083b1aca227046bb5c9",
-      "token": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63"
+      "token": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A"
     },
-    "USDT/kitetestnet-basesepolia": {
+    "PIEUSD/kitetestnet-basesepolia": {
       "origin": "kitetestnet",
       "destination": "basesepolia",
       "originDomain": 2368,
@@ -68,7 +68,7 @@
       "destinationRouter": "0x2eD22aA87C87E4B0139552d50CB5B049E369C295",
       "originRouterBytes32": "0x000000000000000000000000b0f59799ff2e5a2957185c84fd960a76e0a3c2cc",
       "destinationRouterBytes32": "0x0000000000000000000000002ed22aa87c87e4b0139552d50cb5b049e369c295",
-      "token": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63"
+      "token": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A"
     }
   },
   "env": {

@@ -1,2 +1,5 @@
 [console_scripts]
+orca-audit = orca_audit.main:main
+orca-executor = orca_executor.main:main
+orca-risk = orca_risk.main:main
 orca-scout = orca_scout.main:main

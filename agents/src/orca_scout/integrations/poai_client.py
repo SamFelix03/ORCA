@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from web3 import Web3
 from web3.contract import Contract
 
@@ -37,10 +39,15 @@ class PoAIClient:
         self._w3 = Web3(Web3.HTTPProvider(rpc_url))
         self._chain_id = chain_id
         self._signer = self._w3.eth.account.from_key(signer_private_key)
+        self._dry_run = (os.getenv("POAI_DRY_RUN", "false").strip().lower() == "true")
         self._contract: Contract = self._w3.eth.contract(address=Web3.to_checksum_address(contract_address), abi=POAI_ABI)
 
     def record_signal_action(self, epoch_id: int, record: PoAIRecord) -> str:
-        nonce = self._w3.eth.get_transaction_count(self._signer.address)
+        if self._dry_run:
+            return "0x" + "2" * 64
+        # Use pending nonce so back-to-back records (e.g., SIGNAL then RISK_EVAL)
+        # don't collide with still-pending txs and trigger replacement errors.
+        nonce = self._w3.eth.get_transaction_count(self._signer.address, "pending")
         tx = self._contract.functions.recordAction(
             epoch_id,
             (

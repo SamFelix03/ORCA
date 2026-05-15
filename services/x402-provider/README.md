@@ -35,7 +35,7 @@ Copy `.env.example` to `.env` in this folder and edit.
 |----------|---------|
 | `PUBLIC_RESOURCE_URL` | Exact URL `kpass` POSTs to (must match `X402_SERVICE_URL` + path). |
 | `X402_PAY_TO` | Merchant payout address (required when `X402_PROVIDER_STUB=false`). |
-| `X402_ASSET_ADDRESS` | Kite testnet token (`0x0fF5…063` default). |
+| `X402_ASSET_ADDRESS` | Kite testnet token (`0x3812…621A` PIEUSD test token default). |
 | `X402_MAX_AMOUNT_REQUIRED_WEI` | Max amount in token atomic units (`amount` in facilitator terms). |
 | `X402_CAIP_NETWORK` | CAIP-2 id for Pieverse `exact` (default **`eip155:2368`** if unset). |
 | `KITE_CHAIN_ID` | If set (e.g. `2368`), builds `eip155:<id>` when `X402_CAIP_NETWORK` unset. |

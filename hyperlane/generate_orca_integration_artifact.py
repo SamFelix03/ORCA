@@ -52,7 +52,7 @@ def snapshot_is_usable(snapshot: dict[str, Any], destinations: list[str]) -> boo
             entry = snapshot["chains"][chain]
             if not entry["addresses"].get("mailbox"):
                 return False
-        route_ids = [f"USDT/{hub}-{dest}" for dest in destinations]
+        route_ids = [f"PIEUSD/{hub}-{dest}" for dest in destinations]
         for route_id in route_ids:
             pick_token_route(snapshot, route_id)
     except Exception:
@@ -89,7 +89,7 @@ def main() -> None:
     destinations = ["sepolia", "arbitrumsepolia", "optimismsepolia", "basesepolia"]
     snap_file = resolve_snapshot_file(snapshots_dir, destinations)
     snapshot = json.loads(snap_file.read_text(encoding="utf-8"))
-    route_ids = [f"USDT/{kite}-{dest}" for dest in destinations]
+    route_ids = [f"PIEUSD/{kite}-{dest}" for dest in destinations]
 
     domain_by_chain: dict[str, int] = {}
     mailbox_by_chain: dict[str, str] = {}

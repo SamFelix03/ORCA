@@ -39,6 +39,8 @@ Do **not** append API-only variables (`DATABASE_URL`, `JWT_SECRET`, `WEBHOOK_SEC
 - Optional Groq LLM selector (`SCOUT_LLM_ENABLED`, `GROQ_*`) for final opportunity selection
 - Passport CLI + session policy (`PASSPORT_*`)
 - x402 config (`X402_*`; run `pnpm dev:x402-provider` for a local `/execute` URL, or `X402_DRY_RUN=true` without HTTP — see `services/x402-provider/README.md`)
+  - `X402_EXECUTION_MODE=direct` uses the ORCA direct executor utility and skips Passport discovery allowlisting for internal micropayment rails.
+  - `X402_EXECUTION_MODE=passport` keeps `kpass agent:session execute` behavior.
 - Kite chain + PoAI contract (`KITE_*`, `POAI_CONTRACT_ADDRESS`)
 - Allowed Hyperlane route pairs (`SCOUT_ALLOWED_ROUTE_PAIRS`)
 - Optional route auto-load artifact (`SCOUT_ROUTES_ARTIFACT_PATH`)

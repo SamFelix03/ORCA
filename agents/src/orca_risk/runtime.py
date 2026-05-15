@@ -26,10 +26,18 @@ class RiskRuntime:
             execute_path=config.x402_execute_path,
             kpass_bin=config.passport_cli_bin,
             dry_run=config.x402_dry_run,
+            passport_base_url=config.kite_passport_base_url,
+            execution_mode=config.x402_execution_mode,
+            signer_private_key=config.risk_private_key,
+            facilitator_address=config.x402_facilitator_address,
+            rpc_url=config.kite_rpc_url,
+            chain_id=config.kite_chain_id,
+            token_name_fallback=config.x402_token_name_fallback,
+            token_version_fallback=config.x402_token_version_fallback,
         )
         if config.x402_dry_run:
             self._logger.warning("X402_DRY_RUN=true: Risk micropayments are simulated.")
-        self._passport = PassportCLI(config.passport_cli_bin)
+        self._passport = PassportCLI(config.passport_cli_bin, base_url=config.kite_passport_base_url)
         self._signer = DIDMessageSigner(
             did=config.risk_did,
             private_key=config.risk_private_key,
@@ -84,11 +92,11 @@ class RiskRuntime:
 
     async def _ensure_passport_session(self) -> None:
         self._passport.ensure_active_session(
-            task_summary="ORCA Risk instruction micropayments",
-            max_per_tx=2,
-            max_total=100,
-            ttl="24h",
-            assets="USDC",
+            task_summary=self._config.passport_session_task_summary,
+            max_per_tx=self._config.passport_session_max_per_tx,
+            max_total=self._config.passport_session_max_total,
+            ttl=self._config.passport_session_ttl,
+            assets=self._config.passport_session_assets,
         )
 
     async def _handle_signal_event(self, payload: dict[str, object]) -> None:

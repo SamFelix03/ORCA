@@ -68,10 +68,10 @@ hyperlane registry agent-config --chains kitetestnet sepolia arbitrumsepolia opt
 
 Deploy one route per destination:
 
-- `USDT/kitetestnet-sepolia` (already done)
-- `USDT/kitetestnet-arbitrumsepolia`
-- `USDT/kitetestnet-optimismsepolia`
-- `USDT/kitetestnet-fuji`
+- `PIEUSD/kitetestnet-sepolia` (already done)
+- `PIEUSD/kitetestnet-arbitrumsepolia`
+- `PIEUSD/kitetestnet-optimismsepolia`
+- `PIEUSD/kitetestnet-fuji`
 
 For each route:
 

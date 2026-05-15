@@ -273,7 +273,7 @@
           {
             "addressOrDenom": "0xb0f59799fF2e5a2957185C84fD960a76E0A3c2Cc",
             "chainName": "kitetestnet",
-            "collateralAddressOrDenom": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+            "collateralAddressOrDenom": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
             "connections": [
               {
                 "token": "ethereum|basesepolia|0x2eD22aA87C87E4B0139552d50CB5B049E369C295"
@@ -282,7 +282,7 @@
             "decimals": 18,
             "name": "Test USD",
             "standard": "EvmHypCollateral",
-            "symbol": "USDT"
+            "symbol": "PIEUSD"
           },
           {
             "addressOrDenom": "0x2eD22aA87C87E4B0139552d50CB5B049E369C295",
@@ -295,7 +295,7 @@
             "decimals": 18,
             "name": "Test USD",
             "standard": "EvmHypSynthetic",
-            "symbol": "USDT"
+            "symbol": "PIEUSD"
           }
         ]
       },
@@ -319,18 +319,18 @@
             "address": "0x2c1f31d27645be47E0907D2eAa6A4f36F045BaE0",
             "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844"
           },
-          "token": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+          "token": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
           "type": "collateral"
         }
       }
     },
-    "USDT": {
+    "PIEUSD": {
       "kitetestnet-arbitrumsepolia-config.yaml": {
         "tokens": [
           {
             "addressOrDenom": "0x2AA2a1264a5a19f7d14Bf8a806f1fdaa12F3E226",
             "chainName": "kitetestnet",
-            "collateralAddressOrDenom": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+            "collateralAddressOrDenom": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
             "connections": [
               {
                 "token": "ethereum|arbitrumsepolia|0xE3CcD4ec6E62b84Aeb4Db49FC50a2Ce9C11D2153"
@@ -339,7 +339,7 @@
             "decimals": 18,
             "name": "Test USD",
             "standard": "EvmHypCollateral",
-            "symbol": "USDT"
+            "symbol": "PIEUSD"
           },
           {
             "addressOrDenom": "0xE3CcD4ec6E62b84Aeb4Db49FC50a2Ce9C11D2153",
@@ -352,7 +352,7 @@
             "decimals": 18,
             "name": "Test USD",
             "standard": "EvmHypSynthetic",
-            "symbol": "USDT"
+            "symbol": "PIEUSD"
           }
         ]
       },
@@ -374,7 +374,7 @@
             "address": "0x2c1f31d27645be47E0907D2eAa6A4f36F045BaE0",
             "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844"
           },
-          "token": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+          "token": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
           "type": "collateral"
         }
       },
@@ -383,7 +383,7 @@
           {
             "addressOrDenom": "0x755f38E41c4896239b1f43858d302ea3a265bd5c",
             "chainName": "kitetestnet",
-            "collateralAddressOrDenom": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+            "collateralAddressOrDenom": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
             "connections": [
               {
                 "token": "ethereum|optimismsepolia|0xdD416C32ebA6066c273d5083b1ACa227046Bb5c9"
@@ -392,7 +392,7 @@
             "decimals": 18,
             "name": "Test USD",
             "standard": "EvmHypCollateral",
-            "symbol": "USDT"
+            "symbol": "PIEUSD"
           },
           {
             "addressOrDenom": "0xdD416C32ebA6066c273d5083b1ACa227046Bb5c9",
@@ -405,7 +405,7 @@
             "decimals": 18,
             "name": "Test USD",
             "standard": "EvmHypSynthetic",
-            "symbol": "USDT"
+            "symbol": "PIEUSD"
           }
         ]
       },
@@ -417,7 +417,7 @@
             "address": "0x2c1f31d27645be47E0907D2eAa6A4f36F045BaE0",
             "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844"
           },
-          "token": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+          "token": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
           "type": "collateral"
         },
         "optimismsepolia": {
@@ -436,7 +436,7 @@
           {
             "addressOrDenom": "0x6d67f572a72A1E4CDdDE3F4696E1e7550Ff6d5F1",
             "chainName": "kitetestnet",
-            "collateralAddressOrDenom": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+            "collateralAddressOrDenom": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
             "connections": [
               {
                 "token": "ethereum|sepolia|0x9EC2e54cE40cb44D8986cbDDDB7B728272255C1A"
@@ -445,7 +445,7 @@
             "decimals": 18,
             "name": "Test USD",
             "standard": "EvmHypCollateral",
-            "symbol": "USDT"
+            "symbol": "PIEUSD"
           },
           {
             "addressOrDenom": "0x9EC2e54cE40cb44D8986cbDDDB7B728272255C1A",
@@ -458,7 +458,7 @@
             "decimals": 18,
             "name": "Test USD",
             "standard": "EvmHypSynthetic",
-            "symbol": "USDT"
+            "symbol": "PIEUSD"
           }
         ]
       },
@@ -470,7 +470,7 @@
             "address": "0x2c1f31d27645be47E0907D2eAa6A4f36F045BaE0",
             "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844"
           },
-          "token": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+          "token": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
           "type": "collateral"
         },
         "sepolia": {

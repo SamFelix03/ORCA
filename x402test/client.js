@@ -21,7 +21,7 @@ const { ethers } = require("ethers");
 
 const SERVER_URL          = "http://localhost:3000/hello";
 const KITE_TESTNET_RPC    = "https://rpc-testnet.gokite.ai";
-const USDC_ADDRESS        = "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63";
+const PIEUSD_ADDRESS      = "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A";
 const FACILITATOR_ADDRESS = "0x12343e649e6b2b2b77649DFAb88f103c02F3C78b";
 
 // ⚠️  Testnet dummy key — local testing only.
@@ -78,10 +78,10 @@ async function main() {
   // ── STEP 2: Sign EIP-3009 transferWithAuthorization ─────────────────────
   console.log("\n🔏 Step 2 — Signing EIP-3009 authorization...");
 
-  const usdc = new ethers.Contract(USDC_ADDRESS, EIP3009_ABI, provider);
+  const pieusd = new ethers.Contract(PIEUSD_ADDRESS, EIP3009_ABI, provider);
   const [tokenName, tokenVersion] = await Promise.all([
-    usdc.name(),
-    usdc.version().catch(() => "1"),
+    pieusd.name(),
+    pieusd.version().catch(() => "1"),
   ]);
   const { chainId } = await provider.getNetwork();
 
@@ -99,7 +99,7 @@ async function main() {
     name:              tokenName,
     version:           tokenVersion,
     chainId:           Number(chainId),
-    verifyingContract: USDC_ADDRESS,
+    verifyingContract: PIEUSD_ADDRESS,
   };
 
   const authMessage = {
