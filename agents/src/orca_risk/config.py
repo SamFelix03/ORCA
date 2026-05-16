@@ -46,6 +46,12 @@ class RiskConfig(BaseSettings):
     passport_session_ttl: str = Field(default="24h", alias="PASSPORT_SESSION_TTL")
     passport_session_assets: str = Field(default="PIEUSD", alias="PASSPORT_SESSION_ASSETS")
 
+    risk_scout_did_allowlist: str = Field(
+        default="",
+        alias="RISK_SCOUT_DID_ALLOWLIST",
+        description="Comma-separated scout DIDs; when non-empty, only these DIDs pass Risk after registry checks.",
+    )
+
     signal_domain_name: str = Field(default="ORCA Risk Instruction", alias="RISK_SIGNAL_DOMAIN_NAME")
     signal_domain_version: str = Field(default="1", alias="RISK_SIGNAL_DOMAIN_VERSION")
 

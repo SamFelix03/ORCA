@@ -16,4 +16,8 @@ export const config = {
   scoutEip712DomainName: process.env.SCOUT_EIP712_DOMAIN_NAME ?? "ORCA_BYO_SCOUT",
   /** ERC20 scouts must approve before registerPermissionlessScout (same token as registry immutable scoutStakeToken). */
   scoutStakeTokenAddress: process.env.SCOUT_STAKE_TOKEN_ADDRESS ?? "",
+  /** PIEUSD (or test PIEUSD) used for marketplace scout purchases on Kite. */
+  pieUsdAddress: process.env.PIEUSD_TOKEN_ADDRESS ?? "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
+  /** Expected transfer amount in base units (6 decimals → 1 USDC-like token = 1_000_000). */
+  pieUsdPurchasePriceWei: process.env.PIEUSD_PURCHASE_PRICE_WEI ?? "1000000",
 };

@@ -106,3 +106,16 @@ export async function waitForTxReceipt(
   }
   throw new Error(`Timed out waiting for receipt ${txHash}`);
 }
+
+export function encodeErc20Transfer(to: string, amountWei: bigint): string {
+  const iface = new Interface(["function transfer(address to,uint256 amount) returns (bool)"]);
+  return iface.encodeFunctionData("transfer", [getAddress(to), amountWei]);
+}
+
+export async function ensureWalletChain(eth: InjectedEthereum, chainId: number): Promise<void> {
+  const chainIdHex = `0x${BigInt(chainId).toString(16)}`;
+  await eth.request({
+    method: "wallet_switchEthereumChain",
+    params: [{ chainId: chainIdHex }],
+  });
+}

@@ -10,6 +10,8 @@ import {
   bondWeiFromUsdc,
   computeDidHashHex,
   encodeErc20Approve,
+  encodeErc20Transfer,
+  ensureWalletChain,
   getInjectedEthereum,
   readErc20Allowance,
   sendEvmTransaction,
@@ -28,6 +30,18 @@ export function MarketplacePage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [buyingId, setBuyingId] = useState<string | null>(null);
+  const [lastPurchase, setLastPurchase] = useState<{
+    marketplaceId: string;
+    scoutDid: string;
+    purchaseId: string;
+    bindingSecret: string;
+  } | null>(null);
+  const [bindPurchaseId, setBindPurchaseId] = useState("");
+  const [bindSecret, setBindSecret] = useState("");
+  const [bindRedisUrl, setBindRedisUrl] = useState("");
+  const [bindStreamKey, setBindStreamKey] = useState("");
+  const [bindBusy, setBindBusy] = useState(false);
 
   const loading = scouts.loading || payouts.loading;
 
@@ -129,6 +143,81 @@ export function MarketplacePage() {
     }
   }
 
+  async function buyScoutAccess(marketplaceId: string, scoutDid: string) {
+    setError(null);
+    setNotice(null);
+    const eth = getInjectedEthereum();
+    if (!eth) {
+      setError("No injected wallet found.");
+      return;
+    }
+    if (!account) {
+      setError("Connect a wallet first.");
+      return;
+    }
+    setBuyingId(marketplaceId);
+    try {
+      const quote = await orcaApi.scoutPurchaseQuote(marketplaceId);
+      await ensureWalletChain(eth, quote.chainId);
+      const amount = BigInt(quote.amountWei);
+      const transferData = encodeErc20Transfer(quote.recipient, amount);
+      setNotice(`Sending ${quote.amountWei} wei PIEUSD to listing owner…`);
+      const txHash = await sendEvmTransaction(eth, {
+        from: account,
+        to: quote.token,
+        data: transferData,
+      });
+      const rc = await waitForTxReceipt(eth, txHash);
+      if (rc.status !== "0x1") {
+        throw new Error("PIEUSD transfer failed.");
+      }
+      const { purchaseId, bindingSecret } = await orcaApi.scoutPurchaseConfirm(marketplaceId, {
+        buyerWallet: account,
+        txHash,
+      });
+      setLastPurchase({ marketplaceId, scoutDid, purchaseId, bindingSecret });
+      setBindPurchaseId(purchaseId);
+      setBindSecret(bindingSecret);
+      setNotice(
+        `Purchase confirmed. Share the binding secret only with the scout creator. Set RISK_SCOUT_DID_ALLOWLIST=${scoutDid} on your Risk agent.`,
+      );
+      await scouts.reload();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+    } finally {
+      setBuyingId(null);
+    }
+  }
+
+  async function submitBinding() {
+    setError(null);
+    setNotice(null);
+    if (!account) {
+      setError("Connect a wallet first.");
+      return;
+    }
+    if (!bindPurchaseId.trim() || !bindSecret.trim() || !bindRedisUrl.trim()) {
+      setError("purchaseId, binding secret, and redisUrl are required.");
+      return;
+    }
+    setBindBusy(true);
+    try {
+      await orcaApi.scoutPurchaseBinding(bindPurchaseId.trim(), {
+        buyerWallet: account,
+        redisUrl: bindRedisUrl.trim(),
+        scoutSignalStreamKey: bindStreamKey.trim() || undefined,
+        bindingSecret: bindSecret.trim(),
+      });
+      setNotice("Binding saved. The creator's Scout can now read this Redis URL from the API.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+    } finally {
+      setBindBusy(false);
+    }
+  }
+
   const totalPending = useMemo(
     () => (payouts.data?.payouts ?? []).filter((item) => item.status === "pending").reduce((acc, item) => acc + item.amountUsdc, 0),
     [payouts.data],
@@ -136,6 +225,8 @@ export function MarketplacePage() {
 
   return (
     <div className="space-y-4">
+      {error ? <p className="text-sm text-[rgb(var(--danger-11))]">{error}</p> : null}
+      {notice ? <p className="text-sm text-[rgb(var(--primary-11))]">{notice}</p> : null}
       <Card>
         <CardHeader>
           <CardTitle>Bring Your Own Scout</CardTitle>
@@ -162,8 +253,47 @@ export function MarketplacePage() {
             </Button>
           </div>
           {account ? <p className="font-mono text-xs text-[rgb(var(--primary-11))]">Connected: {account}</p> : null}
-          {notice ? <p className="text-sm text-[rgb(var(--primary-11))]">{notice}</p> : null}
-          {error ? <p className="text-sm text-[rgb(var(--danger-11))]">{error}</p> : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Bind purchase to your deployment</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-[rgb(var(--primary-11))]">
+            After you buy, paste the purchase id and binding secret, then the Redis URL your Risk agent uses (same instance as <span className="font-mono">REDIS_URL</span>
+            ). Optionally override the scout stream key (default <span className="font-mono">orca:signals:scout</span>).
+          </p>
+          <input
+            className="w-full rounded border px-2 py-1 font-mono text-sm"
+            value={bindPurchaseId}
+            onChange={(e) => setBindPurchaseId(e.target.value)}
+            placeholder="purchaseId (cid)"
+          />
+          <input
+            className="w-full rounded border px-2 py-1 font-mono text-sm"
+            value={bindSecret}
+            onChange={(e) => setBindSecret(e.target.value)}
+            placeholder="binding secret (hex)"
+            type="password"
+            autoComplete="off"
+          />
+          <input
+            className="w-full rounded border px-2 py-1 font-mono text-sm"
+            value={bindRedisUrl}
+            onChange={(e) => setBindRedisUrl(e.target.value)}
+            placeholder="redis://… or rediss://…"
+          />
+          <input
+            className="w-full rounded border px-2 py-1 font-mono text-sm"
+            value={bindStreamKey}
+            onChange={(e) => setBindStreamKey(e.target.value)}
+            placeholder="scout signal stream key (optional)"
+          />
+          <Button type="button" onClick={submitBinding} disabled={bindBusy || busy}>
+            {bindBusy ? "Saving…" : "Save binding"}
+          </Button>
         </CardContent>
       </Card>
 
@@ -181,6 +311,7 @@ export function MarketplacePage() {
                 <DataTh>Stake (USDC)</DataTh>
                 <DataTh>Reputation</DataTh>
                 <DataTh>Registration tx</DataTh>
+                <DataTh>Buy</DataTh>
               </tr>
             </DataThead>
             <tbody>
@@ -191,10 +322,28 @@ export function MarketplacePage() {
                   <DataTd>{scout.stakeUsdc}</DataTd>
                   <DataTd>{scout.reputationScore}</DataTd>
                   <DataTd className="max-w-[140px] truncate font-mono text-xs">{scout.registrationTxHash ?? "—"}</DataTd>
+                  <DataTd>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={busy || buyingId !== null || !account}
+                      onClick={() => buyScoutAccess(scout.id, scout.did)}
+                    >
+                      {buyingId === scout.id ? "Buying…" : "Buy (1 PIEUSD)"}
+                    </Button>
+                  </DataTd>
                 </tr>
               ))}
             </tbody>
           </DataTable>
+          {lastPurchase ? (
+            <div className="mt-4 space-y-1 rounded border border-[rgb(var(--primary-6))] bg-[rgb(var(--primary-2))] p-3 text-sm">
+              <p className="font-medium">Latest purchase</p>
+              <p className="break-all font-mono text-xs">purchaseId: {lastPurchase.purchaseId}</p>
+              <p className="break-all font-mono text-xs">bindingSecret: {lastPurchase.bindingSecret}</p>
+              <p className="text-xs text-[rgb(var(--primary-11))]">Copy these now; the API will not show the secret again.</p>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

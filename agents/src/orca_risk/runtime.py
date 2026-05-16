@@ -110,9 +110,17 @@ class RiskRuntime:
                 self._registry.is_active_agent_for_did_string,
                 signal.scout_did,
             )
-        approved = policy_ok and registry_ok
+        allow_raw = self._config.risk_scout_did_allowlist.strip()
+        if allow_raw:
+            allowed = {d.strip() for d in allow_raw.split(",") if d.strip()}
+            allowlist_ok = signal.scout_did.strip() in allowed
+        else:
+            allowlist_ok = True
+        approved = policy_ok and registry_ok and allowlist_ok
         if not registry_ok:
             reason = "Rejected: scout DID not active on ORCARegistry"
+        elif allow_raw and not allowlist_ok:
+            reason = "Rejected: scout DID not in RISK_SCOUT_DID_ALLOWLIST"
         elif not policy_ok:
             reason = "Rejected: non-positive delta"
         else:

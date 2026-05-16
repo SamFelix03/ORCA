@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
+import httpx
 from redis.asyncio import Redis
 
 from orca_common.registry_client import OrcaRegistryReader
@@ -34,8 +35,9 @@ class ScoutRuntime:
     def __init__(self, config: ScoutConfig) -> None:
         self._config = config
         self._logger = logging.getLogger("orca_scout.runtime")
-
+        
         self._redis = Redis.from_url(config.redis_url, decode_responses=False)
+        self._buyer_signal_redis: Redis | None = None
         if config.scout_market_data_provider == "hybrid":
             self._market_feed = DefiLlamaClient(
                 config.defillama_api_base_url,
@@ -151,19 +153,51 @@ class ScoutRuntime:
             config.signal_domain_name,
             config.signal_domain_version,
         )
-        self._broadcaster = SignalBroadcaster(
-            self._redis,
-            config.redis_stream_key,
-            self._x402,
-            config.risk_agent_did,
-            config.x402_network,
-            config.x402_asset_address,
-            config.x402_max_amount_required_wei,
-        )
+        self._broadcaster: SignalBroadcaster | None = None
+        self._signal_broadcast_stream_key = config.redis_stream_key
         self._registry_gate: OrcaRegistryReader | None = None
         if config.scout_require_registry:
             self._registry_gate = OrcaRegistryReader(config.kite_rpc_url, config.orca_registry_address)
         self._poai_reporter = PoAIReporter(self._poai, config.scout_epoch_id, self._signer.did_hash())
+
+    @staticmethod
+    def _subscriber_binding_config(cfg: ScoutConfig) -> bool:
+        return bool(cfg.scout_purchase_id.strip() and cfg.scout_binding_secret.strip() and cfg.orca_api_base_url.strip())
+
+    async def _poll_buyer_binding_until_ready(self) -> tuple[Redis, str]:
+        base = self._config.orca_api_base_url.rstrip("/")
+        url = f"{base}/scouts/purchases/{self._config.scout_purchase_id.strip()}/binding"
+        headers = {"X-Orca-Binding-Secret": self._config.scout_binding_secret.strip()}
+        delay = 1.0
+        self._logger.info("Subscriber mode: polling %s until buyer binds Redis…", url)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            while True:
+                response = await client.get(url, headers=headers)
+                if response.status_code == 404:
+                    self._logger.info(
+                        "Buyer binding not ready yet (HTTP 404); retrying in %.1fs.",
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                    delay = min(delay * 1.5, 60.0)
+                    continue
+                if response.status_code == 401:
+                    raise RuntimeError("Binding fetch rejected (401): missing X-Orca-Binding-Secret.")
+                if response.status_code == 403:
+                    raise RuntimeError("Binding fetch rejected (403): invalid SCOUT_BINDING_SECRET.")
+                response.raise_for_status()
+                payload = response.json()
+                redis_url = str(payload.get("redisUrl", "")).strip()
+                stream_key = str(payload.get("scoutSignalStreamKey", "") or self._config.redis_stream_key).strip()
+                if not redis_url:
+                    self._logger.warning("Binding response missing redisUrl; retrying in %.1fs.", delay)
+                    await asyncio.sleep(delay)
+                    delay = min(delay * 1.5, 60.0)
+                    continue
+                buyer_redis = Redis.from_url(redis_url, decode_responses=False)
+                self._buyer_signal_redis = buyer_redis
+                self._signal_broadcast_stream_key = stream_key
+                return buyer_redis, stream_key
 
     async def run_forever(self) -> None:
         self._logger.info("Starting Scout runtime loop.")
@@ -184,11 +218,34 @@ class ScoutRuntime:
         self._logger.info("Using Passport session: %s", session_id)
 
     async def _run_startup_preflight(self) -> None:
-        try:
-            await self._redis.ping()
-            self._logger.info("Redis preflight OK.")
-        except Exception as exc:  # noqa: BLE001
-            raise RuntimeError(f"Redis preflight failed: {exc}") from exc
+        if self._subscriber_binding_config(self._config):
+            broadcast_redis, stream_key = await self._poll_buyer_binding_until_ready()
+            try:
+                await broadcast_redis.ping()
+                self._logger.info("Buyer signal Redis preflight OK (stream %r).", stream_key)
+            except Exception as exc:  # noqa: BLE001
+                raise RuntimeError(f"Buyer signal Redis preflight failed: {exc}") from exc
+            try:
+                await self._redis.ping()
+                self._logger.info("Local Redis preflight OK.")
+            except Exception as exc:  # noqa: BLE001
+                raise RuntimeError(f"Local Redis preflight failed: {exc}") from exc
+        else:
+            try:
+                await self._redis.ping()
+                self._logger.info("Redis preflight OK.")
+            except Exception as exc:  # noqa: BLE001
+                raise RuntimeError(f"Redis preflight failed: {exc}") from exc
+
+        self._broadcaster = SignalBroadcaster(
+            self._buyer_signal_redis if self._buyer_signal_redis is not None else self._redis,
+            self._signal_broadcast_stream_key,
+            self._x402,
+            self._config.risk_agent_did,
+            self._config.x402_network,
+            self._config.x402_asset_address,
+            self._config.x402_max_amount_required_wei,
+        )
 
         try:
             self._passport.check_ready()
@@ -281,6 +338,8 @@ class ScoutRuntime:
                 )
                 return
         signal = self._signer.sign_opportunity(best, execution_intent=intent)
+        if self._broadcaster is None:
+            raise RuntimeError("SignalBroadcaster not initialized (startup preflight incomplete).")
         event_id, signal_hash = await self._broadcaster.broadcast(signal)
         poai_tx = await asyncio.to_thread(self._poai_reporter.report_signal, signal, signal_hash)
 
@@ -295,6 +354,8 @@ class ScoutRuntime:
 
     async def close(self) -> None:
         await self._redis.aclose()
+        if self._buyer_signal_redis is not None and self._buyer_signal_redis is not self._redis:
+            await self._buyer_signal_redis.aclose()
         close_feed = getattr(self._market_feed, "close", None)
         if close_feed is not None:
             await close_feed()

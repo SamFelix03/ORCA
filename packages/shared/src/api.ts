@@ -150,3 +150,34 @@ export interface ScoutRegistrationTxDataResponse {
 export interface ScoutRegistrationConfirmResponse {
   scout: ScoutMarketplaceRecord;
 }
+
+/** Quote for buying access to a marketplace-listed scout (direct ERC-20 transfer). */
+export interface ScoutPurchaseQuoteResponse {
+  token: string;
+  recipient: string;
+  amountWei: string;
+  chainId: number;
+}
+
+export interface ScoutPurchaseConfirmRequest {
+  buyerWallet: string;
+  txHash: string;
+}
+
+export interface ScoutPurchaseConfirmResponse {
+  purchaseId: string;
+  bindingSecret: string;
+}
+
+export interface ScoutPurchaseBindingRequest {
+  buyerWallet: string;
+  redisUrl: string;
+  scoutSignalStreamKey?: string;
+  bindingSecret: string;
+}
+
+/** Response for creator-run Scout polling buyer deployment binding. */
+export interface ScoutPurchaseBindingResponse {
+  redisUrl: string;
+  scoutSignalStreamKey: string;
+}

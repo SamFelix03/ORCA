@@ -95,6 +95,32 @@ orca-audit
 
 or `python -m orca_risk.main`, etc.
 
+## Marketplace purchase / creator-run Scout
+
+Buyers can **purchase** access to a marketplace-listed scout for a fixed **PIEUSD** price (default **1 PIEUSD** = `1_000_000` base units, configurable on the API). Payment is a direct **ERC-20 `transfer`** to the listing’s `ownerAddress`; the API verifies the tx and returns a **`purchaseId`** and one-time **`bindingSecret`**.
+
+| Role | Runs | Redis / streams | Notes |
+|------|------|-----------------|--------|
+| **Buyer** | Risk, Executor, Audit | Buyer’s `REDIS_URL`; Risk reads `SCOUT_REDIS_STREAM_KEY` / `RISK_INSTRUCTION_STREAM_KEY` | Set **`RISK_SCOUT_DID_ALLOWLIST`** to the **exact scout DID** from the listing so only that scout’s signals are approved. |
+| **Creator** | `orca-scout` | Creator’s own `REDIS_URL` (local preflight) + buyer’s Redis for **signal `XADD` only** when in subscriber mode | Uses the real **`SCOUT_DID`** / keys for that listing; Passport/x402 still on creator side for micropayments to Risk. |
+
+**Buyer (after purchase in the app):**
+
+1. Call **`PUT /scouts/purchases/:purchaseId/binding`** with `buyerWallet`, `redisUrl`, optional `scoutSignalStreamKey`, and `bindingSecret`.
+2. Set **`RISK_SCOUT_DID_ALLOWLIST=<listing DID>`** in Risk’s `.env`.
+
+**Creator (subscriber mode — all required together):**
+
+- `SCOUT_PURCHASE_ID` — id returned at purchase confirm.
+- `SCOUT_BINDING_SECRET` — share securely from buyer; sent as header **`X-Orca-Binding-Secret`** to the API (not query string).
+- `ORCA_API_BASE_URL` or **`SCOUT_BINDING_API_BASE`** — base URL of the ORCA API.
+
+The Scout **polls** `GET /scouts/purchases/:id/binding` until the buyer has stored a Redis URL, then uses **that** Redis client for **`SignalBroadcaster`** (`XADD` to the bound stream key, default `orca:signals:scout`). The creator’s `REDIS_URL` is still used for local preflight and any other scout-internal needs.
+
+**API env (operations):** `PIEUSD_TOKEN_ADDRESS`, optional `PIEUSD_PURCHASE_PRICE_WEI`, `KITE_RPC_URL` / `KITE_CHAIN_ID` for receipt verification.
+
+**Apply DB changes:** from `api/`, run `pnpm prisma:push` (or `prisma migrate dev`) so the **`ScoutPurchase`** table exists.
+
 ## Module Map
 
 - `SC-01`: `services/yield_scanner.py` + `integrations/lucid_client.py` / `integrations/goldsky_client.py`

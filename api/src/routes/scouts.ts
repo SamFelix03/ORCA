@@ -2,11 +2,15 @@ import type { FastifyInstance } from "fastify";
 import type {
   ScoutMarketplaceRecord,
   ScoutPayoutsResponse,
+  ScoutPurchaseBindingResponse,
+  ScoutPurchaseConfirmResponse,
+  ScoutPurchaseQuoteResponse,
   ScoutRegistrationChallengeResponse,
   ScoutRegistrationConfirmResponse,
   ScoutRegistrationTxDataResponse,
   ScoutsResponse,
 } from "@orca/shared";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { config } from "../config.js";
 import { listScoutPayouts, listScouts } from "../repositories/orca.js";
@@ -17,6 +21,12 @@ import {
   getRegisterPermissionlessCalldata,
   scoutRegistrationTypesForChallenge,
 } from "../repositories/scouts.js";
+import {
+  confirmPurchase,
+  getBindingForCreator,
+  getPurchaseQuote,
+  setPurchaseBinding,
+} from "../repositories/scoutPurchases.js";
 
 const attestSchema = z.object({
   domainName: z.string().min(1).optional(),
@@ -36,6 +46,18 @@ const attestSchema = z.object({
 const confirmSchema = z.object({
   marketplaceId: z.string().min(1),
   txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+});
+
+const purchaseConfirmBody = z.object({
+  buyerWallet: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+});
+
+const bindingBody = z.object({
+  buyerWallet: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  redisUrl: z.string().min(1),
+  scoutSignalStreamKey: z.string().min(1).optional(),
+  bindingSecret: z.string().min(16),
 });
 
 export async function registerScoutRoutes(app: FastifyInstance): Promise<void> {
@@ -117,4 +139,73 @@ export async function registerScoutRoutes(app: FastifyInstance): Promise<void> {
     const did = typeof request.query.did === "string" ? request.query.did : undefined;
     return { payouts: await listScoutPayouts(did) };
   });
+
+  app.get<{ Params: { marketplaceId: string } }>(
+    "/scouts/:marketplaceId/purchase-quote",
+    async (request): Promise<ScoutPurchaseQuoteResponse> => {
+      return getPurchaseQuote(request.params.marketplaceId);
+    },
+  );
+
+  app.post<{ Params: { marketplaceId: string } }>(
+    "/scouts/:marketplaceId/purchase/confirm",
+    async (request, reply): Promise<ScoutPurchaseConfirmResponse | void> => {
+      const parsed = purchaseConfirmBody.safeParse(request.body);
+      if (!parsed.success) {
+        throw new Error(`Invalid purchase confirm body: ${parsed.error.message}`);
+      }
+      try {
+        return await confirmPurchase(request.params.marketplaceId, parsed.data.buyerWallet, parsed.data.txHash);
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+          await reply.code(409).send({ error: "Purchase already recorded for this transaction or buyer/listing pair." });
+          return undefined as never;
+        }
+        throw err;
+      }
+    },
+  );
+
+  app.put<{ Params: { purchaseId: string } }>(
+    "/scouts/purchases/:purchaseId/binding",
+    async (request): Promise<{ ok: true }> => {
+      const parsed = bindingBody.safeParse(request.body);
+      if (!parsed.success) {
+        throw new Error(`Invalid binding body: ${parsed.error.message}`);
+      }
+      const b = parsed.data;
+      await setPurchaseBinding(
+        request.params.purchaseId,
+        b.buyerWallet,
+        b.bindingSecret,
+        b.redisUrl,
+        b.scoutSignalStreamKey,
+      );
+      return { ok: true };
+    },
+  );
+
+  app.get<{ Params: { purchaseId: string } }>(
+    "/scouts/purchases/:purchaseId/binding",
+    async (request, reply): Promise<ScoutPurchaseBindingResponse | void> => {
+      const secretHeader = request.headers["x-orca-binding-secret"];
+      const secret = typeof secretHeader === "string" ? secretHeader.trim() : "";
+      if (!secret) {
+        await reply.code(401).send({ error: "Missing X-Orca-Binding-Secret header." });
+        return;
+      }
+      let result: { redisUrl: string; scoutSignalStreamKey: string } | null;
+      try {
+        result = await getBindingForCreator(request.params.purchaseId, secret);
+      } catch {
+        await reply.code(403).send({ error: "Invalid binding secret." });
+        return;
+      }
+      if (!result) {
+        await reply.code(404).send({ error: "Binding not ready (buyer has not submitted Redis URL yet)." });
+        return;
+      }
+      return result;
+    },
+  );
 }

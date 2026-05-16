@@ -10,6 +10,9 @@ import type {
   PositionsResponse,
   ScoutMarketplaceRecord,
   ScoutPayoutsResponse,
+  ScoutPurchaseBindingRequest,
+  ScoutPurchaseConfirmResponse,
+  ScoutPurchaseQuoteResponse,
   ScoutRegistrationAttestRequest,
   ScoutRegistrationChallengeResponse,
   ScoutRegistrationConfirmResponse,
@@ -61,6 +64,18 @@ async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return parseJson<T>(response);
 }
 
+async function apiPut<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${ORCA_API_BASE_URL}${path}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  return parseJson<T>(response);
+}
+
 async function apiDelete<T>(path: string): Promise<T> {
   const response = await fetch(`${ORCA_API_BASE_URL}${path}`, {
     method: "DELETE",
@@ -96,6 +111,12 @@ export const orcaApi = {
     apiPost<ScoutRegistrationConfirmResponse>("/scouts/register/confirm", body),
   scoutPayouts: (did?: string) =>
     apiGet<ScoutPayoutsResponse>(did ? `/scouts/payouts?did=${encodeURIComponent(did)}` : "/scouts/payouts"),
+  scoutPurchaseQuote: (marketplaceId: string) =>
+    apiGet<ScoutPurchaseQuoteResponse>(`/scouts/${encodeURIComponent(marketplaceId)}/purchase-quote`),
+  scoutPurchaseConfirm: (marketplaceId: string, body: { buyerWallet: string; txHash: string }) =>
+    apiPost<ScoutPurchaseConfirmResponse>(`/scouts/${encodeURIComponent(marketplaceId)}/purchase/confirm`, body),
+  scoutPurchaseBinding: (purchaseId: string, body: ScoutPurchaseBindingRequest) =>
+    apiPut<{ ok: boolean }>(`/scouts/purchases/${encodeURIComponent(purchaseId)}/binding`, body),
   authNonce: (address: string) => apiPost<AuthNonceResponse>("/auth/nonce", { address }),
   authVerify: (body: { address: string; signature: string; nonce: string }) =>
     apiPost<AuthVerifyResponse>("/auth/verify", body),

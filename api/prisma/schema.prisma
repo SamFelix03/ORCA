@@ -185,6 +185,29 @@ model ScoutMarketplace {
   reputationScore      Decimal  @db.Decimal(20, 6) @default(0)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+  purchases            ScoutPurchase[]
+
+  @@index([ownerAddress])
+}
+
+model ScoutPurchase {
+  id                     String           @id @default(cuid())
+  scoutMarketplaceId     String
+  scoutMarketplace       ScoutMarketplace @relation(fields: [scoutMarketplaceId], references: [id], onDelete: Cascade)
+  buyerWallet            String
+  amountWei              String
+  paymentTxHash          String           @unique
+  chainId                Int              @default(2368)
+  bindingSecretHash      String
+  bindingSecretLast4     String           @default("")
+  redisUrl               String?
+  scoutSignalStreamKey   String?
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  @@unique([scoutMarketplaceId, buyerWallet])
+  @@index([scoutMarketplaceId])
+  @@index([buyerWallet])
 }
 
 model ScoutRegisterNonce {
