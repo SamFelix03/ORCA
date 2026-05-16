@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 from redis.asyncio import Redis
+from web3 import Web3
 
 from orca_common.events import ExecutionSettledEvent, RiskInstructionEvent
 from orca_executor.config import ExecutorConfig
@@ -198,10 +199,11 @@ class ExecutorRuntime:
                 self._logger.info("Executor: ClientAgentVault execute tx hash=%s", vault_tx_hash)
 
         # Placeholder strict contract execution surface; in production this must use AA SDK/userop path.
+        executor_did_hash = Web3.keccak(text=self._config.executor_agent_did.strip())
         poai_tx_hash = self._poai.record_signal_action(
             self._config.scout_epoch_id,
             PoAIRecord(
-                agent_did_hash=b"\x00" * 31 + b"\x01",
+                agent_did_hash=executor_did_hash,
                 action_type=ActionType.EXECUTION,
                 input_hash=b"\x00" * 32,
                 outcome_hash=b"\x00" * 31 + b"\x02",

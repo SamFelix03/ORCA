@@ -6,6 +6,7 @@ import time
 from hashlib import sha256
 
 from redis.asyncio import Redis
+from web3 import Web3
 
 from orca_audit.config import AuditConfig
 from orca_common.events import ExecutionSettledEvent, RiskInstructionEvent, ScoutSignalEvent
@@ -84,7 +85,8 @@ class AuditRuntime:
 
         payload_bytes = json.dumps(payload, sort_keys=True).encode("utf-8")
         digest = sha256(payload_bytes).digest()
-        did_hash = sha256(self._config.audit_did.encode("utf-8")).digest()
+        # PoAI/ORCA DID convention is keccak256(utf8 DID string).
+        did_hash = Web3.keccak(text=self._config.audit_did.strip())
         tx_hash = self._poai.record_signal_action(
             self._config.scout_epoch_id,
             PoAIRecord(
