@@ -5,12 +5,24 @@
   "scripts": {
     "build": "hardhat compile",
     "test": "hardhat test",
-    "deploy:testnet": "hardhat run scripts/deploy.ts --network kiteTestnet"
+    "deploy:stubs": "hardhat run scripts/deploy-remote-stubs.ts",
+    "deploy:spoke": "hardhat run scripts/deploy-spoke.ts",
+    "hyperlane:wire-trust": "hardhat run scripts/wire-hyperlane-trust.ts --network kiteTestnet",
+    "operator:bridge-supply": "hardhat run scripts/operator/bridge-and-supply.ts --network kiteTestnet",
+    "operator:fund-yield": "hardhat run scripts/operator/owner-fund-yield.ts --network kiteTestnet",
+    "operator:withdraw": "hardhat run scripts/operator/user-withdraw.ts --network kiteTestnet",
+    "hyperlane:balances": "hardhat run scripts/hyperlane/print-balances.ts --network kiteTestnet",
+    "hyperlane:transfer:hub": "hardhat run scripts/hyperlane/transfer-hub-to-dest.ts --network kiteTestnet",
+    "hyperlane:transfer:dest": "hardhat run scripts/hyperlane/transfer-dest-to-hub.ts --network baseSepolia",
+    "test:hyperlane:smoke": "hardhat run scripts/hyperlane/smoke-hyperlane.ts --network kiteTestnet"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "dotenv": "^16.6.1",
     "hardhat": "^2.26.3",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.0.2"
   }
 }

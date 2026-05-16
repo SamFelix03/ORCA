@@ -1,6 +1,6 @@
 import "../load-env.js";
 import { prisma } from "./prisma.js";
-import { keccak256, toUtf8Bytes } from "ethers";
+import { getAddress, keccak256, toUtf8Bytes } from "ethers";
 
 async function main(): Promise<void> {
   const existingAgents = await prisma.agent.count();
@@ -51,9 +51,15 @@ async function main(): Promise<void> {
     ],
   });
 
+  const demoWallet = "0x5555555555555555555555555555555555555555";
+  const user = await prisma.user.create({
+    data: { walletAddress: getAddress(demoWallet) },
+  });
+
   await prisma.position.createMany({
     data: [
       {
+        userId: user.id,
         chainId: 1,
         chainName: "Ethereum",
         protocol: "aave-v3",
@@ -63,6 +69,7 @@ async function main(): Promise<void> {
         healthFactor: 1.63,
       },
       {
+        userId: user.id,
         chainId: 42161,
         chainName: "Arbitrum",
         protocol: "morpho",
@@ -70,6 +77,19 @@ async function main(): Promise<void> {
         amountUsdc: 95000,
         apy: 6.8,
         healthFactor: 1.44,
+      },
+    ],
+  });
+
+  await prisma.deposit.createMany({
+    data: [
+      {
+        userId: user.id,
+        chainId: 2368,
+        txHash: "0xseeddeposit1",
+        token: "USDT",
+        amountUsdc: 10_000,
+        destination: "OrcaAaveV3StubVault",
       },
     ],
   });

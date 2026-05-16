@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
+import { OrcaWeb3Provider } from "@/components/providers/orca-web3-provider";
 
 export const metadata: Metadata = {
   title: "ORCA Control Plane",
@@ -10,7 +11,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={GeistMono.variable}>
-      <body>{children}</body>
+      <body>
+        <OrcaWeb3Provider>{children}</OrcaWeb3Provider>
+      </body>
     </html>
   );
 }

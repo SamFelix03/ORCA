@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import re
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from web3 import Web3
 
 
 class ExecutorConfig(BaseSettings):
@@ -48,3 +50,68 @@ class ExecutorConfig(BaseSettings):
     passport_session_assets: str = Field(default="PIEUSD", alias="PASSPORT_SESSION_ASSETS")
     signal_domain_name: str = Field(default="ORCA Executor Settlement", alias="EXECUTOR_SIGNAL_DOMAIN_NAME")
     signal_domain_version: str = Field(default="1", alias="EXECUTOR_SIGNAL_DOMAIN_VERSION")
+
+    executor_submit_vault_tx: bool = Field(
+        default=False,
+        alias="EXECUTOR_SUBMIT_VAULT_TX",
+        description="If true, broadcast execution_intent.vault_execute_calldata from executor EOA (strict path).",
+    )
+
+    executor_auto_bridge: bool = Field(
+        default=False,
+        alias="EXECUTOR_AUTO_BRIDGE",
+        description="If true and dst is a spoke, run contracts/scripts/hyperlane/transfer-hub-to-dest before vault tx.",
+    )
+    hyperlane_snapshot_path: str = Field(
+        default="",
+        alias="HYPERLANE_INTEGRATION_SNAPSHOT",
+        description="Optional path to orca-integration JSON; forwarded to Hardhat warp script.",
+    )
+    hyperlane_warp_asset: str = Field(
+        default="USDT",
+        alias="HYP_WARP_ASSET",
+        description="Snapshot routes key prefix (must exist as e.g. USDT/kitetestnet-sepolia).",
+    )
+    contracts_dir: str = Field(
+        default="contracts",
+        alias="EXECUTOR_CONTRACTS_DIR",
+        description="Directory containing Hardhat config (run executor from repo root or set an absolute path).",
+    )
+    bridge_wait_seconds: int = Field(default=60, ge=0, alias="EXECUTOR_BRIDGE_WAIT_SECONDS")
+    collateral_manifest_path: str = Field(
+        default="contracts/config/orca-collateral.manifest.json",
+        alias="EXECUTOR_COLLATERAL_MANIFEST_PATH",
+    )
+    executor_stub_chain_rpc_map: str = Field(
+        default="",
+        alias="EXECUTOR_STUB_CHAIN_RPC_MAP",
+        description="chainId:https URL CSV for spoke JSON-RPC; if empty, SCOUT_STUB_CHAIN_RPC_MAP is used.",
+    )
+    cross_chain_beneficiary_address: str = Field(
+        default="",
+        alias="SCOUT_CROSS_CHAIN_BENEFICIARY",
+        description="Hyperlane RECIPIENT / RemoteAdapter transferFrom beneficiary; defaults to executor EOA when empty.",
+    )
+
+    @field_validator("executor_auto_bridge", mode="before")
+    @classmethod
+    def _coerce_bool_flag(cls, v: object) -> bool:
+        if v in (True, "true", "True", "1", 1, "yes", "YES", "on", "ON"):
+            return True
+        return False
+
+    @field_validator("executor_private_key")
+    @classmethod
+    def _validate_private_key(cls, value: str) -> str:
+        value = value.strip()
+        if not re.fullmatch(r"0x[a-fA-F0-9]{64}", value):
+            raise ValueError("EXECUTOR_PRIVATE_KEY must be 0x-prefixed 32-byte hex")
+        return value
+
+    @field_validator("cross_chain_beneficiary_address")
+    @classmethod
+    def _validate_beneficiary(cls, value: str) -> str:
+        value = value.strip()
+        if value and not Web3.is_address(value):
+            raise ValueError(f"Invalid SCOUT_CROSS_CHAIN_BENEFICIARY: {value}")
+        return value

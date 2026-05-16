@@ -16,19 +16,19 @@
     "trustedRemotes": [
       {
         "domain": 11155111,
-        "remote": "0x0000000000000000000000009ec2e54ce40cb44d8986cbdddb7b728272255c1a"
+        "remote": "0x0000000000000000000000007f9d7362ad621b3edc9b77370855a6f4aca9cdd2"
       },
       {
         "domain": 421614,
-        "remote": "0x000000000000000000000000e3ccd4ec6e62b84aeb4db49fc50a2ce9c11d2153"
+        "remote": "0x000000000000000000000000cdff2e12f7a25af287612377090e7d1e65024dec"
       },
       {
         "domain": 11155420,
-        "remote": "0x000000000000000000000000dd416c32eba6066c273d5083b1aca227046bb5c9"
+        "remote": "0x0000000000000000000000001b42e6cceabd808e3d27309881ca4ae6b79dbf16"
       },
       {
         "domain": 84532,
-        "remote": "0x0000000000000000000000002ed22aa87c87e4b0139552d50cb5b049e369c295"
+        "remote": "0x000000000000000000000000415e73d86197dc83440a2dbe70dae00c441e5f18"
       }
     ],
     "trustedSenders": [

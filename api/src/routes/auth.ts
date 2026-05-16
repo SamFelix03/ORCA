@@ -1,5 +1,7 @@
 import type { FastifyInstance } from "fastify";
+import { getAddress } from "ethers";
 import type { AuthNonceResponse, AuthVerifyResponse } from "@orca/shared";
+import { prisma } from "../db/prisma.js";
 import { issueJwt } from "../lib/jwt.js";
 
 export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
@@ -23,8 +25,14 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       if (!address || !signature || !nonce) {
         throw new Error("address, signature and nonce are required");
       }
+      const wallet = getAddress(address);
+      await prisma.user.upsert({
+        where: { walletAddress: wallet },
+        create: { walletAddress: wallet },
+        update: {},
+      });
       return {
-        token: issueJwt({ sub: address, nonce }),
+        token: issueJwt({ sub: wallet, nonce }),
         expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
       };
     }

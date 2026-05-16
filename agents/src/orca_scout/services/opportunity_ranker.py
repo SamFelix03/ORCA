@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 import logging
 
-from orca_scout.models import RankedOpportunity, YieldMarket
+from orca_scout.models import ProtocolName, RankedOpportunity, YieldMarket
 from orca_scout.services.bridge_cost_estimator import BridgeCostEstimator
 
 
@@ -84,3 +84,95 @@ class OpportunityRanker:
                 ),
             )
         return ranked
+
+    def rank_best_stub_deposit(
+        self,
+        markets: list[YieldMarket],
+        suggested_amount_usdc: int,
+        max_suggested_amount_usdc: int,
+        kite_chain_id: int,
+        kite_anchor_protocol: ProtocolName,
+    ) -> list[RankedOpportunity]:
+        """Pick the single highest-APY stub market (Kite + spokes). Synthetic src leg on Kite for intent builder."""
+        if not markets:
+            return []
+        capped_amount = min(suggested_amount_usdc, max_suggested_amount_usdc)
+        best = max(markets, key=lambda m: m.apy)
+        anchor_apy = Decimal("0")
+        return [
+            RankedOpportunity(
+                src_chain=kite_chain_id,
+                dst_chain=best.chain_id,
+                src_protocol=kite_anchor_protocol,
+                dst_protocol=best.protocol,
+                current_apy=anchor_apy,
+                target_apy=best.apy,
+                net_delta_apy=best.apy - anchor_apy,
+                suggested_amount=capped_amount,
+                annualized_bridge_cost_apy=Decimal("0"),
+            )
+        ]
+
+    def rank_feed_to_stub_deposit(
+        self,
+        markets: list[YieldMarket],
+        manifest_pairs: set[tuple[int, str]],
+        feed_to_stub: dict[int, int],
+        suggested_amount_usdc: int,
+        max_suggested_amount_usdc: int,
+        kite_chain_id: int,
+        kite_anchor_protocol: ProtocolName,
+    ) -> list[RankedOpportunity]:
+        """Rank by real feed APY; map feed chains to manifest stub chains; pick best (exec_chain, protocol) slot."""
+        if not markets or not manifest_pairs:
+            return []
+        manifest_chains = {c for c, _ in manifest_pairs}
+        capped_amount = min(suggested_amount_usdc, max_suggested_amount_usdc)
+        best_by_slot: dict[tuple[int, str], tuple[Decimal, int]] = {}
+
+        for m in markets:
+            feed_chain = m.chain_id
+            proto_str = str(m.protocol)
+            if feed_chain in manifest_chains:
+                exec_chain = feed_chain
+            else:
+                mapped = feed_to_stub.get(feed_chain)
+                if mapped is None:
+                    continue
+                exec_chain = mapped
+            if (exec_chain, proto_str) not in manifest_pairs:
+                continue
+            key = (exec_chain, proto_str)
+            prev = best_by_slot.get(key)
+            if prev is None or m.apy > prev[0]:
+                best_by_slot[key] = (m.apy, feed_chain)
+
+        if not best_by_slot:
+            self._logger.info("Feed-ranked stub: no markets mapped to manifest slots (check feeds, TVL, SCOUT_FEED_TO_STUB_CHAIN_MAP).")
+            return []
+
+        best_slot = max(best_by_slot.keys(), key=lambda k: best_by_slot[k][0])
+        best_apy, feed_chain_used = best_by_slot[best_slot]
+        exec_chain, proto_str = best_slot
+        dst_protocol = proto_str  # type: ignore[assignment]
+        self._logger.info(
+            "Feed-ranked stub: chose feed_chain=%s exec_chain=%s protocol=%s apy=%s",
+            feed_chain_used,
+            exec_chain,
+            proto_str,
+            str(best_apy),
+        )
+        anchor_apy = Decimal("0")
+        return [
+            RankedOpportunity(
+                src_chain=kite_chain_id,
+                dst_chain=exec_chain,
+                src_protocol=kite_anchor_protocol,
+                dst_protocol=dst_protocol,
+                current_apy=anchor_apy,
+                target_apy=best_apy,
+                net_delta_apy=best_apy - anchor_apy,
+                suggested_amount=capped_amount,
+                annualized_bridge_cost_apy=Decimal("0"),
+            )
+        ]

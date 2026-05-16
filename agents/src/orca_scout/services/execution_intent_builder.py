@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import json
 import re
-from pathlib import Path
 
 from web3 import Web3
-
 from orca_scout.models import ExecutionIntent, RankedOpportunity
 
 
@@ -19,16 +16,21 @@ class ExecutionIntentBuilder:
         trusted_remotes_raw: str,
         hook_metadata_hex: str,
         tx_value_wei: int,
-        artifact_path: str,
+        cross_chain_beneficiary: str,
+        kite_chain_id: int,
     ) -> None:
         self._enabled = enabled
+        self._kite_chain_id = kite_chain_id
         self._vault_address = self._normalize_address(client_agent_vault_address, "CLIENT_AGENT_VAULT_ADDRESS")
         self._oapp_address = self._normalize_address(orca_oapp_address, "ORCA_OAPP_ADDRESS")
         self._protocol_map = self._parse_protocol_map(protocol_map_raw)
-        remotes_source = trusted_remotes_raw.strip() or self._load_trusted_remotes_from_artifact(artifact_path)
-        self._trusted_remotes = self._parse_domain_map(remotes_source)
+        self._trusted_remotes = self._parse_domain_map(trusted_remotes_raw.strip())
         self._hook_metadata_hex = self._normalize_hex_bytes(hook_metadata_hex or "0x", "SCOUT_EXECUTION_HOOK_METADATA_HEX")
         self._tx_value_wei = tx_value_wei
+        if cross_chain_beneficiary.strip():
+            self._beneficiary = self._normalize_address(cross_chain_beneficiary, "SCOUT_CROSS_CHAIN_BENEFICIARY")
+        else:
+            self._beneficiary = self._vault_address
         self._w3 = Web3()
 
         self._oapp_contract = self._w3.eth.contract(
@@ -43,6 +45,7 @@ class ExecutionIntentBuilder:
                         {"name": "destinationAdapter", "type": "bytes32"},
                         {"name": "fromProtocol", "type": "address"},
                         {"name": "toProtocol", "type": "address"},
+                        {"name": "beneficiary", "type": "address"},
                         {"name": "amount", "type": "uint256"},
                         {"name": "hookMetadata", "type": "bytes"},
                     ],
@@ -68,6 +71,18 @@ class ExecutionIntentBuilder:
             ],
         )
 
+        self._deposit_abi_contract = self._w3.eth.contract(
+            abi=[
+                {
+                    "name": "deposit",
+                    "inputs": [{"type": "uint256", "name": "amount"}],
+                    "outputs": [],
+                    "stateMutability": "nonpayable",
+                    "type": "function",
+                }
+            ],
+        )
+
     def build(self, opportunity: RankedOpportunity) -> ExecutionIntent | None:
         if not self._enabled:
             return None
@@ -78,8 +93,31 @@ class ExecutionIntentBuilder:
         dst_key = f"{opportunity.dst_chain}:{opportunity.dst_protocol}"
         from_protocol = self._protocol_map.get(src_key)
         to_protocol = self._protocol_map.get(dst_key)
+        if not from_protocol or not to_protocol:
+            return None
+
+        zero_b32 = "0x" + "00" * 32
+
+        if opportunity.dst_chain == self._kite_chain_id:
+            stub_addr = ExecutionIntentBuilder._normalize_address(to_protocol, "Kite stub (to_protocol)")
+            kite_calldata = self._deposit_abi_contract.encode_abi("deposit", [opportunity.suggested_amount])
+            return ExecutionIntent(
+                vault_address=self._vault_address,
+                target_address=self._oapp_address,
+                tx_value_wei=self._tx_value_wei,
+                amount_for_rule=opportunity.suggested_amount,
+                from_protocol=from_protocol,
+                to_protocol=to_protocol,
+                destination_domain=opportunity.dst_chain,
+                destination_adapter=zero_b32,
+                oapp_calldata="0x",
+                vault_execute_calldata="0x",
+                kite_stub_address=stub_addr,
+                kite_stub_calldata=kite_calldata,
+            )
+
         destination_adapter = self._trusted_remotes.get(opportunity.dst_chain)
-        if not from_protocol or not to_protocol or not destination_adapter:
+        if not destination_adapter:
             return None
 
         oapp_calldata = self._oapp_contract.encode_abi(
@@ -89,6 +127,7 @@ class ExecutionIntentBuilder:
                 destination_adapter,
                 from_protocol,
                 to_protocol,
+                self._beneficiary,
                 opportunity.suggested_amount,
                 bytes.fromhex(self._hook_metadata_hex[2:]),
             ],
@@ -155,19 +194,6 @@ class ExecutionIntentBuilder:
         return mapping
 
     @staticmethod
-    def _load_trusted_remotes_from_artifact(path_raw: str) -> str:
-        if not path_raw:
-            return ""
-        path = Path(path_raw).expanduser()
-        if not path.exists():
-            return ""
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            return str(payload.get("env", {}).get("HYP_TRUSTED_REMOTES", ""))
-        except Exception:
-            return ""
-
-    @staticmethod
     def _normalize_address(value: str, field_name: str) -> str:
         value = value.strip()
         if not value:
@@ -179,8 +205,12 @@ class ExecutionIntentBuilder:
     @staticmethod
     def _normalize_bytes32(value: str, field_name: str) -> str:
         value = value.strip()
+        if Web3.is_address(value):
+            raw = bytes.fromhex(value[2:])
+            padded = (b"\x00" * (32 - len(raw))) + raw
+            return "0x" + padded.hex()
         if not re.fullmatch(r"0x[a-fA-F0-9]{64}", value):
-            raise ValueError(f"{field_name} must be bytes32 hex")
+            raise ValueError(f"{field_name} must be bytes32 hex or EVM address")
         return value.lower()
 
     @staticmethod

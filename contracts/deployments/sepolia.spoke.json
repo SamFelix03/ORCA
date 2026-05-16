@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 2,
+  "role": "hyperlane-spoke",
+  "deployedAt": "2026-05-16T05:42:25.079Z",
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "mailboxAddress": "0xCDF3D9c1E132e4b37A362CF0f11f384b673Aa908",
+  "underlying": {
+    "address": "0x9EC2e54cE40cb44D8986cbDDDB7B728272255C1A",
+    "symbol": "USDT"
+  },
+  "apyBps": "500",
+  "contracts": {
+    "RemoteAdapter": "0x7F9D7362ad621B3EDC9b77370855a6f4AcA9cDd2",
+    "OrcaAaveV3StubVault": "0x083A25345eb0189Fb3E2398d89FFf2CC0dD1B9d7",
+    "OrcaCompoundV3StubVault": "0x780Cd59deB736e8C1B34ce5E6F129BE50E517088",
+    "OrcaMorphoBlueStubVault": "0x16C749Fbab1d0fce39cca525B78113511845194c",
+    "OrcaUniswapV3StubVault": "0xe88D60FDFaCbE44c7EA8B1b5CA061372E359F713"
+  }
+}

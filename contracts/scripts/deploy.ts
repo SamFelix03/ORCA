@@ -89,6 +89,7 @@ async function main(): Promise<void> {
   if (!scoutStakeToken) {
     throw new Error("Missing required env var SCOUT_STAKE_TOKEN_ADDRESS (ERC20 for BYO scout stake, e.g. testnet USDC)");
   }
+  const remoteAdapterCollateral = process.env.REMOTE_ADAPTER_COLLATERAL_TOKEN?.trim() || scoutStakeToken;
 
   console.log("Deploying contracts with:", owner);
 
@@ -113,7 +114,7 @@ async function main(): Promise<void> {
   ]);
   await oapp.waitForDeployment();
 
-  const remoteAdapter = await ethers.deployContract("RemoteAdapter", [owner, mailboxAddress]);
+  const remoteAdapter = await ethers.deployContract("RemoteAdapter", [owner, mailboxAddress, remoteAdapterCollateral]);
   await remoteAdapter.waitForDeployment();
 
   const x402Manager = await ethers.deployContract("x402ChannelManager", [owner]);
@@ -169,6 +170,7 @@ async function main(): Promise<void> {
       multisigThreshold,
       scoutStakeToken,
       scoutStakeRecipient,
+      remoteAdapterCollateral,
     },
     contracts: {
       ORCARegistry: await registry.getAddress(),

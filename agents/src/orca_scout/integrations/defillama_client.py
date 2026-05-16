@@ -22,6 +22,10 @@ CHAIN_ID_BY_DEFILLAMA_NAME: dict[str, int] = {
     "base sepolia": 84532,
     "avalanche": 43114,
     "avalanche fuji": 43113,
+    "kite": 2368,
+    "kite testnet": 2368,
+    "kitetestnet": 2368,
+    "kite-testnet": 2368,
 }
 
 PROTOCOL_MAP: tuple[tuple[str, str], ...] = (

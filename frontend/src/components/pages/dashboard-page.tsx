@@ -5,7 +5,7 @@ import { DataTable, DataTd, DataTh, DataThead } from "@/components/ui/data-table
 import { StatusPill } from "@/components/ui/status-pill";
 import { useOrcaResource } from "./use-orca-resource";
 import { orcaApi } from "@/lib/api";
-import { LiveEvents } from "@/components/live-events";
+import { WalletPortfolioCard } from "@/components/wallet/wallet-portfolio-card";
 
 export function DashboardPage() {
   const { data, loading, error } = useOrcaResource(async () => {
@@ -29,6 +29,8 @@ export function DashboardPage() {
       </header>
 
       {error ? <p className="rounded-xl border border-[rgb(var(--danger-6))] bg-[rgb(var(--danger-2))] px-4 py-3 text-sm text-[rgb(var(--danger-12))]">{error}</p> : null}
+
+      <WalletPortfolioCard />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Online Agents" value={loading || !data ? "--" : String(data.agents.agents.filter((item) => item.online).length)} />

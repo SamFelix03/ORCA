@@ -6,7 +6,7 @@ import "./LZBridgeGuard.sol";
 import "./interfaces/IMailbox.sol";
 
 contract ORCAOApp is Ownable {
-    uint8 public constant MESSAGE_VERSION = 1;
+    uint8 public constant MESSAGE_VERSION = 2;
     IMailbox public immutable mailbox;
     LZBridgeGuard public bridgeGuard;
     address public executorVault;
@@ -73,6 +73,7 @@ contract ORCAOApp is Ownable {
         bytes32 destinationAdapter,
         address fromProtocol,
         address toProtocol,
+        address beneficiary,
         uint256 amount,
         bytes calldata hookMetadata
     ) external {
@@ -81,6 +82,7 @@ contract ORCAOApp is Ownable {
             revert MissingTrustedRemote();
         }
         require(fromProtocol != address(0) && toProtocol != address(0), "ORCAOApp: invalid protocol");
+        require(beneficiary != address(0), "ORCAOApp: invalid beneficiary");
         require(amount > 0, "ORCAOApp: invalid amount");
 
         bytes32 transferId = keccak256(
@@ -92,14 +94,16 @@ contract ORCAOApp is Ownable {
                 destinationAdapter,
                 fromProtocol,
                 toProtocol,
+                beneficiary,
                 amount,
                 keccak256(hookMetadata),
                 block.timestamp
             )
         );
         bridgeGuard.requireApproval(transferId, amount);
-        bytes memory payload =
-            abi.encode(MESSAGE_VERSION, transferId, localDomain, fromProtocol, toProtocol, amount, block.timestamp);
+        bytes memory payload = abi.encode(
+            MESSAGE_VERSION, transferId, localDomain, fromProtocol, toProtocol, beneficiary, amount, block.timestamp
+        );
         bytes32 dispatchId = mailbox.dispatch(dstDomain, destinationAdapter, payload);
 
         emit CrossChainRebalanceRequested(
@@ -117,12 +121,15 @@ contract ORCAOApp is Ownable {
             uint32 sourceDomain,
             address fromProtocol,
             address toProtocol,
+            address beneficiary,
             uint256 amount,
             uint256 timestamp
-        ) = abi.decode(payload, (uint8, bytes32, uint32, address, address, uint256, uint256));
+        ) = abi.decode(payload, (uint8, bytes32, uint32, address, address, address, uint256, uint256));
         if (version != MESSAGE_VERSION) revert InvalidPayload();
         require(sourceDomain == originDomain, "ORCAOApp: origin mismatch");
-        require(fromProtocol != address(0) && toProtocol != address(0), "ORCAOApp: invalid protocol");
+        require(
+            fromProtocol != address(0) && toProtocol != address(0) && beneficiary != address(0), "ORCAOApp: invalid protocol"
+        );
         require(amount > 0 && timestamp > 0, "ORCAOApp: invalid payload");
         require(!executedPayloads[transferId], "ORCAOApp: payload already processed");
 

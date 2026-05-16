@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "../interfaces/IMessageRecipient.sol";
+
 contract MockMailbox {
     event DispatchCalled(uint32 indexed destinationDomain, bytes32 indexed recipientAddress, bytes messageBody);
 
@@ -19,5 +21,10 @@ contract MockMailbox {
             return keccak256(abi.encode(destinationDomain, recipientAddress, messageBody, block.timestamp));
         }
         return _nextDispatchId;
+    }
+
+    /// @dev Simulates Hyperlane delivery so tests can invoke `IMessageRecipient.handle` with `msg.sender` = this mailbox.
+    function deliver(address recipient, uint32 origin, bytes32 sender, bytes calldata body) external payable {
+        IMessageRecipient(recipient).handle{value: msg.value}(origin, sender, body);
     }
 }

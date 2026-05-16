@@ -3,7 +3,7 @@ import { verifyJwt } from "../lib/jwt.js";
 
 declare module "fastify" {
   interface FastifyRequest {
-    auth?: Record<string, unknown>;
+    auth?: { sub?: string; nonce?: string; exp?: number; iat?: number; [key: string]: unknown };
   }
 }
 

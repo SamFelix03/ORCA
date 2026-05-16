@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "description": "Per-chain Hyperlane-wrapped USDT + spoke RemoteAdapter (redeployed 2026-05-16, beneficiary-pull RemoteAdapter).",
+  "collateralTokenByChainId": {
+    "2368": "0x6d67f572a72A1E4CDdDE3F4696E1e7550Ff6d5F1",
+    "11155111": "0x9EC2e54cE40cb44D8986cbDDDB7B728272255C1A",
+    "421614": "0xE3CcD4ec6E62b84Aeb4Db49FC50a2Ce9C11D2153",
+    "11155420": "0xdD416C32ebA6066c273d5083b1ACa227046Bb5c9",
+    "84532": "0x2eD22aA87C87E4B0139552d50CB5B049E369C295"
+  },
+  "remoteAdapterByChainId": {
+    "11155111": "0x7F9D7362ad621B3EDC9b77370855a6f4AcA9cDd2",
+    "421614": "0xcdFF2E12f7A25Af287612377090e7D1e65024Dec",
+    "11155420": "0x1b42E6cCEABD808E3D27309881ca4aE6b79Dbf16",
+    "84532": "0x415e73D86197DC83440a2DbE70Dae00C441E5F18"
+  },
+  "orcaOAppKite2368": "0x2d48423E5Aa3de1b32449fe39613D11dbeD74d20"
+}

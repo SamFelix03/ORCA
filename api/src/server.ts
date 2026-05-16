@@ -8,6 +8,7 @@ import { registerAuthRoutes } from "./routes/auth.js";
 import { registerAuthPlugin } from "./plugins/auth.js";
 import { registerSessionRoutes } from "./routes/sessions.js";
 import { registerPositionRoutes } from "./routes/positions.js";
+import { registerPortfolioRoutes } from "./routes/portfolio.js";
 import { registerAgentRoutes } from "./routes/agents.js";
 import { registerSignalRoutes } from "./routes/signals.js";
 import { registerExecutionRoutes } from "./routes/executions.js";
@@ -33,6 +34,7 @@ export async function buildServer() {
   await registerAuthRoutes(app);
   await registerSessionRoutes(app);
   await registerPositionRoutes(app);
+  await registerPortfolioRoutes(app);
   await registerAgentRoutes(app);
   await registerSignalRoutes(app);
   await registerExecutionRoutes(app);

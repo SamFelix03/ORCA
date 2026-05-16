@@ -16,6 +16,7 @@ export interface AgentRecord {
 
 export interface PositionRecord {
   id: string;
+  userId?: string | null;
   chainId: number;
   chainName: string;
   protocol: string;
@@ -24,6 +25,16 @@ export interface PositionRecord {
   apy: number;
   healthFactor: number;
   lastUpdated: string;
+}
+
+export interface DepositRecord {
+  id: string;
+  chainId: number;
+  txHash: string | null;
+  token: string;
+  amountUsdc: number;
+  destination: string | null;
+  createdAt: string;
 }
 
 export interface SignalRecord {

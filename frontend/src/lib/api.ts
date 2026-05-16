@@ -1,6 +1,9 @@
 import type {
   AgentsResponse,
   AlertsResponse,
+  AuthNonceResponse,
+  AuthVerifyResponse,
+  DepositsResponse,
   ExecutionsResponse,
   PoAIAgentHistoryResponse,
   PoAIEpochRewardsResponse,
@@ -32,6 +35,15 @@ async function parseJson<T>(response: Response): Promise<T> {
 async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${ORCA_API_BASE_URL}${path}`, {
     cache: "no-store",
+  });
+
+  return parseJson<T>(response);
+}
+
+async function apiGetAuth<T>(path: string, token: string): Promise<T> {
+  const response = await fetch(`${ORCA_API_BASE_URL}${path}`, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   return parseJson<T>(response);
@@ -84,4 +96,27 @@ export const orcaApi = {
     apiPost<ScoutRegistrationConfirmResponse>("/scouts/register/confirm", body),
   scoutPayouts: (did?: string) =>
     apiGet<ScoutPayoutsResponse>(did ? `/scouts/payouts?did=${encodeURIComponent(did)}` : "/scouts/payouts"),
+  authNonce: (address: string) => apiPost<AuthNonceResponse>("/auth/nonce", { address }),
+  authVerify: (body: { address: string; signature: string; nonce: string }) =>
+    apiPost<AuthVerifyResponse>("/auth/verify", body),
+  myPositions: (token: string | null, wallet?: string) => {
+    const q = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
+    if (token) {
+      return apiGetAuth<PositionsResponse>(`/me/positions${q}`, token);
+    }
+    if (!wallet) {
+      throw new Error("Provide wallet for unauthenticated /me/positions");
+    }
+    return apiGet<PositionsResponse>(`/me/positions${q}`);
+  },
+  myDeposits: (token: string | null, wallet?: string) => {
+    const q = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
+    if (token) {
+      return apiGetAuth<DepositsResponse>(`/me/deposits${q}`, token);
+    }
+    if (!wallet) {
+      throw new Error("Provide wallet for unauthenticated /me/deposits");
+    }
+    return apiGet<DepositsResponse>(`/me/deposits${q}`);
+  },
 };

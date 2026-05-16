@@ -109,9 +109,9 @@ Only public deployment data is exported (no private keys).
 After each chain/route deployment, update:
 
 - `contracts/.env`:
-  - `HYP_TRUSTED_REMOTES`
-  - `HYP_TRUSTED_SENDERS`
-- `contracts/scripts/deploy.ts` already supports comma-separated multi-chain maps.
+  - `HYP_TRUSTED_REMOTES` — for **ORCAOApp**, use each chain’s **`RemoteAdapter`** address (32-byte form OK), **not** warp `destinationRouter` from export JSON.
+  - `HYP_TRUSTED_SENDERS` — for **RemoteAdapter**, trusted senders are the **hub `ORCAOApp`** addresses (per domain).
+- Smoke tests for token bridging: `contracts/scripts/hyperlane/README.md` and `npm run test:hyperlane:smoke` / `hyperlane:*` scripts.
 
 Format:
 

@@ -1,6 +1,7 @@
 import type {
   AgentRecord,
   AlertRecord,
+  DepositRecord,
   ExecutionRecord,
   PoAIRewardRecord,
   PositionRecord,
@@ -10,7 +11,7 @@ import type {
   SignalRecord,
   TreasuryOverview,
 } from "@orca/shared";
-import type { Agent, Alert, AttributionRecord, Execution, Position, ScoutMarketplace, ScoutPayout, Session, Signal } from "@prisma/client";
+import type { Agent, Alert, AttributionRecord, Deposit, Execution, Position, ScoutMarketplace, ScoutPayout, Session, Signal } from "@prisma/client";
 
 const decimalToNumber = (value: { toString(): string } | number | string): number => Number(value.toString());
 
@@ -31,6 +32,7 @@ export function toAgentRecord(agent: Agent): AgentRecord {
 export function toPositionRecord(position: Position): PositionRecord {
   return {
     id: position.id,
+    userId: position.userId ?? null,
     chainId: position.chainId,
     chainName: position.chainName,
     protocol: position.protocol,
@@ -39,6 +41,18 @@ export function toPositionRecord(position: Position): PositionRecord {
     apy: decimalToNumber(position.apy),
     healthFactor: decimalToNumber(position.healthFactor),
     lastUpdated: position.lastUpdated.toISOString(),
+  };
+}
+
+export function toDepositRecord(row: Deposit): DepositRecord {
+  return {
+    id: row.id,
+    chainId: row.chainId,
+    txHash: row.txHash,
+    token: row.token,
+    amountUsdc: decimalToNumber(row.amountUsdc),
+    destination: row.destination,
+    createdAt: row.createdAt.toISOString(),
   };
 }
 

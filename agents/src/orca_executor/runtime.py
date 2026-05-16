@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
+from pathlib import Path
 
 from redis.asyncio import Redis
 
 from orca_common.events import ExecutionSettledEvent, RiskInstructionEvent
 from orca_executor.config import ExecutorConfig
+from orca_executor import spoke_prep
 from orca_scout.integrations.passport_cli import PassportCLI
 from orca_scout.integrations.poai_client import PoAIClient
 from orca_scout.integrations.x402_client import X402Client
@@ -104,8 +107,98 @@ class ExecutorRuntime:
         if instruction.execution_intent is None:
             raise RuntimeError(f"Instruction {instruction.instruction_id} missing execution intent")
 
+        intent = instruction.execution_intent
+        vault_tx_hash: str | None = None
+        if self._config.executor_submit_vault_tx:
+            from eth_account import Account
+
+            from orca_executor.vault_tx import submit_contract_call, submit_vault_execute_intent
+
+            assert intent is not None
+            calldata = intent.vault_execute_calldata.strip()
+            kite_addr = intent.kite_stub_address.strip()
+            kite_calldata = intent.kite_stub_calldata.strip()
+            is_kite_deposit = (
+                instruction.dst_chain == self._config.kite_chain_id
+                and bool(kite_addr)
+                and bool(kite_calldata)
+                and kite_calldata.lower() != "0x"
+            )
+
+            if is_kite_deposit:
+                vault_tx_hash = submit_contract_call(
+                    rpc_url=self._config.kite_rpc_url,
+                    chain_id=self._config.kite_chain_id,
+                    private_key=self._config.executor_private_key,
+                    to=kite_addr,
+                    data=kite_calldata,
+                    value_wei=intent.tx_value_wei,
+                )
+                self._logger.info("Executor: Kite stub deposit tx hash=%s", vault_tx_hash)
+            else:
+                dst_chain = instruction.dst_chain
+                if dst_chain != self._config.kite_chain_id and self._config.executor_auto_bridge:
+                    hyp_dest = spoke_prep.CHAIN_ID_TO_HYP_DEST.get(dst_chain)
+                    if not hyp_dest:
+                        raise RuntimeError(
+                            f"EXECUTOR_AUTO_BRIDGE requires a Hyperlane dest key for chain {dst_chain}; extend CHAIN_ID_TO_HYP_DEST."
+                        )
+                    recipient = self._config.cross_chain_beneficiary_address.strip()
+                    if not recipient:
+                        recipient = Account.from_key(self._config.executor_private_key).address
+                    contracts = Path(self._config.contracts_dir).expanduser()
+                    if not contracts.is_absolute():
+                        contracts = (Path.cwd() / contracts).resolve()
+                    spoke_prep.run_hub_to_dest_bridge(
+                        contracts_dir=contracts,
+                        hyp_dest=hyp_dest,
+                        amount=instruction.suggested_amount,
+                        recipient=recipient,
+                        snapshot_path=self._config.hyperlane_snapshot_path,
+                        warp_asset=self._config.hyperlane_warp_asset,
+                        logger=self._logger,
+                    )
+                    time.sleep(self._config.bridge_wait_seconds)
+
+                if dst_chain != self._config.kite_chain_id:
+                    rpc_map_raw = self._config.executor_stub_chain_rpc_map.strip()
+                    if not rpc_map_raw:
+                        rpc_map_raw = os.environ.get("SCOUT_STUB_CHAIN_RPC_MAP", "").strip()
+                    rpc_map = spoke_prep.parse_chain_rpc_map(rpc_map_raw)
+                    rpc = rpc_map.get(dst_chain)
+                    if not rpc:
+                        raise RuntimeError(
+                            f"Spoke execution requires EXECUTOR_STUB_CHAIN_RPC_MAP or SCOUT_STUB_CHAIN_RPC_MAP "
+                            f"with chainId {dst_chain}"
+                        )
+                    manifest_path = spoke_prep.resolve_collateral_manifest_path(
+                        self._config.collateral_manifest_path
+                    )
+                    manifest = spoke_prep.load_collateral_manifest(manifest_path)
+                    token, adapter = spoke_prep.spoke_collateral_and_adapter(manifest, dst_chain)
+                    spoke_prep.ensure_erc20_allowance(
+                        rpc_url=rpc,
+                        chain_id=dst_chain,
+                        private_key=self._config.executor_private_key,
+                        token=token,
+                        spender=adapter,
+                        min_amount=intent.amount_for_rule,
+                        logger=self._logger,
+                    )
+
+                if not calldata or calldata.lower() == "0x":
+                    raise RuntimeError("Missing execution_intent.vault_execute_calldata for vault→OApp spoke path.")
+
+                vault_tx_hash = submit_vault_execute_intent(
+                    rpc_url=self._config.kite_rpc_url,
+                    chain_id=self._config.kite_chain_id,
+                    private_key=self._config.executor_private_key,
+                    intent=intent,
+                )
+                self._logger.info("Executor: ClientAgentVault execute tx hash=%s", vault_tx_hash)
+
         # Placeholder strict contract execution surface; in production this must use AA SDK/userop path.
-        tx_hash = self._poai.record_signal_action(
+        poai_tx_hash = self._poai.record_signal_action(
             self._config.scout_epoch_id,
             PoAIRecord(
                 agent_did_hash=b"\x00" * 31 + b"\x01",
@@ -116,6 +209,8 @@ class ExecutorRuntime:
                 timestamp=int(time.time()),
             ),
         )
+
+        tx_hash = vault_tx_hash or poai_tx_hash
 
         payment = await self._x402.send_micropayment(
             to_did=self._config.audit_agent_did,

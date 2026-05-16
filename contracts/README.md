@@ -13,6 +13,11 @@ This package contains ORCA control-plane contracts for registry, spending rules,
 - `x402ChannelManager.sol`
 - `ClientAgentVault.sol`
 - `ORCAMultisigTreasury.sol`
+- `OrcaStubYieldVaultBase.sol` — shared demo yield accounting
+- `OrcaAaveV3StubVault.sol` — Aave V3–shaped `supply` / `withdraw` (interfaces under `interfaces/external/aave-v3/`)
+- `OrcaCompoundV3StubVault.sol` — Compound III Comet–shaped `supply` / `withdraw`
+- `OrcaMorphoBlueStubVault.sol` — Morpho Blue–shaped `supply`
+- `OrcaUniswapV3StubVault.sol` — Uniswap v3 NPM–shaped `mint` (one-sided stub)
 
 ## Kite Network Defaults
 

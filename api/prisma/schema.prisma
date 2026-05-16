@@ -36,6 +36,29 @@ enum AlertSeverity {
   critical
 }
 
+model User {
+  id             String     @id @default(cuid())
+  walletAddress  String     @unique
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  positions      Position[]
+  deposits       Deposit[]
+}
+
+model Deposit {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chainId     Int
+  txHash      String?
+  token       String
+  amountUsdc  Decimal  @db.Decimal(20, 6)
+  destination String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
 model Agent {
   id                String     @id @default(cuid())
   did               String     @unique
@@ -86,17 +109,21 @@ model Execution {
 }
 
 model Position {
-  id          String   @id @default(cuid())
-  chainId     Int
-  chainName   String
-  protocol    String
-  asset       String
-  amountUsdc  Decimal  @db.Decimal(20, 6)
-  apy         Decimal  @db.Decimal(8, 4)
-  healthFactor Decimal @db.Decimal(8, 4)
-  lastUpdated DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  chainId      Int
+  chainName    String
+  protocol     String
+  asset        String
+  amountUsdc   Decimal  @db.Decimal(20, 6)
+  apy          Decimal  @db.Decimal(8, 4)
+  healthFactor Decimal  @db.Decimal(8, 4)
+  lastUpdated  DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Session {

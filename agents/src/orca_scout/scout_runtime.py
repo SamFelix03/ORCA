@@ -118,7 +118,7 @@ class ScoutRuntime:
             config.scout_private_key,
         )
 
-        self._scanner = YieldScanner(self._market_feed, self._goldsky, self._enrichers)
+        self._scanner = YieldScanner(self._market_feed, self._goldsky, enrichers=self._enrichers)
         self._estimator = BridgeCostEstimator(self._bridge_fee, config.settlement_asset_symbol)
         allowed_routes = None if config.scout_disable_route_filter else config.allowed_route_pairs_set()
         if allowed_routes is None:
@@ -137,11 +137,12 @@ class ScoutRuntime:
             enabled=config.execution_intent_enabled,
             client_agent_vault_address=config.client_agent_vault_address,
             orca_oapp_address=config.orca_oapp_address,
-            protocol_map_raw=config.protocol_address_map,
+            protocol_map_raw=config.resolved_protocol_address_map(),
             trusted_remotes_raw=config.trusted_remote_map,
             hook_metadata_hex=config.execution_hook_metadata_hex,
             tx_value_wei=config.execution_tx_value_wei,
-            artifact_path=config.scout_routes_artifact_path,
+            cross_chain_beneficiary=config.cross_chain_beneficiary_address,
+            kite_chain_id=config.kite_chain_id,
         )
         self._signer = PassportSigner(
             config.scout_did,
@@ -205,12 +206,45 @@ class ScoutRuntime:
             self._logger.warning("No markets received from market providers/Goldsky.")
             return
 
-        ranked = await self._ranker.rank(
-            markets=markets,
-            min_net_delta_apy=self._config.min_net_delta_apy,
-            suggested_amount_usdc=self._config.default_suggested_amount,
-            max_suggested_amount_usdc=self._config.max_suggested_amount,
-        )
+        if self._config.scout_opportunity_mode == "best_stub_deposit":
+            manifest_path = self._config.orca_stub_protocol_manifest_path.strip()
+            manifest_pairs = ScoutConfig.stub_manifest_allowed_chain_protocol_pairs(manifest_path)
+            remap = self._config.feed_to_stub_chain_remap()
+            ranked = self._ranker.rank_feed_to_stub_deposit(
+                markets,
+                manifest_pairs,
+                remap,
+                suggested_amount_usdc=self._config.default_suggested_amount,
+                max_suggested_amount_usdc=self._config.max_suggested_amount,
+                kite_chain_id=self._config.kite_chain_id,
+                kite_anchor_protocol="aave-v3",
+            )
+            if not ranked and self._config.scout_stub_apy_fallback:
+                self._logger.warning(
+                    "Feed-ranked stub: no eligible pools; falling back to on-chain stub apyBps (SCOUT_STUB_APY_FALLBACK)."
+                )
+                from orca_scout.integrations.stub_vault_market_feed import StubVaultMarketFeed
+
+                stub_feed = StubVaultMarketFeed(
+                    manifest_path,
+                    self._config.stub_chain_rpc_by_id(),
+                )
+                stub_markets = await stub_feed.fetch_markets()
+                ranked = self._ranker.rank_best_stub_deposit(
+                    stub_markets,
+                    suggested_amount_usdc=self._config.default_suggested_amount,
+                    max_suggested_amount_usdc=self._config.max_suggested_amount,
+                    kite_chain_id=self._config.kite_chain_id,
+                    kite_anchor_protocol="aave-v3",
+                )
+            ranked = [r for r in ranked if r.net_delta_apy >= self._config.min_net_delta_apy]
+        else:
+            ranked = await self._ranker.rank(
+                markets=markets,
+                min_net_delta_apy=self._config.min_net_delta_apy,
+                suggested_amount_usdc=self._config.default_suggested_amount,
+                max_suggested_amount_usdc=self._config.max_suggested_amount,
+            )
         if not ranked:
             self._logger.info("No opportunities passed threshold %.4f.", self._config.min_net_delta_apy)
             return

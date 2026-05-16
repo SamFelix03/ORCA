@@ -10,6 +10,14 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from web3 import Web3
 
+# Mainnet chain IDs → ORCA stub deployment testnets (DefiLlama feed → execution chain).
+DEFAULT_FEED_TO_STUB_CHAIN: dict[int, int] = {
+    1: 11155111,
+    42161: 421614,
+    10: 11155420,
+    8453: 84532,
+}
+
 
 class ScoutConfig(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -114,9 +122,41 @@ class ScoutConfig(BaseSettings):
     client_agent_vault_address: str = Field(default="", alias="CLIENT_AGENT_VAULT_ADDRESS")
     orca_oapp_address: str = Field(default="", alias="ORCA_OAPP_ADDRESS")
     protocol_address_map: str = Field(default="", alias="SCOUT_PROTOCOL_ADDRESS_MAP")
+    orca_stub_protocol_manifest_path: str = Field(
+        default="",
+        alias="ORCA_STUB_PROTOCOL_MANIFEST_PATH",
+        description="JSON manifest: stubsByChainId.{chainId}.{aave-v3|...} -> address; used when SCOUT_PROTOCOL_ADDRESS_MAP is empty.",
+    )
+    cross_chain_beneficiary_address: str = Field(
+        default="",
+        alias="SCOUT_CROSS_CHAIN_BENEFICIARY",
+        description="ORCAOApp.executeCrossChainRebalance beneficiary; defaults to CLIENT_AGENT_VAULT_ADDRESS when empty.",
+    )
     trusted_remote_map: str = Field(default="", alias="HYP_TRUSTED_REMOTES")
     execution_hook_metadata_hex: str = Field(default="0x", alias="SCOUT_EXECUTION_HOOK_METADATA_HEX")
     execution_tx_value_wei: int = Field(default=0, alias="SCOUT_EXECUTION_TX_VALUE_WEI")
+    scout_opportunity_mode: Literal["rebalance", "best_stub_deposit"] = Field(
+        default="rebalance",
+        alias="SCOUT_OPPORTUNITY_MODE",
+    )
+    stub_chain_rpc_map: str = Field(
+        default="",
+        alias="SCOUT_STUB_CHAIN_RPC_MAP",
+        description="Comma-separated chainId:https://rpc… for stub APY fallback and executor spoke RPC.",
+    )
+    scout_feed_to_stub_chain_map: str = Field(
+        default="",
+        alias="SCOUT_FEED_TO_STUB_CHAIN_MAP",
+        description=(
+            "Optional CSV feedChainId:stubChainId overrides for mapping DefiLlama/Lucid chains to stub manifest chains "
+            "(defaults: Ethereum→Sepolia, Arbitrum→Arb Sepolia, …)."
+        ),
+    )
+    scout_stub_apy_fallback: bool = Field(
+        default=True,
+        alias="SCOUT_STUB_APY_FALLBACK",
+        description="If feed yields no eligible stub slots, rank by on-chain stub apyBps (requires SCOUT_STUB_CHAIN_RPC_MAP).",
+    )
 
     def allowed_route_pairs_set(self) -> set[tuple[int, int]]:
         raw = self.scout_allowed_route_pairs.strip()
@@ -151,6 +191,108 @@ class ScoutConfig(BaseSettings):
             return str(payload.get("env", {}).get("SCOUT_ALLOWED_ROUTE_PAIRS", ""))
         except Exception:
             return ""
+
+    @staticmethod
+    def stub_manifest_to_protocol_csv(path_str: str) -> str:
+        path = Path(path_str).expanduser()
+        if not path.is_file():
+            return ""
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        data = payload.get("stubsByChainId")
+        if not isinstance(data, dict):
+            return ""
+        parts: list[str] = []
+        for chain_key, protocols in data.items():
+            chain_str = str(chain_key).strip()
+            if not chain_str.isdigit() or not isinstance(protocols, dict):
+                continue
+            for proto, addr in protocols.items():
+                if not isinstance(addr, str) or not addr.strip():
+                    continue
+                if not Web3.is_address(addr.strip()):
+                    raise ValueError(f"Invalid address in stub manifest {chain_str}:{proto}")
+                parts.append(
+                    f"{int(chain_str)}:{str(proto).strip()}:{Web3.to_checksum_address(addr.strip())}"
+                )
+        return ",".join(parts)
+
+    def resolved_protocol_address_map(self) -> str:
+        raw = self.protocol_address_map.strip()
+        if raw:
+            return raw
+        mp = self.orca_stub_protocol_manifest_path.strip()
+        if not mp:
+            return ""
+        return ScoutConfig.stub_manifest_to_protocol_csv(mp)
+
+    def stub_chain_rpc_by_id(self) -> dict[int, str]:
+        raw = self.stub_chain_rpc_map.strip()
+        out: dict[int, str] = {}
+        if not raw:
+            return out
+        for entry in raw.split(","):
+            item = entry.strip()
+            if not item:
+                continue
+            m = re.match(r"^(\d+):(.+)$", item)
+            if not m:
+                raise ValueError(
+                    f"Invalid SCOUT_STUB_CHAIN_RPC_MAP item '{item}'. Expected 'chainId:https://…' "
+                    "(full URL after first colon-group)."
+                )
+            chain_raw, url = m.group(1), m.group(2).strip()
+            if not url.startswith("http"):
+                raise ValueError(f"Invalid RPC URL in SCOUT_STUB_CHAIN_RPC_MAP item '{item}'")
+            out[int(chain_raw)] = url
+        return out
+
+    def feed_to_stub_chain_remap(self) -> dict[int, int]:
+        merged: dict[int, int] = dict(DEFAULT_FEED_TO_STUB_CHAIN)
+        raw = self.scout_feed_to_stub_chain_map.strip()
+        for entry in raw.split(","):
+            item = entry.strip()
+            if not item:
+                continue
+            parts = item.split(":")
+            if len(parts) != 2:
+                raise ValueError(
+                    f"Invalid SCOUT_FEED_TO_STUB_CHAIN_MAP item '{item}'. Expected 'feedChainId:stubChainId'."
+                )
+            a, b = parts[0].strip(), parts[1].strip()
+            if not a.isdigit() or not b.isdigit():
+                raise ValueError(f"Invalid SCOUT_FEED_TO_STUB_CHAIN_MAP item '{item}' (chain ids must be integers).")
+            merged[int(a)] = int(b)
+        return merged
+
+    @staticmethod
+    def stub_manifest_allowed_chain_protocol_pairs(path_str: str) -> set[tuple[int, str]]:
+        """(execution_chain_id, protocol key) with a stub address in the manifest."""
+        path = Path(path_str).expanduser()
+        if not path.is_file():
+            return set()
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        data = payload.get("stubsByChainId")
+        if not isinstance(data, dict):
+            return set()
+        out: set[tuple[int, str]] = set()
+        for chain_key, protocols in data.items():
+            chain_str = str(chain_key).strip()
+            if not chain_str.isdigit() or not isinstance(protocols, dict):
+                continue
+            for proto, addr in protocols.items():
+                if not isinstance(addr, str) or not addr.strip():
+                    continue
+                if not Web3.is_address(addr.strip()):
+                    continue
+                out.add((int(chain_str), str(proto).strip()))
+        return out
+
+    @field_validator("scout_stub_apy_fallback", mode="before")
+    @classmethod
+    def _coerce_stub_fallback(cls, v: object) -> bool:
+        if v in (True, "true", "True", "1", 1, "yes", "YES", "on", "ON"):
+            return True
+        return False
 
     @field_validator("scout_did", "risk_agent_did")
     @classmethod
@@ -195,9 +337,16 @@ class ScoutConfig(BaseSettings):
             raise ValueError("SCOUT_EXECUTION_HOOK_METADATA_HEX must be valid hex")
         return value
 
-    @field_validator("protocol_address_map")
+    @field_validator("cross_chain_beneficiary_address")
     @classmethod
-    def _validate_protocol_address_map(cls, value: str) -> str:
+    def _validate_cross_chain_beneficiary(cls, value: str) -> str:
+        value = value.strip()
+        if value and not Web3.is_address(value):
+            raise ValueError(f"Invalid SCOUT_CROSS_CHAIN_BENEFICIARY: {value}")
+        return value
+
+    @staticmethod
+    def _check_protocol_csv(value: str) -> str:
         value = value.strip()
         if not value:
             return value
@@ -219,6 +368,31 @@ class ScoutConfig(BaseSettings):
                 raise ValueError(f"Invalid protocol address in SCOUT_PROTOCOL_ADDRESS_MAP item '{entry}'")
         return value
 
+    @field_validator("protocol_address_map")
+    @classmethod
+    def _validate_protocol_address_map(cls, value: str) -> str:
+        return cls._check_protocol_csv(value)
+
+    @field_validator("scout_feed_to_stub_chain_map")
+    @classmethod
+    def _validate_feed_to_stub_chain_map(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            return value
+        for item in value.split(","):
+            entry = item.strip()
+            if not entry:
+                continue
+            parts = entry.split(":")
+            if len(parts) != 2:
+                raise ValueError(
+                    f"Invalid SCOUT_FEED_TO_STUB_CHAIN_MAP item '{entry}'. Expected 'feedChainId:stubChainId'."
+                )
+            a, b = parts[0].strip(), parts[1].strip()
+            if not a.isdigit() or not b.isdigit():
+                raise ValueError(f"Invalid SCOUT_FEED_TO_STUB_CHAIN_MAP item '{entry}'.")
+        return value
+
     @field_validator("trusted_remote_map")
     @classmethod
     def _validate_trusted_remote_map(cls, value: str) -> str:
@@ -235,8 +409,11 @@ class ScoutConfig(BaseSettings):
             domain_raw, remote_raw = [part.strip() for part in parts]
             if not domain_raw.isdigit():
                 raise ValueError(f"Invalid domain in HYP_TRUSTED_REMOTES item '{entry}'")
-            if not re.fullmatch(r"0x[a-fA-F0-9]{64}", remote_raw):
-                raise ValueError(f"HYP_TRUSTED_REMOTES value must be bytes32 hex in item '{entry}'")
+            rr = remote_raw.strip()
+            if Web3.is_address(rr):
+                continue
+            if not re.fullmatch(r"0x[a-fA-F0-9]{64}", rr):
+                raise ValueError(f"HYP_TRUSTED_REMOTES value must be bytes32 or EVM address in item '{entry}'")
         return value
 
     @model_validator(mode="after")
@@ -256,10 +433,31 @@ class ScoutConfig(BaseSettings):
             )
         if self.scout_llm_enabled and not self.groq_api_key.strip():
             raise ValueError("SCOUT_LLM_ENABLED=true requires GROQ_API_KEY.")
+        if self.scout_opportunity_mode == "best_stub_deposit":
+            if not self.orca_stub_protocol_manifest_path.strip():
+                raise ValueError(
+                    "SCOUT_OPPORTUNITY_MODE=best_stub_deposit requires ORCA_STUB_PROTOCOL_MANIFEST_PATH "
+                    "(JSON with stubsByChainId)."
+                )
+            if self.scout_stub_apy_fallback and not self.stub_chain_rpc_map.strip():
+                raise ValueError(
+                    "SCOUT_STUB_APY_FALLBACK=true requires SCOUT_STUB_CHAIN_RPC_MAP for on-chain stub apyBps reads."
+                )
         if self.execution_intent_enabled:
             if not self.client_agent_vault_address or not self.orca_oapp_address:
                 raise ValueError(
                     "Execution intent is enabled; set CLIENT_AGENT_VAULT_ADDRESS and ORCA_OAPP_ADDRESS."
+                )
+            resolved = self.resolved_protocol_address_map().strip()
+            if not resolved:
+                raise ValueError(
+                    "Execution intent is enabled; set SCOUT_PROTOCOL_ADDRESS_MAP or ORCA_STUB_PROTOCOL_MANIFEST_PATH."
+                )
+            self._check_protocol_csv(resolved)
+            if not self.trusted_remote_map.strip():
+                raise ValueError(
+                    "Execution intent is enabled; set HYP_TRUSTED_REMOTES (destination RemoteAdapter as bytes32 per "
+                    "domain). Do not use warp router addresses from the Hyperlane export."
                 )
         if self.scout_require_registry:
             if not self.orca_registry_address.strip():

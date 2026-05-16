@@ -4,6 +4,7 @@ import type {
   ExecutionRecord,
   PoAIRewardRecord,
   PositionRecord,
+  DepositRecord,
   ScoutMarketplaceRecord,
   ScoutPayoutRecord,
   SessionRecord,
@@ -30,6 +31,10 @@ export interface AuthVerifyResponse {
 
 export interface PositionsResponse {
   positions: PositionRecord[];
+}
+
+export interface DepositsResponse {
+  deposits: DepositRecord[];
 }
 
 export interface PositionHistoryResponse {

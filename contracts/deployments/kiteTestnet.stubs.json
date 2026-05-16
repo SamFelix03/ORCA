@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "deployedAt": "2026-05-16T05:24:25.833Z",
+  "network": "kiteTestnet",
+  "chainId": 2368,
+  "deployer": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "underlying": {
+    "address": "0x6d67f572a72A1E4CDdDE3F4696E1e7550Ff6d5F1",
+    "symbol": ""
+  },
+  "apyBps": "500",
+  "stubs": {
+    "OrcaAaveV3StubVault": "0x8fa6465cBd56Ab4Af4127E02525e987a123A38B2",
+    "OrcaCompoundV3StubVault": "0x99e706c2BbAbB5D21B916f0A5aaA545DA8F4E979",
+    "OrcaMorphoBlueStubVault": "0x74e3bace8102F7D2bB5741aC301e6b062d5224B9",
+    "OrcaUniswapV3StubVault": "0x67EF6ff3C021AD9e5f658C879774bEBd6ef1f4e7"
+  }
+}

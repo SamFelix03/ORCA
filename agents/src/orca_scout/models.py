@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from enum import Enum
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -37,6 +37,8 @@ class ExecutionIntentDict(TypedDict):
     destination_adapter: str
     oapp_calldata: str
     vault_execute_calldata: str
+    kite_stub_address: NotRequired[str]
+    kite_stub_calldata: NotRequired[str]
 
 
 class ActionType(str, Enum):
@@ -112,9 +114,12 @@ class ExecutionIntent(BaseModel):
     destination_adapter: str
     oapp_calldata: str
     vault_execute_calldata: str
+    """Same-chain Kite stub deposit: executor sends this calldata to this stub (no OApp)."""
+    kite_stub_address: str = ""
+    kite_stub_calldata: str = ""
 
     def to_wire(self) -> ExecutionIntentDict:
-        return ExecutionIntentDict(
+        base = ExecutionIntentDict(
             vault_address=self.vault_address,
             target_address=self.target_address,
             tx_value_wei=self.tx_value_wei,
@@ -126,6 +131,11 @@ class ExecutionIntent(BaseModel):
             oapp_calldata=self.oapp_calldata,
             vault_execute_calldata=self.vault_execute_calldata,
         )
+        if self.kite_stub_address.strip():
+            base["kite_stub_address"] = self.kite_stub_address
+        if self.kite_stub_calldata.strip():
+            base["kite_stub_calldata"] = self.kite_stub_calldata
+        return base
 
 
 class PoAIRecord(BaseModel):

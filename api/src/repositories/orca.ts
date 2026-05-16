@@ -1,9 +1,11 @@
+import { getAddress } from "ethers";
 import type {
   AgentRecord,
   AlertRecord,
   ExecutionRecord,
   PoAIRewardRecord,
   PositionRecord,
+  DepositRecord,
   ScoutMarketplaceRecord,
   ScoutPayoutRecord,
   SessionRecord,
@@ -15,6 +17,7 @@ import { mockTreasury } from "../lib/mock-store.js";
 import {
   toAgentRecord,
   toAlertRecord,
+  toDepositRecord,
   toExecutionRecord,
   toPoaiRewardRecord,
   toPositionRecord,
@@ -32,6 +35,24 @@ export async function listAgents(): Promise<AgentRecord[]> {
 
   if (rows.length === 0) throw new Error("No agents found in database (strict mode).");
   return rows.map(toAgentRecord);
+}
+
+export async function listPositionsForWallet(wallet: string): Promise<PositionRecord[]> {
+  const w = getAddress(wallet);
+  const rows = await prisma.position.findMany({
+    where: { user: { walletAddress: w } },
+    orderBy: { updatedAt: "desc" },
+  });
+  return rows.map(toPositionRecord);
+}
+
+export async function listDepositsForWallet(wallet: string): Promise<DepositRecord[]> {
+  const w = getAddress(wallet);
+  const rows = await prisma.deposit.findMany({
+    where: { user: { walletAddress: w } },
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map(toDepositRecord);
 }
 
 export async function listPositions(): Promise<PositionRecord[]> {
