@@ -132,6 +132,8 @@ async function main(): Promise<void> {
 
   await (await enforcer.setVault(await vault.getAddress())).wait();
   await (await enforcer.configureRule(spendingWindow, spendingBudget, spendingMaxPerTx, Math.floor(Date.now() / 1000))).wait();
+  // Vault.execute(..., target=ORCAOApp, ...) — enforcer treats target as "provider" and requires whitelist
+  await (await enforcer.setProviderWhitelist(await oapp.getAddress(), true)).wait();
 
   await (await bridgeGuard.setAuthorizedCaller(await oapp.getAddress(), true)).wait();
   for (const item of trustedRemotes) {

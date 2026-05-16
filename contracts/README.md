@@ -32,6 +32,7 @@ This package contains ORCA control-plane contracts for registry, spending rules,
 
 - Deploy order and artifact generation are handled by `scripts/deploy.ts`.
 - Deployment outputs are persisted into `deployments/kite-testnet.latest.json` and `deployments/history/`.
+- **SpendingRuleEnforcer** only allows `ClientAgentVault.execute` calls to **whitelisted** `target` addresses. Cross-chain intents use **`target = ORCAOApp`**; `deploy.ts` now whitelists the OApp automatically. For an older deployment that hits `EnforcerRejected` (selector `0x458bae4d`), run `pnpm enforcer:whitelist-oapp` from `contracts/` with the owner key in `contracts/.env` (`PRIVATE_KEY` / `DEPLOYER_PRIVATE_KEY`).
 
 ## Environment
 
