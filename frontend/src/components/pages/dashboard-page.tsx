@@ -6,6 +6,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { useOrcaResource } from "./use-orca-resource";
 import { orcaApi } from "@/lib/api";
 import { WalletPortfolioCard } from "@/components/wallet/wallet-portfolio-card";
+import { LiveEvents } from "@/components/live-events";
 
 export function DashboardPage() {
   const { data, loading, error } = useOrcaResource(async () => {
