@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { SidebarNav } from "./sidebar-nav";
 import { TopHeader } from "./top-header";
@@ -11,8 +12,8 @@ export function OrcaShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#fffaf0] text-black">
       <aside className="fixed left-0 top-0 z-50 hidden h-screen w-64 flex-col space-y-8 overflow-y-auto bg-black p-6 text-[#fffaf0] antialiased lg:flex">
-        <Link href="/" className="text-center block">
-          <div className="orca-logo-text text-[#fffaf0]">ORCA</div>
+        <Link href="/" className="block">
+          <Image src="/orca-logo-dark-bg.png" width={176} height={52} alt="ORCA" priority className="h-auto w-36" />
         </Link>
         <SidebarNav />
         <div className="mt-auto border-t border-[#fffaf0]/10 pt-6 text-xs leading-5 text-[#8d877c]">
@@ -37,8 +38,7 @@ export function OrcaShell({ children }: { children: React.ReactNode }) {
           <aside className="relative flex h-full w-[280px] max-w-[88vw] flex-col space-y-8 bg-black p-6 text-[#fffaf0]">
             <div className="flex items-start justify-between gap-4">
               <Link href="/" onClick={() => setMobileOpen(false)}>
-                <div className="orca-logo-text text-[#fffaf0]">ORCA</div>
-                <p className="mt-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-[#8d877c]">Agent Swarm Treasury</p>
+                <Image src="/orca-logo-dark-bg.png" width={176} height={52} alt="ORCA" priority className="h-auto w-36" />
               </Link>
               <button
                 type="button"

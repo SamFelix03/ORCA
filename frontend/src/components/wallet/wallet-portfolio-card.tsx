@@ -48,7 +48,14 @@ export function WalletPortfolioCard() {
         ]);
         if (cancelled) return;
         setDeposits(dep.deposits);
-        setHoldings(vaults.holdings);
+        if (vaults.holdings.length > 0) {
+          setHoldings(vaults.holdings);
+          return;
+        }
+        const refreshed = await orcaApi.refreshVaultHoldings(null, walletAddress);
+        if (!cancelled) {
+          setHoldings(refreshed.holdings);
+        }
       } catch {
         if (cancelled) return;
         setDeposits([]);
