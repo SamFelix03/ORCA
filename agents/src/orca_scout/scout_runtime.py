@@ -145,6 +145,7 @@ class ScoutRuntime:
             tx_value_wei=config.execution_tx_value_wei,
             cross_chain_beneficiary=config.cross_chain_beneficiary_address,
             kite_chain_id=config.kite_chain_id,
+            kite_rpc_url=config.kite_rpc_url,
         )
         self._signer = PassportSigner(
             config.scout_did,

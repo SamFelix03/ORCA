@@ -145,6 +145,7 @@ These are controlled by:
 - `SCOUT_PROTOCOL_ADDRESS_MAP` (`chainId:protocol:address` CSV) **or** `ORCA_STUB_PROTOCOL_MANIFEST_PATH` (JSON `stubsByChainId`, protocol keys: `aave-v3`, `compound-v3`, `morpho`, `uniswap-v3`)
 - `SCOUT_CROSS_CHAIN_BENEFICIARY` (optional; defaults to vault address for `executeCrossChainRebalance`)
 - `HYP_TRUSTED_REMOTES` (**required** when intents enabled): each entry is `domain:0x` + 64 hex (`RemoteAdapter` on that domain, **not** warp `destinationRouter` from the Hyperlane export)
+- `KITE_RPC_URL` — for **cross-chain** intents Scout calls **`quoteCrossChainRebalanceDispatchFee`** on the hub `ORCAOApp` so `tx_value_wei` covers Hyperlane **`Mailbox.dispatch`** fees. **`SCOUT_EXECUTION_TX_VALUE_WEI`** is a floor (extra buffer). This requires hub contracts that implement quoting + payable dispatch (redeploy if your OApp predates that change).
 
 Executor on-chain path (hackathon):
 

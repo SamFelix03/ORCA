@@ -18,6 +18,7 @@ class ExecutionIntentBuilder:
         tx_value_wei: int,
         cross_chain_beneficiary: str,
         kite_chain_id: int,
+        kite_rpc_url: str = "",
     ) -> None:
         self._enabled = enabled
         self._kite_chain_id = kite_chain_id
@@ -27,6 +28,7 @@ class ExecutionIntentBuilder:
         self._trusted_remotes = self._parse_domain_map(trusted_remotes_raw.strip())
         self._hook_metadata_hex = self._normalize_hex_bytes(hook_metadata_hex or "0x", "SCOUT_EXECUTION_HOOK_METADATA_HEX")
         self._tx_value_wei = tx_value_wei
+        self._kite_rpc_url = (kite_rpc_url or "").strip()
         if cross_chain_beneficiary.strip():
             self._beneficiary = self._normalize_address(cross_chain_beneficiary, "SCOUT_CROSS_CHAIN_BENEFICIARY")
         else:
@@ -39,7 +41,7 @@ class ExecutionIntentBuilder:
                 {
                     "type": "function",
                     "name": "executeCrossChainRebalance",
-                    "stateMutability": "nonpayable",
+                    "stateMutability": "payable",
                     "inputs": [
                         {"name": "dstDomain", "type": "uint32"},
                         {"name": "destinationAdapter", "type": "bytes32"},
@@ -59,7 +61,7 @@ class ExecutionIntentBuilder:
                 {
                     "type": "function",
                     "name": "execute",
-                    "stateMutability": "nonpayable",
+                    "stateMutability": "payable",
                     "inputs": [
                         {"name": "target", "type": "address"},
                         {"name": "value", "type": "uint256"},
@@ -120,6 +122,14 @@ class ExecutionIntentBuilder:
         if not destination_adapter:
             return None
 
+        cross_chain_value = self._cross_chain_tx_value_wei(
+            dst_domain=opportunity.dst_chain,
+            destination_adapter=destination_adapter,
+            from_protocol=from_protocol,
+            to_protocol=to_protocol,
+            amount=opportunity.suggested_amount,
+        )
+
         oapp_calldata = self._oapp_contract.encode_abi(
             "executeCrossChainRebalance",
             args=[
@@ -136,7 +146,7 @@ class ExecutionIntentBuilder:
             "execute",
             args=[
                 self._oapp_address,
-                self._tx_value_wei,
+                cross_chain_value,
                 bytes.fromhex(oapp_calldata[2:]),
                 opportunity.suggested_amount,
             ],
@@ -145,7 +155,7 @@ class ExecutionIntentBuilder:
         return ExecutionIntent(
             vault_address=self._vault_address,
             target_address=self._oapp_address,
-            tx_value_wei=self._tx_value_wei,
+            tx_value_wei=cross_chain_value,
             amount_for_rule=opportunity.suggested_amount,
             from_protocol=from_protocol,
             to_protocol=to_protocol,
@@ -154,6 +164,68 @@ class ExecutionIntentBuilder:
             oapp_calldata=oapp_calldata,
             vault_execute_calldata=vault_calldata,
         )
+
+    def _cross_chain_tx_value_wei(
+        self,
+        *,
+        dst_domain: int,
+        destination_adapter: str,
+        from_protocol: str,
+        to_protocol: str,
+        amount: int,
+    ) -> int:
+        """Native value forwarded vault -> OApp -> Mailbox.dispatch (interchain gas)."""
+        if not self._kite_rpc_url:
+            return self._tx_value_wei
+        w3 = Web3(Web3.HTTPProvider(self._kite_rpc_url))
+        if not w3.is_connected():
+            raise RuntimeError("ExecutionIntentBuilder: KITE_RPC_URL is not reachable (needed for Hyperlane dispatch fee).")
+        hook_bytes = bytes.fromhex(self._hook_metadata_hex[2:])
+        dest_bytes = self._bytes32_word(destination_adapter)
+        c = w3.eth.contract(
+            address=self._oapp_address,
+            abi=[
+                {
+                    "name": "quoteCrossChainRebalanceDispatchFee",
+                    "type": "function",
+                    "stateMutability": "view",
+                    "inputs": [
+                        {"name": "vaultCaller", "type": "address"},
+                        {"name": "dstDomain", "type": "uint32"},
+                        {"name": "destinationAdapter", "type": "bytes32"},
+                        {"name": "fromProtocol", "type": "address"},
+                        {"name": "toProtocol", "type": "address"},
+                        {"name": "beneficiary", "type": "address"},
+                        {"name": "amount", "type": "uint256"},
+                        {"name": "hookMetadata", "type": "bytes"},
+                    ],
+                    "outputs": [{"type": "uint256"}],
+                }
+            ],
+        )
+        quoted = int(
+            c.functions.quoteCrossChainRebalanceDispatchFee(
+                self._vault_address,
+                dst_domain,
+                dest_bytes,
+                Web3.to_checksum_address(from_protocol),
+                Web3.to_checksum_address(to_protocol),
+                Web3.to_checksum_address(self._beneficiary),
+                amount,
+                hook_bytes,
+            ).call()
+        )
+        return max(self._tx_value_wei, quoted)
+
+    @staticmethod
+    def _bytes32_word(hex_str: str) -> bytes:
+        h = hex_str.strip().lower()
+        if not h.startswith("0x"):
+            raise ValueError("destinationAdapter must be 0x-prefixed hex")
+        raw = bytes.fromhex(h[2:])
+        if len(raw) != 32:
+            raise ValueError("destinationAdapter must encode to 32 bytes")
+        return raw
 
     @staticmethod
     def _parse_protocol_map(raw: str) -> dict[str, str]:

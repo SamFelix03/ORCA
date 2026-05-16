@@ -33,6 +33,7 @@ contract ORCAOApp is Ownable {
     error MissingTrustedRemote();
     error InvalidPayload();
     error MailboxOnly();
+    error InsufficientDispatchFee(uint256 required, uint256 received);
 
     constructor(
         address initialOwner,
@@ -68,6 +69,30 @@ contract ORCAOApp is Ownable {
         emit TrustedRemoteSet(domain, remote);
     }
 
+    /// @notice Hyperlane `Mailbox.quoteDispatch` for the payload this vault call would send (use current `block.timestamp`).
+    function quoteCrossChainRebalanceDispatchFee(
+        address vaultCaller,
+        uint32 dstDomain,
+        bytes32 destinationAdapter,
+        address fromProtocol,
+        address toProtocol,
+        address beneficiary,
+        uint256 amount,
+        bytes calldata hookMetadata
+    ) external view returns (uint256) {
+        if (trustedRemotes[dstDomain] == bytes32(0) || trustedRemotes[dstDomain] != destinationAdapter) {
+            revert MissingTrustedRemote();
+        }
+        require(fromProtocol != address(0) && toProtocol != address(0), "ORCAOApp: invalid protocol");
+        require(beneficiary != address(0), "ORCAOApp: invalid beneficiary");
+        require(amount > 0, "ORCAOApp: invalid amount");
+
+        (, bytes memory payload) = _buildTransferAndPayload(
+            vaultCaller, dstDomain, destinationAdapter, fromProtocol, toProtocol, beneficiary, amount, hookMetadata
+        );
+        return mailbox.quoteDispatch(dstDomain, destinationAdapter, payload);
+    }
+
     function executeCrossChainRebalance(
         uint32 dstDomain,
         bytes32 destinationAdapter,
@@ -76,7 +101,7 @@ contract ORCAOApp is Ownable {
         address beneficiary,
         uint256 amount,
         bytes calldata hookMetadata
-    ) external {
+    ) external payable {
         if (msg.sender != executorVault) revert NotExecutorVault();
         if (trustedRemotes[dstDomain] == bytes32(0) || trustedRemotes[dstDomain] != destinationAdapter) {
             revert MissingTrustedRemote();
@@ -85,11 +110,40 @@ contract ORCAOApp is Ownable {
         require(beneficiary != address(0), "ORCAOApp: invalid beneficiary");
         require(amount > 0, "ORCAOApp: invalid amount");
 
-        bytes32 transferId = keccak256(
+        (bytes32 transferId, bytes memory payload) = _buildTransferAndPayload(
+            msg.sender, dstDomain, destinationAdapter, fromProtocol, toProtocol, beneficiary, amount, hookMetadata
+        );
+        bridgeGuard.requireApproval(transferId, amount);
+        uint256 fee = mailbox.quoteDispatch(dstDomain, destinationAdapter, payload);
+        if (msg.value < fee) revert InsufficientDispatchFee(fee, msg.value);
+        bytes32 dispatchId = mailbox.dispatch{value: fee}(dstDomain, destinationAdapter, payload);
+
+        uint256 refund = msg.value - fee;
+        if (refund > 0) {
+            (bool ok,) = payable(msg.sender).call{value: refund}("");
+            require(ok, "ORCAOApp: refund failed");
+        }
+
+        emit CrossChainRebalanceRequested(
+            dstDomain, fromProtocol, toProtocol, amount, destinationAdapter, transferId, dispatchId, payload
+        );
+    }
+
+    function _buildTransferAndPayload(
+        address vaultCaller,
+        uint32 dstDomain,
+        bytes32 destinationAdapter,
+        address fromProtocol,
+        address toProtocol,
+        address beneficiary,
+        uint256 amount,
+        bytes calldata hookMetadata
+    ) internal view returns (bytes32 transferId, bytes memory payload) {
+        transferId = keccak256(
             abi.encodePacked(
                 block.chainid,
                 localDomain,
-                msg.sender,
+                vaultCaller,
                 dstDomain,
                 destinationAdapter,
                 fromProtocol,
@@ -100,14 +154,8 @@ contract ORCAOApp is Ownable {
                 block.timestamp
             )
         );
-        bridgeGuard.requireApproval(transferId, amount);
-        bytes memory payload = abi.encode(
+        payload = abi.encode(
             MESSAGE_VERSION, transferId, localDomain, fromProtocol, toProtocol, beneficiary, amount, block.timestamp
-        );
-        bytes32 dispatchId = mailbox.dispatch(dstDomain, destinationAdapter, payload);
-
-        emit CrossChainRebalanceRequested(
-            dstDomain, fromProtocol, toProtocol, amount, destinationAdapter, transferId, dispatchId, payload
         );
     }
 

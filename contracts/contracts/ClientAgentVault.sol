@@ -23,6 +23,7 @@ contract ClientAgentVault is Ownable {
     error InvalidTarget();
     error EnforcerRejected();
     error ExecutionFailed();
+    error ValueMismatch();
 
     constructor(address initialOwner, address initialExecutor, address enforcerAddress) Ownable(initialOwner) {
         require(initialExecutor != address(0), "ClientAgentVault: invalid executor");
@@ -52,10 +53,12 @@ contract ClientAgentVault is Ownable {
 
     function execute(address target, uint256 value, bytes calldata data, uint256 amountForRule)
         external
+        payable
         onlyExecutor
         returns (bytes memory result)
     {
         if (target == address(0)) revert InvalidTarget();
+        if (msg.value != value) revert ValueMismatch();
 
         if (address(enforcer) != address(0) && amountForRule > 0) {
             if (!enforcer.enforceRules(target, amountForRule)) revert EnforcerRejected();

@@ -6,7 +6,7 @@ import { ethers } from "ethers";
 const ROOT = path.resolve(__dirname, "..");
 dotenv.config({ path: path.join(ROOT, ".env") });
 
-const OAPP_KITE = "0x2d48423E5Aa3de1b32449fe39613D11dbeD74d20";
+const OAPP_KITE = "0x4BbD1962B86738c322DCB48dc34e5D6CD69de885";
 const KITE_DOMAIN = 2368;
 
 const ORCA_OAPP_ABI = ["function setTrustedRemote(uint32 domain, bytes32 remote) external"];

@@ -52,8 +52,53 @@ describe("ORCA core contracts", function () {
           "0x2222222222222222222222222222222222222222",
           "0x3333333333333333333333333333333333333333",
           50_000_000_001n,
-          "0x"
+          "0x",
+          { value: 0 }
         )
     ).to.be.revertedWith("LZBridgeGuard: transfer not approved");
+  });
+
+  it("requires mailbox dispatch fee (native value)", async function () {
+    const [owner, executor] = await ethers.getSigners();
+    const Mailbox = await ethers.getContractFactory("MockMailbox");
+    const mailbox = await Mailbox.deploy();
+    await mailbox.waitForDeployment();
+    await (await mailbox.setQuoteFee(100n)).wait();
+
+    const Guard = await ethers.getContractFactory("LZBridgeGuard");
+    const guard = await Guard.deploy(owner.address, 50_000_000_000n);
+    await guard.waitForDeployment();
+
+    const OApp = await ethers.getContractFactory("ORCAOApp");
+    const oapp = await OApp.deploy(
+      owner.address,
+      await mailbox.getAddress(),
+      executor.address,
+      await guard.getAddress(),
+      2368
+    );
+    await oapp.waitForDeployment();
+
+    await (await guard.setAuthorizedCaller(await oapp.getAddress(), true)).wait();
+    const remote = ethers.zeroPadValue("0x1111111111111111111111111111111111111111", 32);
+    await (await oapp.setTrustedRemote(84532, remote)).wait();
+
+    const common = [
+      84532,
+      remote,
+      "0x1111111111111111111111111111111111111111",
+      "0x2222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333",
+      10_000n,
+      "0x",
+    ] as const;
+
+    await expect(
+      (oapp.connect(executor) as any).executeCrossChainRebalance(...common, { value: 0 })
+    ).to.be.revertedWithCustomError(oapp, "InsufficientDispatchFee");
+
+    await expect(
+      (oapp.connect(executor) as any).executeCrossChainRebalance(...common, { value: 100 })
+    ).to.not.be.reverted;
   });
 });

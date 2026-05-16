@@ -12,10 +12,29 @@ contract MockMailbox {
         _nextDispatchId = nextDispatchId;
     }
 
+    uint256 public quoteFee;
+
+    function setQuoteFee(uint256 newFee) external {
+        quoteFee = newFee;
+    }
+
+    function quoteDispatch(uint32 destinationDomain, bytes32 recipientAddress, bytes calldata messageBody)
+        external
+        view
+        returns (uint256 fee)
+    {
+        destinationDomain;
+        recipientAddress;
+        messageBody;
+        return quoteFee;
+    }
+
     function dispatch(uint32 destinationDomain, bytes32 recipientAddress, bytes calldata messageBody)
         external
+        payable
         returns (bytes32)
     {
+        require(msg.value >= quoteFee, "MockMailbox: insufficient dispatch fee");
         emit DispatchCalled(destinationDomain, recipientAddress, messageBody);
         if (_nextDispatchId == bytes32(0)) {
             return keccak256(abi.encode(destinationDomain, recipientAddress, messageBody, block.timestamp));

@@ -68,6 +68,7 @@ def _build_intent(args: argparse.Namespace):
         tx_value_wei=int(os.getenv("SCOUT_EXECUTION_TX_VALUE_WEI", "0")),
         cross_chain_beneficiary=os.getenv("SCOUT_CROSS_CHAIN_BENEFICIARY", "").strip(),
         kite_chain_id=kite_chain,
+        kite_rpc_url=os.getenv("KITE_RPC_URL", "").strip(),
     )
 
     opportunity = RankedOpportunity(
