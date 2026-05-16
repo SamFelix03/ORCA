@@ -5,6 +5,7 @@ import os
 from web3 import Web3
 from web3.contract import Contract
 
+from orca_common.tx_sender import send_with_nonce_retry
 from orca_scout.models import ActionType, PoAIRecord
 
 
@@ -55,37 +56,41 @@ class PoAIClient:
     def record_signal_action(self, epoch_id: int, record: PoAIRecord) -> str:
         if self._dry_run:
             return "0x" + "2" * 64
-        # Use pending nonce so back-to-back records (e.g., SIGNAL then RISK_EVAL)
-        # don't collide with still-pending txs and trigger replacement errors.
-        nonce = self._w3.eth.get_transaction_count(self._signer.address, "pending")
-        # Concurrent txs from the same EOA (e.g. all agents sharing one key — not recommended)
-        # need fees high enough to replace pending txs; see POAI_MAX_FEE_GWEI / POAI_PRIORITY_FEE_GWEI.
+        # Concurrent txs from the same EOA (e.g. all agents sharing one key) need
+        # robust pending-nonce refresh + retry handling.
         max_fee = _gwei_from_env(os.getenv("POAI_MAX_FEE_GWEI", "25"), "POAI_MAX_FEE_GWEI")
         priority_fee = _gwei_from_env(os.getenv("POAI_PRIORITY_FEE_GWEI", "2"), "POAI_PRIORITY_FEE_GWEI")
 
-        tx = self._contract.functions.recordAction(
-            epoch_id,
-            (
-                record.agent_did_hash,
-                self._action_type_to_uint8(record.action_type),
-                record.input_hash,
-                record.outcome_hash,
-                record.value_delta,
-                record.timestamp,
-            ),
-        ).build_transaction(
-            {
-                "from": self._signer.address,
-                "nonce": nonce,
-                "chainId": self._chain_id,
-                "gas": 300_000,
-                "maxFeePerGas": max_fee,
-                "maxPriorityFeePerGas": priority_fee,
-            }
+        def _build_tx(nonce: int) -> dict:
+            return self._contract.functions.recordAction(
+                epoch_id,
+                (
+                    record.agent_did_hash,
+                    self._action_type_to_uint8(record.action_type),
+                    record.input_hash,
+                    record.outcome_hash,
+                    record.value_delta,
+                    record.timestamp,
+                ),
+            ).build_transaction(
+                {
+                    "from": self._signer.address,
+                    "nonce": nonce,
+                    "chainId": self._chain_id,
+                    "gas": 300_000,
+                    "maxFeePerGas": max_fee,
+                    "maxPriorityFeePerGas": priority_fee,
+                }
+            )
+
+        tx_hash, _ = send_with_nonce_retry(
+            w3=self._w3,
+            signer=self._signer,
+            build_tx=_build_tx,
+            estimate_gas_if_missing=False,
+            wait_for_receipt=False,
         )
-        signed = self._signer.sign_transaction(tx)
-        tx_hash = self._w3.eth.send_raw_transaction(signed.raw_transaction)
-        return tx_hash.hex()
+        return tx_hash
 
     def is_connected(self) -> bool:
         return self._w3.is_connected()

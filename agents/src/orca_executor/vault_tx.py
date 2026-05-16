@@ -5,6 +5,7 @@ from __future__ import annotations
 from web3 import Web3
 from web3.types import TxParams
 
+from orca_common.tx_sender import send_with_nonce_retry
 from orca_scout.models import ExecutionIntent
 
 
@@ -71,20 +72,27 @@ def submit_contract_call(
     if not calldata.startswith("0x"):
         calldata = f"0x{calldata}"
 
-    tx: dict = {
-        "from": signer.address,
-        "to": target,
-        "data": calldata,
-        "value": value_wei,
-        "chainId": chain_id,
-        "nonce": w3.eth.get_transaction_count(signer.address, "pending"),
-        "maxFeePerGas": w3.to_wei("2", "gwei"),
-        "maxPriorityFeePerGas": w3.to_wei("1", "gwei"),
-    }
-    tx["gas"] = int(w3.eth.estimate_gas(tx))
-    signed = signer.sign_transaction(tx)
-    tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-    receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+    def _build_tx(nonce: int) -> dict:
+        return {
+            "from": signer.address,
+            "to": target,
+            "data": calldata,
+            "value": value_wei,
+            "chainId": chain_id,
+            "nonce": nonce,
+            "maxFeePerGas": w3.to_wei("2", "gwei"),
+            "maxPriorityFeePerGas": w3.to_wei("1", "gwei"),
+        }
+
+    tx_hash, receipt = send_with_nonce_retry(
+        w3=w3,
+        signer=signer,
+        build_tx=_build_tx,
+        estimate_gas_if_missing=True,
+        wait_for_receipt=True,
+    )
+    if receipt is None:
+        return tx_hash
     h = receipt["transactionHash"]
     return h.hex() if hasattr(h, "hex") else str(h)
 
@@ -102,11 +110,18 @@ def submit_vault_execute_intent(
         raise RuntimeError("Executor vault tx: Web3 provider not connected")
 
     signer = w3.eth.account.from_key(private_key)
-    nonce = w3.eth.get_transaction_count(signer.address, "pending")
-    tx = dict(_build_vault_execute_tx(w3, from_addr=signer.address, chain_id=chain_id, nonce=nonce, intent=intent))
-    tx["gas"] = int(w3.eth.estimate_gas(tx))
-    signed = signer.sign_transaction(tx)
-    tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-    receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+
+    def _build_tx(nonce: int) -> dict:
+        return dict(_build_vault_execute_tx(w3, from_addr=signer.address, chain_id=chain_id, nonce=nonce, intent=intent))
+
+    tx_hash, receipt = send_with_nonce_retry(
+        w3=w3,
+        signer=signer,
+        build_tx=_build_tx,
+        estimate_gas_if_missing=True,
+        wait_for_receipt=True,
+    )
+    if receipt is None:
+        return tx_hash
     h = receipt["transactionHash"]
     return h.hex() if hasattr(h, "hex") else str(h)
