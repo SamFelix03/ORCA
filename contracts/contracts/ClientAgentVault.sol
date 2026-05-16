@@ -62,10 +62,19 @@ contract ClientAgentVault is Ownable {
             enforcer.updateSpendingWindow(target, amountForRule);
         }
 
-        (bool ok, bytes memory response) = target.call{value: value}(data);
-        if (!ok) revert ExecutionFailed();
+        (bool ok, bytes memory returndata) = target.call{value: value}(data);
+        if (!ok) {
+            // Bubble inner revert (OApp custom errors, require strings, etc.) instead of masking as ExecutionFailed.
+            if (returndata.length > 0) {
+                assembly ("memory-safe") {
+                    let len := mload(returndata)
+                    revert(add(returndata, 32), len)
+                }
+            }
+            revert ExecutionFailed();
+        }
         nonce += 1;
         emit VaultExecuted(nonce, msg.sender, target, value, amountForRule);
-        return response;
+        return returndata;
     }
 }

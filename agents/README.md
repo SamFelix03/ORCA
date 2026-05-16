@@ -173,6 +173,7 @@ Demo assumption: the **executor EOA** is the same address as **`SCOUT_CROSS_CHAI
 - **`EXECUTOR_CONTRACTS_DIR`** — Hardhat project root (default `contracts`); run the executor **from repo root** or set an absolute path.
 - **`EXECUTOR_COLLATERAL_MANIFEST_PATH`** — defaults to `contracts/config/orca-collateral.manifest.json` (used for spoke **collateral token** + **RemoteAdapter** spender for `approve`).
 - **`EXECUTOR_STUB_CHAIN_RPC_MAP`** — optional; if empty the executor reuses **`SCOUT_STUB_CHAIN_RPC_MAP`** from the environment for spoke RPC.
+- **Smoke-test (estimateGas only):** from `agents/`, run `python scripts/smoke_executor_vault.py` using the same `.env` as Scout/executor. It builds an `ExecutionIntent` like the Scout and calls `eth_estimateGas` on `vault_execute_calldata` (add `--broadcast` to send a real tx). Use `--src-chain`, `--dst-chain`, `--amount`, and protocol flags to mirror the route under test.
 
 **Approvals**
 

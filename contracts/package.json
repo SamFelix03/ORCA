@@ -10,6 +10,7 @@
     "enforcer:whitelist-oapp": "hardhat run scripts/whitelist-enforcer-providers.ts --network kiteTestnet",
     "vault:sync-executor": "hardhat run scripts/sync-vault-executor.ts --network kiteTestnet",
     "oapp:wire-vault": "hardhat run scripts/wire-oapp-vault-caller.ts --network kiteTestnet",
+    "oapp:diagnose": "hardhat run scripts/diagnose-oapp-wiring.ts --network kiteTestnet",
     "enforcer:diagnose": "hardhat run scripts/diagnose-enforcer.ts --network kiteTestnet",
     "hyperlane:wire-trust": "hardhat run scripts/wire-hyperlane-trust.ts --network kiteTestnet",
     "operator:bridge-supply": "hardhat run scripts/operator/bridge-and-supply.ts --network kiteTestnet",
