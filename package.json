@@ -7,6 +7,7 @@
     "dev:api": "pnpm --dir api dev",
     "dev:frontend": "pnpm --dir frontend dev",
     "dev": "pnpm -r --parallel --filter @orca/api --filter frontend dev",
+    "dev:full": "node scripts/dev-full.mjs",
     "build:frontend": "pnpm --dir frontend build",
     "build:contracts": "pnpm --dir contracts build",
     "lint:frontend": "pnpm --dir frontend lint"

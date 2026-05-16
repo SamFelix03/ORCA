@@ -30,12 +30,12 @@ export function AgentsPage() {
                 <StatusPill tone={agent.online ? "healthy" : "muted"}>{agent.online ? "online" : "offline"}</StatusPill>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#5c564c]">Spending</span>
-                <span>{agent.spendingUsedUsdc} / {agent.spendingCapUsdc} USDC</span>
+                <span className="text-[#5c564c]">x402 Payments</span>
+                <span>{agent.spendingUsedUsdc}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#5c564c]">PoAI</span>
-                <span>{agent.poaiScore.toFixed(0)}</span>
+                <span className="text-[#5c564c]">Last action</span>
+                <span>{agent.lastActionAt.startsWith("1970") ? "--" : new Date(agent.lastActionAt).toLocaleTimeString()}</span>
               </div>
             </CardContent>
           </Card>

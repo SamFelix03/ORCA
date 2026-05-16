@@ -7,9 +7,13 @@ import type {
   DepositRecord,
   ScoutMarketplaceRecord,
   ScoutPayoutRecord,
-  SessionRecord,
   SignalRecord,
   TreasuryOverview,
+  RelayerMessageRecord,
+  RiskInstructionRecord,
+  VaultHoldingRecord,
+  WorkflowEventRecord,
+  X402PaymentRecord,
 } from "./domain.js";
 
 export interface ApiHealthResponse {
@@ -37,6 +41,10 @@ export interface DepositsResponse {
   deposits: DepositRecord[];
 }
 
+export interface VaultHoldingsResponse {
+  holdings: VaultHoldingRecord[];
+}
+
 export interface PositionHistoryResponse {
   positionId: string;
   history: PositionRecord[];
@@ -59,6 +67,15 @@ export interface SignalResponse {
   signal: SignalRecord;
 }
 
+export interface SignalWorkflowResponse {
+  signal: SignalRecord;
+  riskInstruction: RiskInstructionRecord | null;
+  execution: ExecutionRecord | null;
+  events: WorkflowEventRecord[];
+  payments: X402PaymentRecord[];
+  relayerMessages: RelayerMessageRecord[];
+}
+
 export interface ExecutionsResponse {
   executions: ExecutionRecord[];
 }
@@ -67,16 +84,8 @@ export interface ExecutionResponse {
   execution: ExecutionRecord;
 }
 
-export interface SessionsResponse {
-  sessions: SessionRecord[];
-}
-
 export interface TreasuryResponse {
   treasury: TreasuryOverview;
-}
-
-export interface TreasuryPendingResponse {
-  pending: Array<{ id: string; to: string; valueUsdc: number; approvals: number; required: number }>;
 }
 
 export interface PoAIEpochRewardsResponse {

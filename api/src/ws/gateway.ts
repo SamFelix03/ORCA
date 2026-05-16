@@ -16,25 +16,6 @@ export function registerWsGateway(app: FastifyInstance): void {
     };
     clients.add(client);
 
-    const hello: WsEnvelope<"session.updated"> = {
-      type: "session.updated",
-      at: new Date().toISOString(),
-      payload: {
-        session: {
-          id: "ws.connected",
-          agentDid: "system",
-          maxAmountPerTxUsdc: 0,
-          maxTotalAmountUsdc: 0,
-          usedAmountUsdc: 0,
-          ttlSeconds: 0,
-          status: "active",
-          createdAt: new Date().toISOString(),
-        },
-      },
-    };
-
-    client.send(JSON.stringify(hello));
-
     client.on("close", () => {
       clients.delete(client);
     });

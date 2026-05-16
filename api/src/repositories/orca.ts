@@ -1,5 +1,4 @@
 import { getAddress } from "ethers";
-import { Prisma } from "@prisma/client";
 import type {
   AgentRecord,
   AlertRecord,
@@ -9,86 +8,73 @@ import type {
   DepositRecord,
   ScoutMarketplaceRecord,
   ScoutPayoutRecord,
-  SessionRecord,
   SignalRecord,
   TreasuryOverview,
 } from "@orca/shared";
 import { prisma } from "../db/prisma.js";
-import { mockTreasury } from "../lib/mock-store.js";
+import { readPoaiEpochRecords, readTreasurySnapshot } from "../adapters/kite.js";
 import {
   toAgentRecord,
   toAlertRecord,
   toDepositRecord,
   toExecutionRecord,
-  toPoaiRewardRecord,
-  toPositionRecord,
+  toRelayerMessageRecord,
+  toRiskInstructionRecord,
   toScoutMarketplaceRecord,
   toScoutPayoutRecord,
-  toSessionRecord,
   toSignalRecord,
   toTreasuryOverview,
+  toVaultHoldingRecord,
+  toWorkflowEventRecord,
+  toX402PaymentRecord,
 } from "./serializers.js";
 
-const positionSelect = {
-  id: true,
-  userId: true,
-  chainId: true,
-  chainName: true,
-  protocol: true,
-  asset: true,
-  amountUsdc: true,
-  apy: true,
-  healthFactor: true,
-  lastUpdated: true,
-} satisfies Prisma.PositionSelect;
-
-const legacyPositionSelect = {
-  id: true,
-  chainId: true,
-  chainName: true,
-  protocol: true,
-  asset: true,
-  amountUsdc: true,
-  apy: true,
-  healthFactor: true,
-  lastUpdated: true,
-} satisfies Prisma.PositionSelect;
-
-function isMissingColumnError(error: unknown, column: string): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2022" &&
-    String(error.meta?.column ?? "").includes(column)
-  );
-}
-
 export async function listAgents(): Promise<AgentRecord[]> {
-  const rows = await prisma.agent.findMany({
-    orderBy: { createdAt: "asc" },
-  });
-
-  return rows.map(toAgentRecord);
+  const [rows, latestEvents, paymentGroups] = await Promise.all([
+    prisma.agent.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.workflowEvent.groupBy({
+      by: ["agentDid"],
+      where: { agentDid: { not: null } },
+      _max: { occurredAt: true },
+    }),
+    prisma.x402Payment.groupBy({
+      by: ["fromDid"],
+      where: { fromDid: { not: null } },
+      _count: { _all: true },
+    }),
+  ]);
+  const eventsByDid = new Map(latestEvents.map((item) => [item.agentDid, item._max.occurredAt]));
+  const paymentsByDid = new Map(paymentGroups.map((item) => [item.fromDid, item._count._all]));
+  const known = [
+    { did: "did:kite:orca/scout-1", type: "scout" as const },
+    { did: "did:kite:orca/risk-1", type: "risk" as const },
+    { did: "did:kite:orca/executor-1", type: "executor" as const },
+    { did: "did:kite:orca/audit-1", type: "audit" as const },
+  ];
+  const persisted = rows.filter((row) => !/^0x(1{40}|2{40}|3{40}|4{40})$/i.test(row.vaultAddress)).map(toAgentRecord);
+  const persistedDids = new Set(persisted.map((item) => item.did));
+  const derived = known
+    .filter((agent) => !persistedDids.has(agent.did))
+    .map((agent) => {
+      const lastAction = eventsByDid.get(agent.did);
+      return {
+        did: agent.did,
+        type: agent.type,
+        vaultAddress: "",
+        sessionId: null,
+        online: lastAction ? Date.now() - lastAction.getTime() < 5 * 60 * 1000 : false,
+        lastActionAt: lastAction?.toISOString() ?? new Date(0).toISOString(),
+        spendingUsedUsdc: paymentsByDid.get(agent.did) ?? 0,
+        spendingCapUsdc: 0,
+        poaiScore: 0,
+      };
+    });
+  return [...persisted, ...derived];
 }
 
 export async function listPositionsForWallet(wallet: string): Promise<PositionRecord[]> {
-  const w = getAddress(wallet);
-  try {
-    const rows = await prisma.position.findMany({
-      where: { user: { walletAddress: w } },
-      select: positionSelect,
-      orderBy: { updatedAt: "desc" },
-    });
-    return rows.map(toPositionRecord);
-  } catch (error) {
-    if (!isMissingColumnError(error, "Position.userId")) {
-      throw error;
-    }
-    const rows = await prisma.position.findMany({
-      select: legacyPositionSelect,
-      orderBy: { updatedAt: "desc" },
-    });
-    return rows.map(toPositionRecord);
-  }
+  getAddress(wallet);
+  return [];
 }
 
 export async function listDepositsForWallet(wallet: string): Promise<DepositRecord[]> {
@@ -101,22 +87,7 @@ export async function listDepositsForWallet(wallet: string): Promise<DepositReco
 }
 
 export async function listPositions(): Promise<PositionRecord[]> {
-  try {
-    const rows = await prisma.position.findMany({
-      select: positionSelect,
-      orderBy: { updatedAt: "desc" },
-    });
-    return rows.map(toPositionRecord);
-  } catch (error) {
-    if (!isMissingColumnError(error, "Position.userId")) {
-      throw error;
-    }
-    const rows = await prisma.position.findMany({
-      select: legacyPositionSelect,
-      orderBy: { updatedAt: "desc" },
-    });
-    return rows.map(toPositionRecord);
-  }
+  return [];
 }
 
 export async function listSignals(): Promise<SignalRecord[]> {
@@ -134,46 +105,34 @@ export async function getSignalById(id: string): Promise<SignalRecord | null> {
   return toSignalRecord(row);
 }
 
-export async function listSessions(): Promise<SessionRecord[]> {
-  const rows = await prisma.session.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+export async function getSignalWorkflow(signalId: string) {
+  const [signal, riskInstruction, execution, events, payments, relayerMessages] = await Promise.all([
+    prisma.signal.findUnique({ where: { id: signalId } }),
+    prisma.riskInstruction.findUnique({ where: { signalId } }),
+    prisma.execution.findUnique({ where: { signalId } }),
+    prisma.workflowEvent.findMany({ where: { signalId }, orderBy: { occurredAt: "asc" } }),
+    prisma.x402Payment.findMany({ where: { signalId }, orderBy: { createdAt: "asc" } }),
+    prisma.relayerMessage.findMany({ where: { signalId }, orderBy: { createdAt: "asc" } }),
+  ]);
 
-  return rows.map(toSessionRecord);
+  if (!signal) return null;
+
+  return {
+    signal: toSignalRecord(signal),
+    riskInstruction: riskInstruction ? toRiskInstructionRecord(riskInstruction) : null,
+    execution: execution ? toExecutionRecord(execution) : null,
+    events: events.map(toWorkflowEventRecord),
+    payments: payments.map(toX402PaymentRecord),
+    relayerMessages: relayerMessages.map(toRelayerMessageRecord),
+  };
 }
 
-export async function approveSession(sessionId: string): Promise<SessionRecord | null> {
-  const row = await prisma.session.findFirst({
-    where: {
-      OR: [{ id: sessionId }, { externalSessionId: sessionId }],
-    },
+export async function listVaultHoldings(ownerWallet?: string) {
+  const rows = await prisma.vaultHolding.findMany({
+    where: ownerWallet ? { ownerWallet: getAddress(ownerWallet) } : undefined,
+    orderBy: [{ chainId: "asc" }, { protocol: "asc" }],
   });
-
-  if (!row) return null;
-
-  const updated = await prisma.session.update({
-    where: { id: row.id },
-    data: { status: "active" },
-  });
-
-  return toSessionRecord(updated);
-}
-
-export async function expireSession(sessionId: string): Promise<SessionRecord | null> {
-  const row = await prisma.session.findFirst({
-    where: {
-      OR: [{ id: sessionId }, { externalSessionId: sessionId }],
-    },
-  });
-
-  if (!row) return null;
-
-  const updated = await prisma.session.update({
-    where: { id: row.id },
-    data: { status: "expired" },
-  });
-
-  return toSessionRecord(updated);
+  return rows.map(toVaultHoldingRecord);
 }
 
 export async function listAlerts(): Promise<AlertRecord[]> {
@@ -199,31 +158,16 @@ export async function createAlert(payload: {
 }
 
 export async function listPoaiRewardsByEpoch(epochId: number): Promise<PoAIRewardRecord[]> {
-  const rows = await prisma.attributionRecord.findMany({
-    where: { epochId },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return rows.map(toPoaiRewardRecord);
+  return readPoaiEpochRecords(epochId);
 }
 
 export async function listPoaiRewardsByDid(did: string): Promise<PoAIRewardRecord[]> {
-  const rows = await prisma.attributionRecord.findMany({
-    where: { agentDid: did },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return rows.map(toPoaiRewardRecord);
+  const rows = await readPoaiEpochRecords(Number(process.env.POAI_DEFAULT_EPOCH_ID ?? "1"));
+  return rows.filter((row) => row.agentDid === did || row.agentDidHash?.toLowerCase() === did.toLowerCase());
 }
 
 export async function getTreasuryOverview(): Promise<TreasuryOverview> {
-  const positions = await prisma.position.findMany({
-    select: { amountUsdc: true },
-  });
-
-  const balanceUsdc = positions.reduce((acc: number, position) => acc + Number(position.amountUsdc), 0);
-
-  return toTreasuryOverview(balanceUsdc, 0, mockTreasury.signers, mockTreasury.threshold);
+  return toTreasuryOverview(await readTreasurySnapshot());
 }
 
 export async function listExecutions(): Promise<ExecutionRecord[]> {
@@ -246,8 +190,17 @@ export async function createExecutionRecord(payload: {
   lzMessageId?: string;
   slippageBps?: number;
 }): Promise<ExecutionRecord> {
-  const row = await prisma.execution.create({
-    data: {
+  const row = await prisma.execution.upsert({
+    where: { signalId: payload.signalId },
+    update: {
+      instructionId: payload.instructionId,
+      executorDid: payload.executorDid,
+      txHash: payload.txHash,
+      status: payload.status,
+      lzMessageId: payload.lzMessageId,
+      slippageBps: payload.slippageBps,
+    },
+    create: {
       signalId: payload.signalId,
       instructionId: payload.instructionId,
       executorDid: payload.executorDid,

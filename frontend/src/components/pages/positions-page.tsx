@@ -2,18 +2,17 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, DataTd, DataTh, DataThead } from "@/components/ui/data-table";
-import { StatusPill } from "@/components/ui/status-pill";
 import { orcaApi } from "@/lib/api";
 import { useOrcaResource } from "./use-orca-resource";
 
 export function PositionsPage() {
-  const { data, loading, error } = useOrcaResource(() => orcaApi.positions(), []);
+  const { data, loading, error } = useOrcaResource(() => orcaApi.vaultHoldings(), []);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Positions</CardTitle>
-        <p className="text-sm text-[#5c564c]">Cross-chain DeFi exposure and health.</p>
+        <CardTitle>Vault Holdings</CardTitle>
+        <p className="text-sm text-[#5c564c]">Indexed on-chain balances across configured vaults.</p>
       </CardHeader>
       <CardContent>
         {loading ? <p className="text-sm text-[#5c564c]">Loading positions...</p> : null}
@@ -25,29 +24,28 @@ export function PositionsPage() {
               <tr>
                 <DataTh>Chain</DataTh>
                 <DataTh>Protocol</DataTh>
-                <DataTh>Asset</DataTh>
-                <DataTh>Amount (USDC)</DataTh>
-                <DataTh>APY</DataTh>
-                <DataTh>Health</DataTh>
+                <DataTh>Token</DataTh>
+                <DataTh>Amount</DataTh>
+                <DataTh>Vault</DataTh>
+                <DataTh>Updated</DataTh>
               </tr>
             </DataThead>
             <tbody>
-              {(data?.positions ?? []).map((position) => (
-                <tr key={position.id}>
-                  <DataTd>{position.chainName}</DataTd>
-                  <DataTd>{position.protocol}</DataTd>
-                  <DataTd>{position.asset}</DataTd>
-                  <DataTd>{position.amountUsdc.toLocaleString()}</DataTd>
-                  <DataTd>{position.apy.toFixed(2)}%</DataTd>
-                  <DataTd>
-                    <StatusPill tone={position.healthFactor < 1.15 ? "critical" : position.healthFactor < 1.5 ? "warning" : "healthy"}>
-                      HF {position.healthFactor.toFixed(2)}
-                    </StatusPill>
-                  </DataTd>
+              {(data?.holdings ?? []).map((holding) => (
+                <tr key={holding.id}>
+                  <DataTd>{holding.chainName}</DataTd>
+                  <DataTd>{holding.protocol}</DataTd>
+                  <DataTd>{holding.token}</DataTd>
+                  <DataTd>{holding.amountUsdc.toLocaleString(undefined, { maximumFractionDigits: 6 })}</DataTd>
+                  <DataTd className="max-w-[220px] truncate font-mono text-xs">{holding.vaultAddress}</DataTd>
+                  <DataTd>{new Date(holding.updatedAt).toLocaleString()}</DataTd>
                 </tr>
               ))}
             </tbody>
           </DataTable>
+        ) : null}
+        {!loading && !error && (data?.holdings.length ?? 0) === 0 ? (
+          <p className="mt-3 text-sm text-[#5c564c]">No vault holdings indexed yet. Connect a wallet and use Reload holdings from the dashboard.</p>
         ) : null}
       </CardContent>
     </Card>

@@ -18,11 +18,11 @@ import type {
   ScoutRegistrationConfirmResponse,
   ScoutRegistrationTxDataResponse,
   ScoutsResponse,
-  SessionsResponse,
   SignalResponse,
+  SignalWorkflowResponse,
   SignalsResponse,
-  TreasuryPendingResponse,
   TreasuryResponse,
+  VaultHoldingsResponse,
 } from "@orca/shared";
 import { ORCA_API_BASE_URL } from "./config";
 
@@ -105,28 +105,17 @@ async function apiPut<T>(path: string, body: unknown, mode: AuthMode = "none"): 
   return parseJson<T>(response);
 }
 
-async function apiDelete<T>(path: string, mode: AuthMode = "none"): Promise<T> {
-  const response = await fetch(`${ORCA_API_BASE_URL}${path}`, {
-    method: "DELETE",
-    headers: authHeaders(mode),
-  });
-
-  return parseJson<T>(response);
-}
-
 export const orcaApi = {
   health: () => apiGet<{ status: string; service: string; timestamp: string }>("/health"),
   chainStatus: () => apiGet<{ network: { chainId: number; latestBlock: number; rpcUrl: string }; registryEpoch: number | null; spendingWindow: { spentInWindow: string; windowStart: number; pausedUntil: number } | null }>("/chain/status"),
   positions: () => apiGet<PositionsResponse>("/positions"),
+  vaultHoldings: () => apiGet<VaultHoldingsResponse>("/vault-holdings"),
   agents: () => apiGet<AgentsResponse>("/agents"),
   signals: () => apiGet<SignalsResponse>("/signals"),
   signalById: (id: string) => apiGet<SignalResponse>(`/signals/${encodeURIComponent(id)}`),
+  signalWorkflow: (id: string) => apiGet<SignalWorkflowResponse>(`/signals/${encodeURIComponent(id)}/workflow`),
   executions: () => apiGet<ExecutionsResponse>("/executions"),
-  sessions: () => apiGet<SessionsResponse>("/sessions"),
-  approveSession: (sessionId: string) => apiPost<{ ok: boolean; error?: string }>("/sessions/approve", { sessionId }),
-  expireSession: (sessionId: string) => apiDelete<{ ok: boolean; error?: string }>(`/sessions/${encodeURIComponent(sessionId)}`),
   treasury: () => apiGet<TreasuryResponse>("/treasury/balance"),
-  pendingMultisig: () => apiGet<TreasuryPendingResponse>("/treasury/multisig/pending"),
   poaiEpoch: (id: number) => apiGet<PoAIEpochRewardsResponse>(`/poai/epoch/${id}/rewards`),
   poaiAgent: (did: string) => apiGet<PoAIAgentHistoryResponse>(`/poai/agents/${encodeURIComponent(did)}/history`),
   alerts: () => apiGet<AlertsResponse>("/alerts"),
@@ -169,5 +158,25 @@ export const orcaApi = {
       throw new Error("Provide wallet for unauthenticated /me/deposits");
     }
     return apiGet<DepositsResponse>(`/me/deposits${q}`);
+  },
+  myVaultHoldings: (token: string | null, wallet?: string) => {
+    const q = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
+    if (token) {
+      return apiGetAuth<VaultHoldingsResponse>(`/me/vault-holdings${q}`, token);
+    }
+    if (!wallet) {
+      throw new Error("Provide wallet for unauthenticated /me/vault-holdings");
+    }
+    return apiGet<VaultHoldingsResponse>(`/me/vault-holdings${q}`);
+  },
+  refreshVaultHoldings: (token: string | null, wallet?: string) => {
+    const q = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
+    if (token) {
+      return apiPost<VaultHoldingsResponse>(`/me/vault-holdings/refresh${q}`, {}, "optional");
+    }
+    if (!wallet) {
+      throw new Error("Provide wallet for unauthenticated /me/vault-holdings/refresh");
+    }
+    return apiPost<VaultHoldingsResponse>(`/me/vault-holdings/refresh${q}`, {});
   },
 };

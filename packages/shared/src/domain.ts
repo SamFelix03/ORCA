@@ -54,6 +54,78 @@ export interface SignalRecord {
   createdAt: string;
 }
 
+export interface WorkflowEventRecord {
+  id: string;
+  signalId?: string | null;
+  eventType: string;
+  agentDid?: string | null;
+  agentType?: string | null;
+  title: string;
+  summary: string;
+  txHash?: string | null;
+  paymentTxHash?: string | null;
+  chainId?: number | null;
+  payload: unknown;
+  occurredAt: string;
+}
+
+export interface RiskInstructionRecord {
+  id: string;
+  signalId: string;
+  riskDid: string;
+  executorDid: string;
+  approved: boolean;
+  reason: string;
+  sourceSignalHash?: string | null;
+  paymentTxHash?: string | null;
+  signature?: string | null;
+  payload: unknown;
+  createdAt: string;
+}
+
+export interface X402PaymentRecord {
+  id: string;
+  signalId?: string | null;
+  instructionId?: string | null;
+  fromDid?: string | null;
+  toDid: string;
+  amountWei: string;
+  asset: string;
+  network: string;
+  memo?: string | null;
+  txHash: string;
+  createdAt: string;
+}
+
+export interface RelayerMessageRecord {
+  id: string;
+  signalId?: string | null;
+  messageId: string;
+  originDomain: number;
+  destinationDomain: number;
+  recipient: string;
+  dispatchTxHash?: string | null;
+  deliveryTxHash?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VaultHoldingRecord {
+  id: string;
+  ownerWallet?: string | null;
+  vaultAddress: string;
+  chainId: number;
+  chainName: string;
+  protocol: string;
+  token: string;
+  balanceRaw: string;
+  decimals: number;
+  amountUsdc: number;
+  sourceTxHash?: string | null;
+  updatedAt: string;
+}
+
 export interface ExecutionRecord {
   id: string;
   signalId: string;
@@ -66,20 +138,16 @@ export interface ExecutionRecord {
   createdAt: string;
 }
 
-export interface SessionRecord {
-  id: string;
-  agentDid: string;
-  maxAmountPerTxUsdc: number;
-  maxTotalAmountUsdc: number;
-  usedAmountUsdc: number;
-  ttlSeconds: number;
-  status: "pending" | "active" | "expired" | "rejected";
-  createdAt: string;
-}
-
 export interface TreasuryOverview {
-  balanceUsdc: number;
-  pendingMultisigTxCount: number;
+  address: string | null;
+  nativeBalance: number;
+  tokenBalances: Array<{
+    symbol: string;
+    address: string;
+    balance: number;
+    raw: string;
+    decimals: number;
+  }>;
   threshold: string;
   signers: string[];
 }
@@ -87,9 +155,11 @@ export interface TreasuryOverview {
 export interface PoAIRewardRecord {
   epochId: number;
   agentDid: string;
-  amountKite: number;
-  acceptanceRate?: number;
-  signalsCount?: number;
+  agentDidHash?: string;
+  actionType?: "SIGNAL" | "RISK_EVAL" | "EXECUTION" | "AUDIT";
+  valueDelta: number;
+  inputHash?: string;
+  outcomeHash?: string;
   createdAt: string;
 }
 

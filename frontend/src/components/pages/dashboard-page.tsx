@@ -12,22 +12,21 @@ const AGENT_FLOW = ["scout", "risk", "executor", "audit"];
 
 export function DashboardPage() {
   const { data, loading, error } = useOrcaResource(async () => {
-    const [agents, positions, signals, sessions, treasury, alerts] = await Promise.all([
+    const [agents, vaultHoldings, signals, treasury, alerts] = await Promise.all([
       orcaApi.agents(),
-      orcaApi.positions(),
+      orcaApi.vaultHoldings(),
       orcaApi.signals(),
-      orcaApi.sessions(),
       orcaApi.treasury(),
       orcaApi.alerts(),
     ]);
 
-    return { agents, positions, signals, sessions, treasury, alerts };
+    return { agents, vaultHoldings, signals, treasury, alerts };
   }, []);
 
   const activeAgents = data?.agents.agents.filter((item) => item.online).length ?? 0;
-  const pendingSessions = data?.sessions.sessions.filter((item) => item.status === "pending").length ?? 0;
   const acceptedSignals = data?.signals.signals.filter((item) => ["approved", "executing", "executed"].includes(item.status)).length ?? 0;
-  const portfolioValue = data?.positions.positions.reduce((sum, item) => sum + item.amountUsdc, 0) ?? 0;
+  const portfolioValue = data?.vaultHoldings.holdings.reduce((sum, item) => sum + item.amountUsdc, 0) ?? 0;
+  const treasuryTokens = data?.treasury.treasury.tokenBalances ?? [];
 
   return (
     <div className="space-y-6">
@@ -43,10 +42,10 @@ export function DashboardPage() {
       <WalletPortfolioCard />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Portfolio" value={loading ? "--" : `$${portfolioValue.toLocaleString()}`} />
+        <MetricCard label="Indexed Vaults" value={loading ? "--" : `$${portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`} />
         <MetricCard label="Online Agents" value={loading ? "--" : `${activeAgents}/4`} />
         <MetricCard label="Accepted Signals" value={loading ? "--" : String(acceptedSignals)} />
-        <MetricCard label="Session Requests" value={loading ? "--" : String(pendingSessions)} />
+        <MetricCard label="Treasury Tokens" value={loading ? "--" : String(treasuryTokens.length)} />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
@@ -65,9 +64,7 @@ export function DashboardPage() {
                       <span className="text-sm font-semibold capitalize text-black">{type} Agent</span>
                       <StatusPill tone={agent?.online ? "healthy" : "muted"}>{agent?.online ? "online" : "idle"}</StatusPill>
                     </div>
-                    <p className="mt-3 text-xs text-[#5c564c]">
-                      Spend {agent ? `${agent.spendingUsedUsdc}/${agent.spendingCapUsdc}` : "--"} USDC
-                    </p>
+                    <p className="mt-3 text-xs text-[#5c564c]">{agent ? `x402 payments: ${agent.spendingUsedUsdc}` : "No runtime events yet"}</p>
                   </div>
                 );
               })}
@@ -80,10 +77,16 @@ export function DashboardPage() {
             <CardTitle>Treasury</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-black">
-              {loading || !data ? "--" : `$${data.treasury.treasury.balanceUsdc.toLocaleString()}`}
-            </p>
-            <p className="mt-2 text-sm text-[#5c564c]">Ash multisig balance</p>
+            <div className="space-y-2">
+              {loading || !data ? <p className="text-3xl font-semibold text-black">--</p> : null}
+              {!loading && data?.treasury.treasury.tokenBalances.map((item) => (
+                <div key={item.address} className="flex items-center justify-between text-sm">
+                  <span className="text-[#5c564c]">{item.symbol}</span>
+                  <span className="font-semibold text-black">{item.balance.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-sm text-[#5c564c]">On-chain treasury balances</p>
           </CardContent>
         </Card>
       </section>

@@ -13,6 +13,21 @@ const DISPATCH_ABI = [
 
 type State = { lastScannedBlock: number };
 
+async function postRelayerEvent(payload: Record<string, unknown>): Promise<void> {
+  const base = process.env.ORCA_API_BASE_URL?.trim();
+  if (!base) return;
+  try {
+    await fetch(`${base.replace(/\/$/, "")}/internal/relayer-event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[relayer-api-fail] ${msg}`);
+  }
+}
+
 function loadState(path: string): State {
   if (!fs.existsSync(path)) return { lastScannedBlock: 0 };
   return JSON.parse(fs.readFileSync(path, "utf8")) as State;
@@ -37,7 +52,7 @@ export async function processPendingDispatches(cfg: RelayerConfig, singleMessage
         : Math.max(0, head - Number(process.env.RELAYER_BOOTSTRAP_BLOCKS ?? "5000"));
 
   const destDomains = new Set(cfg.destinations.keys());
-  const events: Array<{ messageBytes: string; destination: number; recipient: string }> = [];
+  const events: Array<{ messageBytes: string; destination: number; recipient: string; dispatchTxHash: string }> = [];
 
   let start = fromBlock;
   while (start <= head) {
@@ -53,7 +68,7 @@ export async function processPendingDispatches(cfg: RelayerConfig, singleMessage
       const messageBytes = ev.args.message as string;
       const messageId = messageIdFromBytes(messageBytes);
       if (singleMessageId && messageId.toLowerCase() !== singleMessageId.toLowerCase()) continue;
-      events.push({ messageBytes, destination, recipient });
+      events.push({ messageBytes, destination, recipient, dispatchTxHash: ev.transactionHash });
     }
     start = end + 1;
   }
@@ -96,6 +111,15 @@ export async function processPendingDispatches(cfg: RelayerConfig, singleMessage
       console.log(
         `[delivered] ${dest.name} ${messageId.slice(0, 18)}… tx=${txHash} origin=${decoded.origin} recipient=${recipientAddr}`,
       );
+      await postRelayerEvent({
+        messageId,
+        originDomain: decoded.origin,
+        destinationDomain: ev.destination,
+        recipient: recipientAddr,
+        dispatchTxHash: ev.dispatchTxHash,
+        deliveryTxHash: txHash,
+        status: "delivered",
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error(`[deliver-fail] ${dest.name} ${messageId.slice(0, 18)}… ${msg}`);

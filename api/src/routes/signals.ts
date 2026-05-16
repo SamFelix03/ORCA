@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import type { SignalResponse, SignalsResponse } from "@orca/shared";
-import { getSignalById, listSignals } from "../repositories/orca.js";
+import type { SignalResponse, SignalsResponse, SignalWorkflowResponse } from "@orca/shared";
+import { getSignalById, getSignalWorkflow, listSignals } from "../repositories/orca.js";
 
 export async function registerSignalRoutes(app: FastifyInstance): Promise<void> {
   app.get("/signals", async (): Promise<SignalsResponse> => {
@@ -15,5 +15,13 @@ export async function registerSignalRoutes(app: FastifyInstance): Promise<void> 
     }
 
     return { signal };
+  });
+
+  app.get<{ Params: { id: string } }>("/signals/:id/workflow", async (request): Promise<SignalWorkflowResponse> => {
+    const workflow = await getSignalWorkflow(request.params.id);
+    if (!workflow) {
+      throw new Error("Signal not found");
+    }
+    return workflow;
   });
 }

@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { DepositsResponse, PositionsResponse } from "@orca/shared";
+import type { DepositsResponse, PositionsResponse, VaultHoldingsResponse } from "@orca/shared";
 import { getAddress } from "ethers";
-import { listDepositsForWallet, listPositionsForWallet } from "../repositories/orca.js";
+import { listDepositsForWallet, listPositionsForWallet, listVaultHoldings } from "../repositories/orca.js";
+import { refreshVaultHoldings } from "../services/vault-holdings-indexer.js";
 
 async function walletFromRequest(app: FastifyInstance, request: FastifyRequest): Promise<string> {
   const authHeader = request.headers.authorization;
@@ -32,5 +33,16 @@ export async function registerPortfolioRoutes(app: FastifyInstance): Promise<voi
   app.get("/me/deposits", async (request): Promise<DepositsResponse> => {
     const wallet = await walletFromRequest(app, request);
     return { deposits: await listDepositsForWallet(wallet) };
+  });
+
+  app.get("/me/vault-holdings", async (request): Promise<VaultHoldingsResponse> => {
+    const wallet = await walletFromRequest(app, request);
+    return { holdings: await listVaultHoldings(wallet) };
+  });
+
+  app.post("/me/vault-holdings/refresh", async (request): Promise<VaultHoldingsResponse> => {
+    const wallet = await walletFromRequest(app, request);
+    await refreshVaultHoldings(wallet);
+    return { holdings: await listVaultHoldings(wallet) };
   });
 }

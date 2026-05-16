@@ -92,7 +92,29 @@ model Signal {
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
-  execution Execution?
+  execution        Execution?
+  riskInstruction  RiskInstruction?
+  workflowEvents   WorkflowEvent[]
+  x402Payments     X402Payment[]
+  relayerMessages  RelayerMessage[]
+}
+
+model RiskInstruction {
+  id                 String   @id
+  signalId           String   @unique
+  signal             Signal   @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  riskDid            String
+  executorDid        String
+  approved           Boolean
+  reason             String
+  sourceSignalHash   String?
+  paymentTxHash      String?
+  signature          String?
+  payload            Json
+  createdAt          DateTime @default(now())
+
+  @@index([riskDid])
+  @@index([executorDid])
 }
 
 model Execution {
@@ -105,7 +127,74 @@ model Execution {
   lzMessageId String?
   status      String
   slippageBps Int?
+  paymentTxHash String?
+  payload     Json?
   createdAt   DateTime  @default(now())
+}
+
+model WorkflowEvent {
+  id             String   @id @default(cuid())
+  signalId       String?
+  signal         Signal?  @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  stream         String
+  streamEventId  String
+  eventType      String
+  agentDid       String?
+  agentType      String?
+  title          String
+  summary        String
+  txHash         String?
+  paymentTxHash  String?
+  chainId        Int?
+  payload        Json
+  occurredAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@unique([stream, streamEventId])
+  @@index([signalId, occurredAt])
+  @@index([agentDid])
+  @@index([txHash])
+  @@index([paymentTxHash])
+}
+
+model X402Payment {
+  id             String   @id @default(cuid())
+  signalId       String?
+  signal         Signal?  @relation(fields: [signalId], references: [id], onDelete: SetNull)
+  instructionId  String?
+  fromDid        String?
+  toDid          String
+  amountWei      String
+  asset          String
+  network        String
+  memo           String?
+  txHash         String   @unique
+  payload        Json?
+  createdAt      DateTime @default(now())
+
+  @@index([signalId])
+  @@index([fromDid])
+  @@index([toDid])
+}
+
+model RelayerMessage {
+  id                String   @id @default(cuid())
+  signalId          String?
+  signal            Signal?  @relation(fields: [signalId], references: [id], onDelete: SetNull)
+  messageId         String   @unique
+  originDomain      Int
+  destinationDomain Int
+  recipient         String
+  dispatchTxHash    String?
+  deliveryTxHash    String?
+  status            String
+  payload           Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([signalId])
+  @@index([dispatchTxHash])
+  @@index([deliveryTxHash])
 }
 
 model Position {
@@ -123,6 +212,27 @@ model Position {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  @@index([userId])
+}
+
+model VaultHolding {
+  id            String   @id @default(cuid())
+  userId        String?
+  ownerWallet   String?
+  vaultAddress  String
+  chainId       Int
+  chainName     String
+  protocol      String
+  token         String
+  balanceRaw    String
+  decimals      Int
+  amountUsdc    Decimal  @db.Decimal(20, 6)
+  sourceTxHash  String?
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  @@unique([ownerWallet, vaultAddress, chainId, protocol, token])
+  @@index([ownerWallet])
   @@index([userId])
 }
 

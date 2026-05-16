@@ -1,22 +1,20 @@
-import type { AlertRecord, SessionRecord, SignalRecord } from "./domain.js";
+import type { AlertRecord, SignalRecord } from "./domain.js";
 
 export type WsEventType =
   | "signal.created"
   | "signal.updated"
   | "execution.settled"
   | "execution.created"
-  | "alert.created"
-  | "session.requested"
-  | "session.updated";
+  | "workflow.updated"
+  | "alert.created";
 
 export interface WsEventMap {
   "signal.created": { signal: SignalRecord };
   "signal.updated": { signal: SignalRecord };
   "execution.settled": { signalId: string; txHash: string; status: "success" | "failed" };
   "execution.created": { executionId: string; signalId: string; status: string };
+  "workflow.updated": { signalId: string; eventType: string };
   "alert.created": { alert: AlertRecord };
-  "session.requested": { session: SessionRecord };
-  "session.updated": { session: SessionRecord };
 }
 
 export interface WsEnvelope<T extends WsEventType = WsEventType> {

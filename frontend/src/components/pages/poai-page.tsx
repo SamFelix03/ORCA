@@ -6,15 +6,16 @@ import { orcaApi } from "@/lib/api";
 import { useOrcaResource } from "./use-orca-resource";
 
 export function PoaiPage() {
-  const { data, loading, error } = useOrcaResource(() => orcaApi.poaiEpoch(42), []);
+  const epochId = 1;
+  const { data, loading, error } = useOrcaResource(() => orcaApi.poaiEpoch(epochId), []);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>PoAI Rewards (Epoch 42)</CardTitle>
+        <CardTitle>PoAI Attribution (Epoch {epochId})</CardTitle>
       </CardHeader>
       <CardContent>
-        {loading ? <p className="text-sm text-[#5c564c]">Loading rewards...</p> : null}
+        {loading ? <p className="text-sm text-[#5c564c]">Loading PoAI records...</p> : null}
         {error ? <p className="text-sm text-[rgb(var(--danger-11))]">{error}</p> : null}
 
         {!loading && !error ? (
@@ -22,23 +23,24 @@ export function PoaiPage() {
             <DataThead>
               <tr>
                 <DataTh>Agent</DataTh>
-                <DataTh>KITE Reward</DataTh>
-                <DataTh>Signals</DataTh>
-                <DataTh>Acceptance</DataTh>
+                <DataTh>Action</DataTh>
+                <DataTh>Value Delta</DataTh>
+                <DataTh>Recorded</DataTh>
               </tr>
             </DataThead>
             <tbody>
               {(data?.rewards ?? []).map((reward, index) => (
-                <tr key={`${reward.agentDid}-${index}`}>
+                <tr key={`${reward.agentDid}-${reward.createdAt}-${index}`}>
                   <DataTd className="font-mono text-xs">{reward.agentDid.split(":").at(-1) ?? reward.agentDid}</DataTd>
-                  <DataTd>{reward.amountKite.toFixed(2)}</DataTd>
-                  <DataTd>{reward.signalsCount ?? "-"}</DataTd>
-                  <DataTd>{reward.acceptanceRate !== undefined ? `${(reward.acceptanceRate * 100).toFixed(1)}%` : "-"}</DataTd>
+                  <DataTd>{reward.actionType ?? "--"}</DataTd>
+                  <DataTd>{reward.valueDelta.toLocaleString()}</DataTd>
+                  <DataTd>{new Date(reward.createdAt).toLocaleString()}</DataTd>
                 </tr>
               ))}
             </tbody>
           </DataTable>
         ) : null}
+        {!loading && !error && (data?.rewards.length ?? 0) === 0 ? <p className="text-sm text-[#5c564c]">No on-chain PoAI records for this epoch yet.</p> : null}
       </CardContent>
     </Card>
   );

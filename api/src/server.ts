@@ -6,7 +6,6 @@ import { registerWsGateway } from "./ws/gateway.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerAuthPlugin } from "./plugins/auth.js";
-import { registerSessionRoutes } from "./routes/sessions.js";
 import { registerPositionRoutes } from "./routes/positions.js";
 import { registerPortfolioRoutes } from "./routes/portfolio.js";
 import { registerAgentRoutes } from "./routes/agents.js";
@@ -17,6 +16,7 @@ import { registerPoAIRoutes } from "./routes/poai.js";
 import { registerAlertRoutes } from "./routes/alerts.js";
 import { registerChainRoutes } from "./routes/chain.js";
 import { registerScoutRoutes } from "./routes/scouts.js";
+import { registerInternalRoutes } from "./routes/internal.js";
 
 function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) return true;
@@ -48,7 +48,6 @@ export async function buildServer() {
 
   await registerHealthRoutes(app);
   await registerAuthRoutes(app);
-  await registerSessionRoutes(app);
   await registerPositionRoutes(app);
   await registerPortfolioRoutes(app);
   await registerAgentRoutes(app);
@@ -59,6 +58,7 @@ export async function buildServer() {
   await registerAlertRoutes(app);
   await registerChainRoutes(app);
   await registerScoutRoutes(app);
+  await registerInternalRoutes(app);
 
   registerWsGateway(app);
 

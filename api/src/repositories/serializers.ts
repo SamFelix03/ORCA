@@ -3,15 +3,32 @@ import type {
   AlertRecord,
   DepositRecord,
   ExecutionRecord,
-  PoAIRewardRecord,
   PositionRecord,
   ScoutMarketplaceRecord,
   ScoutPayoutRecord,
-  SessionRecord,
   SignalRecord,
   TreasuryOverview,
+  RelayerMessageRecord,
+  RiskInstructionRecord,
+  VaultHoldingRecord,
+  WorkflowEventRecord,
+  X402PaymentRecord,
 } from "@orca/shared";
-import type { Agent, Alert, AttributionRecord, Deposit, Execution, Position, ScoutMarketplace, ScoutPayout, Session, Signal } from "@prisma/client";
+import type {
+  Agent,
+  Alert,
+  Deposit,
+  Execution,
+  Position,
+  RelayerMessage,
+  RiskInstruction,
+  ScoutMarketplace,
+  ScoutPayout,
+  Signal,
+  VaultHolding,
+  WorkflowEvent,
+  X402Payment,
+} from "@prisma/client";
 
 const decimalToNumber = (value: { toString(): string } | number | string): number => Number(value.toString());
 
@@ -96,16 +113,85 @@ export function toExecutionRecord(execution: Execution): ExecutionRecord {
   };
 }
 
-export function toSessionRecord(session: Session): SessionRecord {
+export function toRiskInstructionRecord(row: RiskInstruction): RiskInstructionRecord {
   return {
-    id: session.externalSessionId ?? session.id,
-    agentDid: session.agentDid,
-    maxAmountPerTxUsdc: decimalToNumber(session.maxAmountPerTxUsdc),
-    maxTotalAmountUsdc: decimalToNumber(session.maxTotalAmountUsdc),
-    usedAmountUsdc: decimalToNumber(session.usedAmountUsdc),
-    ttlSeconds: session.ttlSeconds,
-    status: session.status,
-    createdAt: session.createdAt.toISOString(),
+    id: row.id,
+    signalId: row.signalId,
+    riskDid: row.riskDid,
+    executorDid: row.executorDid,
+    approved: row.approved,
+    reason: row.reason,
+    sourceSignalHash: row.sourceSignalHash,
+    paymentTxHash: row.paymentTxHash,
+    signature: row.signature,
+    payload: row.payload,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export function toWorkflowEventRecord(row: WorkflowEvent): WorkflowEventRecord {
+  return {
+    id: row.id,
+    signalId: row.signalId,
+    eventType: row.eventType,
+    agentDid: row.agentDid,
+    agentType: row.agentType,
+    title: row.title,
+    summary: row.summary,
+    txHash: row.txHash,
+    paymentTxHash: row.paymentTxHash,
+    chainId: row.chainId,
+    payload: row.payload,
+    occurredAt: row.occurredAt.toISOString(),
+  };
+}
+
+export function toX402PaymentRecord(row: X402Payment): X402PaymentRecord {
+  return {
+    id: row.id,
+    signalId: row.signalId,
+    instructionId: row.instructionId,
+    fromDid: row.fromDid,
+    toDid: row.toDid,
+    amountWei: row.amountWei,
+    asset: row.asset,
+    network: row.network,
+    memo: row.memo,
+    txHash: row.txHash,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export function toRelayerMessageRecord(row: RelayerMessage): RelayerMessageRecord {
+  return {
+    id: row.id,
+    signalId: row.signalId,
+    messageId: row.messageId,
+    originDomain: row.originDomain,
+    destinationDomain: row.destinationDomain,
+    recipient: row.recipient,
+    dispatchTxHash: row.dispatchTxHash,
+    deliveryTxHash: row.deliveryTxHash,
+    status: row.status,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function toVaultHoldingRecord(row: VaultHolding): VaultHoldingRecord {
+  return {
+    id: row.id,
+    ownerWallet: row.ownerWallet,
+    vaultAddress: row.vaultAddress,
+    chainId: row.chainId,
+    chainName: row.chainName,
+    protocol: row.protocol,
+    token: row.token,
+    balanceRaw: row.balanceRaw,
+    decimals: row.decimals,
+    amountUsdc: decimalToNumber(row.amountUsdc),
+    sourceTxHash: row.sourceTxHash,
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
@@ -117,15 +203,6 @@ export function toAlertRecord(alert: Alert): AlertRecord {
     message: alert.message,
     createdAt: alert.createdAt.toISOString(),
     resolvedAt: alert.resolvedAt ? alert.resolvedAt.toISOString() : null,
-  };
-}
-
-export function toPoaiRewardRecord(record: AttributionRecord): PoAIRewardRecord {
-  return {
-    epochId: record.epochId,
-    agentDid: record.agentDid,
-    amountKite: decimalToNumber(record.valueDelta),
-    createdAt: record.createdAt.toISOString(),
   };
 }
 
@@ -163,16 +240,6 @@ export function toScoutPayoutRecord(row: ScoutPayout): ScoutPayoutRecord {
   };
 }
 
-export function toTreasuryOverview(
-  balanceUsdc: number,
-  pendingCount: number,
-  signers: string[],
-  threshold = "3/5"
-): TreasuryOverview {
-  return {
-    balanceUsdc,
-    pendingMultisigTxCount: pendingCount,
-    signers,
-    threshold,
-  };
+export function toTreasuryOverview(snapshot: TreasuryOverview): TreasuryOverview {
+  return snapshot;
 }

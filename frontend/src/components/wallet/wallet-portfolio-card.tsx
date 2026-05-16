@@ -1,8 +1,9 @@
 "use client";
 
-import type { DepositRecord, PositionRecord } from "@orca/shared";
+import type { DepositRecord, VaultHoldingRecord } from "@orca/shared";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { orcaApi } from "@/lib/api";
 import { primaryPrivyWalletAddress } from "@/lib/privy-user";
@@ -12,15 +13,12 @@ function shortAddress(address: string | null) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-function tokenBalance(token: string, positions: PositionRecord[], deposits: DepositRecord[]) {
+function tokenBalance(token: string, deposits: DepositRecord[]) {
   const normalized = token.toLowerCase();
-  const fromPositions = positions
-    .filter((item) => item.asset.toLowerCase() === normalized)
-    .reduce((sum, item) => sum + item.amountUsdc, 0);
   const fromDeposits = deposits
     .filter((item) => item.token.toLowerCase() === normalized)
     .reduce((sum, item) => sum + item.amountUsdc, 0);
-  return fromPositions + fromDeposits;
+  return fromDeposits;
 }
 
 function formatBalance(value: number | null) {
@@ -32,8 +30,9 @@ export function WalletPortfolioCard() {
   const { authenticated, user } = usePrivy();
   const { wallets } = useWallets();
   const walletAddress = primaryPrivyWalletAddress(user, wallets);
-  const [positions, setPositions] = useState<PositionRecord[]>([]);
   const [deposits, setDeposits] = useState<DepositRecord[]>([]);
+  const [holdings, setHoldings] = useState<VaultHoldingRecord[]>([]);
+  const [refreshingHoldings, setRefreshingHoldings] = useState(false);
 
   useEffect(() => {
     if (!authenticated || !walletAddress) {
@@ -43,14 +42,17 @@ export function WalletPortfolioCard() {
     let cancelled = false;
     const load = async () => {
       try {
-        const [pos, dep] = await Promise.all([orcaApi.myPositions(null, walletAddress), orcaApi.myDeposits(null, walletAddress)]);
+        const [dep, vaults] = await Promise.all([
+          orcaApi.myDeposits(null, walletAddress),
+          orcaApi.myVaultHoldings(null, walletAddress),
+        ]);
         if (cancelled) return;
-        setPositions(pos.positions);
         setDeposits(dep.deposits);
+        setHoldings(vaults.holdings);
       } catch {
         if (cancelled) return;
-        setPositions([]);
         setDeposits([]);
+        setHoldings([]);
       }
     };
 
@@ -63,11 +65,22 @@ export function WalletPortfolioCard() {
 
   const balances = useMemo(
     () => ({
-      usdt: tokenBalance("USDT", positions, deposits),
-      pieusd: tokenBalance("PIEUSD", positions, deposits),
+      usdt: tokenBalance("USDT", deposits) + holdings.filter((item) => item.token.toLowerCase() === "usdt").reduce((sum, item) => sum + item.amountUsdc, 0),
+      pieusd: tokenBalance("PIEUSD", deposits) + holdings.filter((item) => item.token.toLowerCase() === "pieusd").reduce((sum, item) => sum + item.amountUsdc, 0),
     }),
-    [positions, deposits],
+    [deposits, holdings],
   );
+
+  const reloadHoldings = async () => {
+    if (!walletAddress || refreshingHoldings) return;
+    setRefreshingHoldings(true);
+    try {
+      const vaults = await orcaApi.refreshVaultHoldings(null, walletAddress);
+      setHoldings(vaults.holdings);
+    } finally {
+      setRefreshingHoldings(false);
+    }
+  };
 
   return (
     <Card>
@@ -84,6 +97,36 @@ export function WalletPortfolioCard() {
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#5c564c]">PIEUSD Balance</p>
           <p className="mt-1 text-xl font-semibold text-black">{formatBalance(balances.pieusd)} PIEUSD</p>
         </div>
+        <div className="flex items-end justify-start sm:col-span-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={reloadHoldings}
+            disabled={!walletAddress || refreshingHoldings}
+            title="Reload vault holdings"
+          >
+            {refreshingHoldings ? "Reloading..." : "Reload holdings"}
+          </Button>
+        </div>
+        {holdings.length > 0 ? (
+          <div className="border-t border-black/10 pt-3 sm:col-span-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#5c564c]">Vault holdings</p>
+            <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {holdings.map((holding) => (
+                <div key={holding.id} className="rounded border border-black/10 bg-[#fffaf0] p-2 text-xs">
+                  <p className="font-semibold text-black">{holding.chainName} / {holding.protocol}</p>
+                  <p className="mt-1 text-[#5c564c]">{formatBalance(holding.amountUsdc)} {holding.token}</p>
+                  {holding.sourceTxHash ? (
+                    <a className="mt-1 block break-all font-mono underline" href={`https://testnet.kitescan.ai/tx/${holding.sourceTxHash}`} target="_blank" rel="noreferrer">
+                      {holding.sourceTxHash}
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

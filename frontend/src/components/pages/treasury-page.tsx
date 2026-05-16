@@ -1,26 +1,18 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DataTable, DataTd, DataTh, DataThead } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { orcaApi } from "@/lib/api";
 import { useOrcaResource } from "./use-orca-resource";
 
 export function TreasuryPage() {
-  const { data, loading, error } = useOrcaResource(async () => {
-    const [treasury, pending] = await Promise.all([
-      orcaApi.treasury(),
-      orcaApi.pendingMultisig(),
-    ]);
-
-    return { treasury, pending };
-  }, []);
+  const { data, loading, error } = useOrcaResource(() => orcaApi.treasury(), []);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
       <Card>
         <CardHeader>
-          <CardTitle>Treasury Overview</CardTitle>
+          <CardTitle>On-chain Treasury</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           {loading ? <p className="text-[#5c564c]">Loading treasury...</p> : null}
@@ -29,12 +21,16 @@ export function TreasuryPage() {
           {!loading && !error && data ? (
             <>
               <div className="flex items-center justify-between">
-                <span className="text-[#5c564c]">Balance</span>
-                <span className="text-xl font-semibold">{data.treasury.treasury.balanceUsdc.toLocaleString()} USDC</span>
+                <span className="text-[#5c564c]">Address</span>
+                <span className="font-mono text-xs">{data.treasury.address ? `${data.treasury.address.slice(0, 8)}...${data.treasury.address.slice(-6)}` : "--"}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#5c564c]">Threshold</span>
-                <Badge tone="info">{data.treasury.treasury.threshold}</Badge>
+                <Badge tone="info">{data.treasury.threshold}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[#5c564c]">Native KITE</span>
+                <span className="font-semibold">{data.treasury.nativeBalance.toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
               </div>
             </>
           ) : null}
@@ -43,27 +39,19 @@ export function TreasuryPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Pending Multisig Proposals</CardTitle>
+          <CardTitle>Token Balances</CardTitle>
         </CardHeader>
-        <CardContent>
-          {!loading && !error && data ? (
-            <DataTable>
-              <DataThead>
-                <tr>
-                  <DataTh>Value</DataTh>
-                  <DataTh>Approvals</DataTh>
-                </tr>
-              </DataThead>
-              <tbody>
-                {data.pending.pending.map((item) => (
-                  <tr key={item.id}>
-                    <DataTd>{item.valueUsdc.toLocaleString()} USDC</DataTd>
-                    <DataTd>{item.approvals}/{item.required}</DataTd>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
-          ) : null}
+        <CardContent className="space-y-3 text-sm">
+          {!loading && !error && data?.treasury.tokenBalances.map((item) => (
+            <div key={item.address} className="rounded border border-black/10 bg-[#fffaf0] p-3">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-black">{item.symbol}</span>
+                <span>{item.balance.toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
+              </div>
+              <p className="mt-2 break-all font-mono text-xs text-[#5c564c]">{item.address}</p>
+            </div>
+          ))}
+          {!loading && !error && (data?.treasury.tokenBalances.length ?? 0) === 0 ? <p className="text-[#5c564c]">No configured token balances found.</p> : null}
         </CardContent>
       </Card>
     </div>

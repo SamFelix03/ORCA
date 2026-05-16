@@ -9,7 +9,6 @@ export const NAV_ITEMS = [
   { label: "Positions", href: "/positions", mark: "P" },
   { label: "Agents", href: "/agents", mark: "A" },
   { label: "Signals", href: "/signals", mark: "S" },
-  { label: "Sessions", href: "/sessions", mark: "K" },
   { label: "Treasury", href: "/treasury", mark: "T" },
   { label: "PoAI", href: "/poai", mark: "I" },
   { label: "Marketplace", href: "/marketplace", mark: "M" },

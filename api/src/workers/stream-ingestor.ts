@@ -1,5 +1,6 @@
 import { Redis } from "ioredis";
 import type { FastifyInstance } from "fastify";
+import { Prisma } from "@prisma/client";
 import { createExecutionRecord } from "../repositories/orca.js";
 import { prisma } from "../db/prisma.js";
 import { broadcast } from "../ws/gateway.js";
@@ -7,23 +8,428 @@ import { broadcast } from "../ws/gateway.js";
 const SIGNAL_STREAM = process.env.SCOUT_REDIS_STREAM_KEY ?? "orca:signals:scout";
 const INSTRUCTION_STREAM = process.env.RISK_INSTRUCTION_STREAM_KEY ?? "orca:instructions:risk";
 const EXEC_STREAM = process.env.EXECUTION_STREAM_KEY ?? "orca:executions:executor";
+const AUDIT_STREAM = process.env.AUDIT_STREAM_KEY ?? "orca:audit";
+const RELAYER_STREAM = process.env.RELAYER_STREAM_KEY ?? "orca:relayer";
 const GROUP = "orca-api";
 const CONSUMER = `api-${process.pid}`;
 
+type StreamPayload = Record<string, unknown>;
+
 async function ensureGroup(redis: Redis, stream: string): Promise<void> {
   try {
-    await redis.xgroup("CREATE", stream, GROUP, "$", "MKSTREAM");
+    await redis.xgroup("CREATE", stream, GROUP, "0", "MKSTREAM");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (!message.includes("BUSYGROUP")) throw error;
   }
 }
 
+function jsonValue(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value ?? null)) as Prisma.InputJsonValue;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function asString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function asNumber(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function didAgentType(did: string): string | null {
+  const lower = did.toLowerCase();
+  for (const type of ["scout", "risk", "executor", "audit"]) {
+    if (lower.includes(type)) return type;
+  }
+  return null;
+}
+
+function explorerUrl(txHash: string, chainId?: number | null): string {
+  void chainId;
+  return txHash;
+}
+
+async function createWorkflowEvent(params: {
+  stream: string;
+  streamEventId: string;
+  eventType: string;
+  signalId?: string | null;
+  agentDid?: string | null;
+  agentType?: string | null;
+  title: string;
+  summary: string;
+  txHash?: string | null;
+  paymentTxHash?: string | null;
+  chainId?: number | null;
+  payload: StreamPayload;
+}) {
+  await prisma.workflowEvent.upsert({
+    where: { stream_streamEventId: { stream: params.stream, streamEventId: params.streamEventId } },
+    update: {
+      signalId: params.signalId,
+      eventType: params.eventType,
+      agentDid: params.agentDid,
+      agentType: params.agentType,
+      title: params.title,
+      summary: params.summary,
+      txHash: params.txHash,
+      paymentTxHash: params.paymentTxHash,
+      chainId: params.chainId,
+      payload: jsonValue(params.payload),
+    },
+    create: {
+      stream: params.stream,
+      streamEventId: params.streamEventId,
+      signalId: params.signalId,
+      eventType: params.eventType,
+      agentDid: params.agentDid,
+      agentType: params.agentType,
+      title: params.title,
+      summary: params.summary,
+      txHash: params.txHash,
+      paymentTxHash: params.paymentTxHash,
+      chainId: params.chainId,
+      payload: jsonValue(params.payload),
+    },
+  });
+  if (params.signalId) {
+    broadcast({
+      type: "workflow.updated",
+      at: new Date().toISOString(),
+      payload: { signalId: params.signalId, eventType: params.eventType },
+    });
+  }
+}
+
+async function recordPayment(params: {
+  signalId?: string | null;
+  instructionId?: string | null;
+  fromDid?: string | null;
+  toDid: string;
+  amountWei?: string | number | null;
+  asset?: string | null;
+  network?: string | null;
+  memo?: string | null;
+  txHash?: string | null;
+  payload: StreamPayload;
+}) {
+  if (!params.txHash) return;
+  await prisma.x402Payment.upsert({
+    where: { txHash: params.txHash },
+    update: {
+      signalId: params.signalId,
+      instructionId: params.instructionId,
+      fromDid: params.fromDid,
+      toDid: params.toDid,
+      amountWei: String(params.amountWei ?? process.env.X402_MAX_AMOUNT_REQUIRED_WEI ?? "1000000"),
+      asset: params.asset ?? process.env.X402_ASSET_ADDRESS ?? "",
+      network: params.network ?? process.env.X402_NETWORK ?? "kite-testnet",
+      memo: params.memo,
+      payload: jsonValue(params.payload),
+    },
+    create: {
+      signalId: params.signalId,
+      instructionId: params.instructionId,
+      fromDid: params.fromDid,
+      toDid: params.toDid,
+      amountWei: String(params.amountWei ?? process.env.X402_MAX_AMOUNT_REQUIRED_WEI ?? "1000000"),
+      asset: params.asset ?? process.env.X402_ASSET_ADDRESS ?? "",
+      network: params.network ?? process.env.X402_NETWORK ?? "kite-testnet",
+      memo: params.memo,
+      txHash: params.txHash,
+      payload: jsonValue(params.payload),
+    },
+  });
+}
+
+async function handleScoutSignal(stream: string, id: string, payload: StreamPayload) {
+  const signal = asRecord(payload.signal);
+  const signalId = asString(signal.signal_id);
+  const scoutDid = asString(signal.scout_did);
+  const paymentTxHash = asString(payload.paymentTxHash) || null;
+
+  await prisma.signal.upsert({
+    where: { id: signalId },
+    update: {
+      netDeltaApy: asNumber(signal.net_delta_apy),
+      suggestedAmountUsdc: asNumber(signal.suggested_amount),
+      txHash: paymentTxHash,
+      status: "pending",
+    },
+    create: {
+      id: signalId,
+      scoutDid,
+      srcChain: asNumber(signal.src_chain),
+      dstChain: asNumber(signal.dst_chain),
+      srcProtocol: asString(signal.src_protocol),
+      dstProtocol: asString(signal.dst_protocol),
+      netDeltaApy: asNumber(signal.net_delta_apy),
+      suggestedAmountUsdc: asNumber(signal.suggested_amount),
+      status: "pending",
+      txHash: paymentTxHash,
+    },
+  });
+
+  await recordPayment({
+    signalId,
+    fromDid: scoutDid,
+    toDid: process.env.RISK_AGENT_DID ?? "risk",
+    txHash: paymentTxHash,
+    memo: `signal:${signalId}`,
+    payload,
+  });
+
+  await createWorkflowEvent({
+    stream,
+    streamEventId: id,
+    eventType: "scout.signal.created",
+    signalId,
+    agentDid: scoutDid,
+    agentType: "scout",
+    title: "Scout found opportunity",
+    summary: `${asString(signal.src_protocol)} -> ${asString(signal.dst_protocol)} with ${asString(signal.net_delta_apy)}% net delta`,
+    paymentTxHash,
+    chainId: asNumber(signal.dst_chain),
+    payload,
+  });
+
+  broadcast({
+    type: "signal.created",
+    at: new Date().toISOString(),
+    payload: {
+      signal: {
+        id: signalId,
+        scoutDid,
+        srcChain: asNumber(signal.src_chain),
+        dstChain: asNumber(signal.dst_chain),
+        srcProtocol: asString(signal.src_protocol),
+        dstProtocol: asString(signal.dst_protocol),
+        netDeltaApy: asNumber(signal.net_delta_apy),
+        suggestedAmountUsdc: asNumber(signal.suggested_amount),
+        status: "pending",
+        txHash: paymentTxHash ?? undefined,
+        createdAt: new Date().toISOString(),
+      },
+    },
+  });
+}
+
+async function handleRiskInstruction(stream: string, id: string, payload: StreamPayload) {
+  const instruction = asRecord(payload.instruction);
+  const signalId = asString(instruction.signal_id);
+  const instructionId = asString(instruction.instruction_id);
+  const riskDid = asString(instruction.risk_did);
+  const executorDid = asString(instruction.executor_did);
+  const approved = Boolean(instruction.approved);
+  const reason = asString(instruction.reason);
+  const paymentTxHash = asString(payload.paymentTxHash) || null;
+
+  await prisma.riskInstruction.upsert({
+    where: { signalId },
+    update: {
+      riskDid,
+      executorDid,
+      approved,
+      reason,
+      sourceSignalHash: asString(payload.sourceSignalHash) || null,
+      paymentTxHash,
+      signature: asString(instruction.signature) || null,
+      payload: jsonValue(payload),
+    },
+    create: {
+      id: instructionId,
+      signalId,
+      riskDid,
+      executorDid,
+      approved,
+      reason,
+      sourceSignalHash: asString(payload.sourceSignalHash) || null,
+      paymentTxHash,
+      signature: asString(instruction.signature) || null,
+      payload: jsonValue(payload),
+    },
+  });
+
+  await prisma.signal.update({
+    where: { id: signalId },
+    data: { status: approved ? "approved" : "rejected", riskDecisionReason: reason },
+  });
+
+  await recordPayment({
+    signalId,
+    instructionId,
+    fromDid: riskDid,
+    toDid: executorDid,
+    txHash: paymentTxHash,
+    memo: `signal:${signalId}`,
+    payload,
+  });
+
+  await createWorkflowEvent({
+    stream,
+    streamEventId: id,
+    eventType: "risk.instruction.created",
+    signalId,
+    agentDid: riskDid,
+    agentType: "risk",
+    title: approved ? "Risk approved signal" : "Risk rejected signal",
+    summary: reason,
+    paymentTxHash,
+    payload,
+  });
+}
+
+async function handleExecution(stream: string, id: string, payload: StreamPayload) {
+  const signalId = asString(payload.signal_id);
+  const txHash = asString(payload.tx_hash);
+  const paymentTxHash = asString(payload.paymentTxHash) || null;
+  const execution = await createExecutionRecord({
+    signalId,
+    instructionId: asString(payload.instruction_id),
+    executorDid: asString(payload.executor_did),
+    txHash,
+    status: asString(payload.status),
+  });
+  await prisma.execution.update({
+    where: { id: execution.id },
+    data: { paymentTxHash, payload: jsonValue(payload) },
+  });
+  await prisma.signal.update({
+    where: { id: signalId },
+    data: { status: payload.success ? "executed" : "failed", txHash },
+  });
+
+  await recordPayment({
+    signalId,
+    instructionId: asString(payload.instruction_id),
+    fromDid: asString(payload.executor_did),
+    toDid: process.env.AUDIT_AGENT_DID ?? "audit",
+    txHash: paymentTxHash,
+    memo: `signal:${signalId}`,
+    payload,
+  });
+
+  await createWorkflowEvent({
+    stream,
+    streamEventId: id,
+    eventType: "execution.settled",
+    signalId,
+    agentDid: asString(payload.executor_did),
+    agentType: "executor",
+    title: payload.success ? "Executor settled transaction" : "Executor failed transaction",
+    summary: `Execution ${asString(payload.status)} with tx ${explorerUrl(txHash)}`,
+    txHash,
+    paymentTxHash,
+    payload,
+  });
+
+  broadcast({
+    type: "execution.created",
+    at: new Date().toISOString(),
+    payload: { executionId: execution.id, signalId: execution.signalId, status: execution.status },
+  });
+  broadcast({
+    type: "execution.settled",
+    at: new Date().toISOString(),
+    payload: { signalId, txHash, status: payload.success ? "success" : "failed" },
+  });
+}
+
+async function handleRelayer(stream: string, id: string, payload: StreamPayload) {
+  const dispatchTxHash = asString(payload.dispatchTxHash) || null;
+  const executionSignal = payload.signalId || !dispatchTxHash
+    ? null
+    : await prisma.execution.findFirst({ where: { txHash: dispatchTxHash }, select: { signalId: true } });
+  const signalId = asString(payload.signalId) || executionSignal?.signalId || null;
+  const messageId = asString(payload.messageId);
+  if (!messageId) return;
+  await prisma.relayerMessage.upsert({
+    where: { messageId },
+    update: {
+      signalId,
+      originDomain: asNumber(payload.originDomain),
+      destinationDomain: asNumber(payload.destinationDomain),
+      recipient: asString(payload.recipient),
+      dispatchTxHash,
+      deliveryTxHash: asString(payload.deliveryTxHash) || null,
+      status: asString(payload.status) || "unknown",
+      payload: jsonValue(payload),
+    },
+    create: {
+      signalId,
+      messageId,
+      originDomain: asNumber(payload.originDomain),
+      destinationDomain: asNumber(payload.destinationDomain),
+      recipient: asString(payload.recipient),
+      dispatchTxHash,
+      deliveryTxHash: asString(payload.deliveryTxHash) || null,
+      status: asString(payload.status) || "unknown",
+      payload: jsonValue(payload),
+    },
+  });
+  await createWorkflowEvent({
+    stream,
+    streamEventId: id,
+    eventType: `relayer.${asString(payload.status) || "message"}`,
+    signalId,
+    agentType: "relayer",
+    title: "Relayer message update",
+    summary: `Message ${messageId} ${asString(payload.status) || "updated"}`,
+    txHash: asString(payload.deliveryTxHash) || asString(payload.dispatchTxHash) || null,
+    payload,
+  });
+}
+
+async function handleGeneric(stream: string, id: string, payload: StreamPayload) {
+  const eventType = asString(payload.event) || "agent.event";
+  const signalId = asString(payload.signalId) || asString(payload.signal_id) || null;
+  const did = asString(payload.agentDid) || asString(payload.agent_did) || null;
+  await createWorkflowEvent({
+    stream,
+    streamEventId: id,
+    eventType,
+    signalId,
+    agentDid: did,
+    agentType: did ? didAgentType(did) : null,
+    title: "Agent event",
+    summary: eventType,
+    txHash: asString(payload.txHash) || asString(payload.tx_hash) || null,
+    paymentTxHash: asString(payload.paymentTxHash) || null,
+    payload,
+  });
+}
+
+async function handlePayload(stream: string, id: string, payload: StreamPayload) {
+  if (stream === SIGNAL_STREAM && payload.event === "scout.signal.created") {
+    await handleScoutSignal(stream, id, payload);
+    return;
+  }
+  if (stream === INSTRUCTION_STREAM && payload.event === "risk.instruction.created") {
+    await handleRiskInstruction(stream, id, payload);
+    return;
+  }
+  if (stream === EXEC_STREAM && payload.event === "execution.settled") {
+    await handleExecution(stream, id, payload);
+    return;
+  }
+  if (stream === RELAYER_STREAM) {
+    await handleRelayer(stream, id, payload);
+    return;
+  }
+  await handleGeneric(stream, id, payload);
+}
+
 export async function startStreamIngestor(app: FastifyInstance, redisUrl: string): Promise<() => Promise<void>> {
   const redis = new Redis(redisUrl);
-  await ensureGroup(redis, SIGNAL_STREAM);
-  await ensureGroup(redis, INSTRUCTION_STREAM);
-  await ensureGroup(redis, EXEC_STREAM);
+  const streams = [SIGNAL_STREAM, INSTRUCTION_STREAM, EXEC_STREAM, AUDIT_STREAM, RELAYER_STREAM];
+  for (const stream of streams) {
+    await ensureGroup(redis, stream);
+  }
 
   let running = true;
   const loop = async () => {
@@ -37,88 +443,26 @@ export async function startStreamIngestor(app: FastifyInstance, redisUrl: string
         "BLOCK",
         "30000",
         "STREAMS",
-        SIGNAL_STREAM,
-        INSTRUCTION_STREAM,
-        EXEC_STREAM,
-        ">",
-        ">",
-        ">",
+        ...streams,
+        ...streams.map(() => ">"),
       );
       if (!entries) continue;
       const streamEntries = entries as [string, string[][]][];
       for (const [stream, records] of streamEntries) {
         for (const [id, fields] of records as [string, string[]][]) {
-          const payloadIndex = fields.findIndex((fieldName: string) => fieldName === "payload");
-          const payloadRaw = payloadIndex >= 0 ? fields[payloadIndex + 1] : undefined;
-          if (!payloadRaw) {
-            app.log.error("Missing payload in stream event %s", id);
-            continue;
+          try {
+            const payloadIndex = fields.findIndex((fieldName: string) => fieldName === "payload");
+            const payloadRaw = payloadIndex >= 0 ? fields[payloadIndex + 1] : undefined;
+            if (!payloadRaw) {
+              app.log.error("Missing payload in stream event %s", id);
+              continue;
+            }
+            const payload = JSON.parse(payloadRaw) as StreamPayload;
+            await handlePayload(stream, id, payload);
+            await redis.xack(stream, GROUP, id);
+          } catch (error) {
+            app.log.error({ error, stream, id }, "Failed to ingest stream event");
           }
-          const payload = JSON.parse(payloadRaw);
-          if (stream === SIGNAL_STREAM && payload.event === "scout.signal.created") {
-            const signal = payload.signal;
-            await prisma.signal.upsert({
-              where: { id: signal.signal_id },
-              update: {
-                netDeltaApy: signal.net_delta_apy,
-                suggestedAmountUsdc: signal.suggested_amount,
-                txHash: payload.paymentTxHash || null,
-                status: "pending",
-              },
-              create: {
-                id: signal.signal_id,
-                scoutDid: signal.scout_did,
-                srcChain: signal.src_chain,
-                dstChain: signal.dst_chain,
-                srcProtocol: signal.src_protocol,
-                dstProtocol: signal.dst_protocol,
-                netDeltaApy: signal.net_delta_apy,
-                suggestedAmountUsdc: signal.suggested_amount,
-                status: "pending",
-                txHash: payload.paymentTxHash || null,
-              },
-            });
-            broadcast({
-              type: "signal.created",
-              at: new Date().toISOString(),
-              payload: { signal: {
-                id: signal.signal_id,
-                scoutDid: signal.scout_did,
-                srcChain: signal.src_chain,
-                dstChain: signal.dst_chain,
-                srcProtocol: signal.src_protocol,
-                dstProtocol: signal.dst_protocol,
-                netDeltaApy: Number(signal.net_delta_apy),
-                suggestedAmountUsdc: Number(signal.suggested_amount),
-                status: "pending",
-                txHash: payload.paymentTxHash || undefined,
-                createdAt: new Date().toISOString(),
-              } },
-            });
-          } else if (stream === EXEC_STREAM && payload.event === "execution.settled") {
-            const execution = await createExecutionRecord({
-              signalId: payload.signal_id,
-              instructionId: payload.instruction_id,
-              executorDid: payload.executor_did,
-              txHash: payload.tx_hash,
-              status: payload.status,
-            });
-            await prisma.signal.update({
-              where: { id: payload.signal_id },
-              data: { status: payload.success ? "executed" : "failed", txHash: payload.tx_hash },
-            });
-            broadcast({
-              type: "execution.created",
-              at: new Date().toISOString(),
-              payload: { executionId: execution.id, signalId: execution.signalId, status: execution.status },
-            });
-            broadcast({
-              type: "execution.settled",
-              at: new Date().toISOString(),
-              payload: { signalId: payload.signal_id, txHash: payload.tx_hash, status: payload.success ? "success" : "failed" },
-            });
-          }
-          await redis.xack(stream, GROUP, id);
         }
       }
     }
