@@ -33,6 +33,7 @@ This package contains ORCA control-plane contracts for registry, spending rules,
 - Deploy order and artifact generation are handled by `scripts/deploy.ts`.
 - Deployment outputs are persisted into `deployments/kite-testnet.latest.json` and `deployments/history/`.
 - **SpendingRuleEnforcer** only allows `ClientAgentVault.execute` calls to **whitelisted** `target` addresses. Cross-chain intents use **`target = ORCAOApp`**; `deploy.ts` now whitelists the OApp automatically. For an older deployment that hits `EnforcerRejected` (selector `0x458bae4d`), run `pnpm enforcer:whitelist-oapp` from `contracts/` with the owner key in `contracts/.env` (`PRIVATE_KEY` / `DEPLOYER_PRIVATE_KEY`).
+- **`vault.executor`** must equal the address derived from **`EXECUTOR_PRIVATE_KEY`** in `agents/.env`. Fresh deploys default `executor` to `INITIAL_OWNER` / `EXEXUTOR_VAULT`; if agents use another key, run `pnpm vault:sync-executor` (owner signs `setExecutor`). To set an explicit address without reading `agents/.env` (e.g. all agents use deployer `0x2514…`): `SYNC_VAULT_EXECUTOR_TO=0x2514... pnpm vault:sync-executor`. Use `pnpm enforcer:diagnose` to print on-chain `vault.executor`, whitelist, and rule.
 
 ## Environment
 
