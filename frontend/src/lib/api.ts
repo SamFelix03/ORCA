@@ -26,18 +26,45 @@ import type {
 } from "@orca/shared";
 import { ORCA_API_BASE_URL } from "./config";
 
+const JWT_STORAGE_KEY = "orca_jwt";
+
+type AuthMode = "none" | "optional" | "required";
+
+function readStoredJwt(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    return localStorage.getItem(JWT_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function authHeaders(mode: AuthMode): HeadersInit {
+  const token = readStoredJwt();
+  if (!token || mode === "none") {
+    return {};
+  }
+  return { Authorization: `Bearer ${token}` };
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const text = await response.text();
+    if (response.status === 401) {
+      throw new Error(text || "Unauthorized. Sign in with your wallet to continue.");
+    }
     throw new Error(text || `Request failed (${response.status})`);
   }
 
   return response.json() as Promise<T>;
 }
 
-async function apiGet<T>(path: string): Promise<T> {
+async function apiGet<T>(path: string, mode: AuthMode = "none"): Promise<T> {
   const response = await fetch(`${ORCA_API_BASE_URL}${path}`, {
     cache: "no-store",
+    headers: authHeaders(mode),
   });
 
   return parseJson<T>(response);
@@ -52,11 +79,12 @@ async function apiGetAuth<T>(path: string, token: string): Promise<T> {
   return parseJson<T>(response);
 }
 
-async function apiPost<T>(path: string, body: unknown): Promise<T> {
+async function apiPost<T>(path: string, body: unknown, mode: AuthMode = "none"): Promise<T> {
   const response = await fetch(`${ORCA_API_BASE_URL}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders(mode),
     },
     body: JSON.stringify(body),
   });
@@ -64,11 +92,12 @@ async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return parseJson<T>(response);
 }
 
-async function apiPut<T>(path: string, body: unknown): Promise<T> {
+async function apiPut<T>(path: string, body: unknown, mode: AuthMode = "none"): Promise<T> {
   const response = await fetch(`${ORCA_API_BASE_URL}${path}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders(mode),
     },
     body: JSON.stringify(body),
   });
@@ -76,9 +105,10 @@ async function apiPut<T>(path: string, body: unknown): Promise<T> {
   return parseJson<T>(response);
 }
 
-async function apiDelete<T>(path: string): Promise<T> {
+async function apiDelete<T>(path: string, mode: AuthMode = "none"): Promise<T> {
   const response = await fetch(`${ORCA_API_BASE_URL}${path}`, {
     method: "DELETE",
+    headers: authHeaders(mode),
   });
 
   return parseJson<T>(response);

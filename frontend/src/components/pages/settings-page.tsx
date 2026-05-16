@@ -23,27 +23,27 @@ export function SettingsPage() {
       <CardContent>
         <form className="grid gap-4 max-w-2xl" onSubmit={onSubmit}>
           <label className="grid gap-1 text-sm">
-            <span className="font-medium text-[rgb(var(--primary-11))]">Collateral Floor</span>
+            <span className="font-medium text-[#5c564c]">Collateral Floor</span>
             <input
-              className="rounded-xl border border-[rgb(var(--neutral-6))] bg-[rgb(var(--neutral-1))] px-3 py-2"
+              className="rounded border border-black/15 bg-[#fffaf0] px-3 py-2"
               value={collateralFloor}
               onChange={(event) => setCollateralFloor(event.target.value)}
             />
           </label>
 
           <label className="grid gap-1 text-sm">
-            <span className="font-medium text-[rgb(var(--primary-11))]">Max Single Rebalance (%)</span>
+            <span className="font-medium text-[#5c564c]">Max Single Rebalance (%)</span>
             <input
-              className="rounded-xl border border-[rgb(var(--neutral-6))] bg-[rgb(var(--neutral-1))] px-3 py-2"
+              className="rounded border border-black/15 bg-[#fffaf0] px-3 py-2"
               value={maxRebalancePercent}
               onChange={(event) => setMaxRebalancePercent(event.target.value)}
             />
           </label>
 
           <label className="grid gap-1 text-sm">
-            <span className="font-medium text-[rgb(var(--primary-11))]">Daily Budget Cap (USDC)</span>
+            <span className="font-medium text-[#5c564c]">Daily Budget Cap (USDC)</span>
             <input
-              className="rounded-xl border border-[rgb(var(--neutral-6))] bg-[rgb(var(--neutral-1))] px-3 py-2"
+              className="rounded border border-black/15 bg-[#fffaf0] px-3 py-2"
               value={dailyCap}
               onChange={(event) => setDailyCap(event.target.value)}
             />
@@ -54,7 +54,7 @@ export function SettingsPage() {
           </div>
 
           {notice ? (
-            <p className="rounded-xl border border-[rgb(var(--success-6))] bg-[rgb(var(--success-2))] px-3 py-2 text-sm text-[rgb(var(--success-12))]">
+            <p className="rounded border border-[rgb(var(--success-6))] bg-[rgb(var(--success-2))] px-3 py-2 text-sm text-[rgb(var(--success-12))]">
               {notice}
             </p>
           ) : null}

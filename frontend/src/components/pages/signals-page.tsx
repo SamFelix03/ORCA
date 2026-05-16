@@ -25,30 +25,27 @@ export function SignalsPage() {
     <Card>
       <CardHeader>
         <CardTitle>Signals</CardTitle>
-        <p className="text-sm text-[rgb(var(--primary-11))]">Live strategy opportunities and risk decisions.</p>
+        <p className="text-sm text-[#5c564c]">Scout opportunities and Risk verdicts.</p>
       </CardHeader>
       <CardContent>
-        {loading ? <p className="text-sm text-[rgb(var(--primary-11))]">Loading signals...</p> : null}
+        {loading ? <p className="text-sm text-[#5c564c]">Loading signals...</p> : null}
         {error ? <p className="text-sm text-[rgb(var(--danger-11))]">{error}</p> : null}
 
         {!loading && !error ? (
           <DataTable>
             <DataThead>
               <tr>
-                <DataTh>ID</DataTh>
                 <DataTh>Route</DataTh>
                 <DataTh>Net APY</DataTh>
                 <DataTh>Amount</DataTh>
                 <DataTh>Status</DataTh>
                 <DataTh>Risk Reason</DataTh>
-                <DataTh>Tx Hash</DataTh>
               </tr>
             </DataThead>
             <tbody>
               {(data?.signals ?? []).map((signal) => (
                 <tr key={signal.id}>
-                  <DataTd>{signal.id}</DataTd>
-                  <DataTd>{signal.srcChain} → {signal.dstChain}</DataTd>
+                  <DataTd>{`${signal.srcProtocol} -> ${signal.dstProtocol}`}</DataTd>
                   <DataTd>{signal.netDeltaApy.toFixed(2)}%</DataTd>
                   <DataTd>{signal.suggestedAmountUsdc.toLocaleString()}</DataTd>
                   <DataTd>
@@ -57,7 +54,6 @@ export function SignalsPage() {
                     </StatusPill>
                   </DataTd>
                   <DataTd>{signal.riskDecisionReason ?? "-"}</DataTd>
-                  <DataTd className="font-mono text-xs">{signal.txHash ?? "-"}</DataTd>
                 </tr>
               ))}
             </tbody>

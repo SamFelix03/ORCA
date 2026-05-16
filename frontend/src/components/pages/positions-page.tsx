@@ -13,10 +13,10 @@ export function PositionsPage() {
     <Card>
       <CardHeader>
         <CardTitle>Positions</CardTitle>
-        <p className="text-sm text-[rgb(var(--primary-11))]">Cross-chain DeFi exposure and health metrics.</p>
+        <p className="text-sm text-[#5c564c]">Cross-chain DeFi exposure and health.</p>
       </CardHeader>
       <CardContent>
-        {loading ? <p className="text-sm text-[rgb(var(--primary-11))]">Loading positions...</p> : null}
+        {loading ? <p className="text-sm text-[#5c564c]">Loading positions...</p> : null}
         {error ? <p className="text-sm text-[rgb(var(--danger-11))]">{error}</p> : null}
 
         {!loading && !error ? (

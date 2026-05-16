@@ -14,14 +14,14 @@ export function PoaiPage() {
         <CardTitle>PoAI Rewards (Epoch 42)</CardTitle>
       </CardHeader>
       <CardContent>
-        {loading ? <p className="text-sm text-[rgb(var(--primary-11))]">Loading rewards...</p> : null}
+        {loading ? <p className="text-sm text-[#5c564c]">Loading rewards...</p> : null}
         {error ? <p className="text-sm text-[rgb(var(--danger-11))]">{error}</p> : null}
 
         {!loading && !error ? (
           <DataTable>
             <DataThead>
               <tr>
-                <DataTh>Agent DID</DataTh>
+                <DataTh>Agent</DataTh>
                 <DataTh>KITE Reward</DataTh>
                 <DataTh>Signals</DataTh>
                 <DataTh>Acceptance</DataTh>
@@ -30,7 +30,7 @@ export function PoaiPage() {
             <tbody>
               {(data?.rewards ?? []).map((reward, index) => (
                 <tr key={`${reward.agentDid}-${index}`}>
-                  <DataTd className="font-mono text-xs">{reward.agentDid}</DataTd>
+                  <DataTd className="font-mono text-xs">{reward.agentDid.split(":").at(-1) ?? reward.agentDid}</DataTd>
                   <DataTd>{reward.amountKite.toFixed(2)}</DataTd>
                   <DataTd>{reward.signalsCount ?? "-"}</DataTd>
                   <DataTd>{reward.acceptanceRate !== undefined ? `${(reward.acceptanceRate * 100).toFixed(1)}%` : "-"}</DataTd>

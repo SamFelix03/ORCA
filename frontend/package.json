@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@orca/shared": "workspace:*",
+    "@privy-io/react-auth": "^3.23.1",
+    "@solana/kit": "^6.8.0",
+    "@solana/sysvars": "^5.5.1",
     "@tanstack/react-query": "^5.100.8",
     "ethers": "^6.16.0",
     "geist": "^1.7.0",

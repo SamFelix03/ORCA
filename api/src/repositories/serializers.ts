@@ -15,6 +15,13 @@ import type { Agent, Alert, AttributionRecord, Deposit, Execution, Position, Sco
 
 const decimalToNumber = (value: { toString(): string } | number | string): number => Number(value.toString());
 
+type PositionLike = Pick<
+  Position,
+  "id" | "chainId" | "chainName" | "protocol" | "asset" | "amountUsdc" | "apy" | "healthFactor" | "lastUpdated"
+> & {
+  userId?: string | null;
+};
+
 export function toAgentRecord(agent: Agent): AgentRecord {
   return {
     did: agent.did,
@@ -29,7 +36,7 @@ export function toAgentRecord(agent: Agent): AgentRecord {
   };
 }
 
-export function toPositionRecord(position: Position): PositionRecord {
+export function toPositionRecord(position: PositionLike): PositionRecord {
   return {
     id: position.id,
     userId: position.userId ?? null,

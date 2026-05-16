@@ -11,35 +11,31 @@ export function AgentsPage() {
   return (
     <div className="space-y-4">
       <header>
-        <h2 className="text-2xl font-semibold">Agents</h2>
-        <p className="text-sm text-[rgb(var(--primary-11))]">Identity and vault metadata from ORCA registry-compatible data surfaces.</p>
+        <h2 className="text-2xl font-semibold tracking-tight text-black">Agents</h2>
+        <p className="mt-1 text-sm text-[#5c564c]">Scout, Risk, Executor, and Audit coordination.</p>
       </header>
 
-      {loading ? <p className="text-sm text-[rgb(var(--primary-11))]">Loading agents...</p> : null}
+      {loading ? <p className="text-sm text-[#5c564c]">Loading agents...</p> : null}
       {error ? <p className="text-sm text-[rgb(var(--danger-11))]">{error}</p> : null}
 
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
         {(data?.agents ?? []).map((agent) => (
           <Card key={agent.did}>
             <CardHeader>
-              <CardTitle>{agent.type.toUpperCase()} Agent</CardTitle>
+              <CardTitle className="capitalize">{agent.type} Agent</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-[rgb(var(--primary-11))]">Status</span>
+                <span className="text-[#5c564c]">Status</span>
                 <StatusPill tone={agent.online ? "healthy" : "muted"}>{agent.online ? "online" : "offline"}</StatusPill>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-[rgb(var(--primary-11))]">DID</span>
-                <span className="font-mono text-xs">{agent.did}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-[rgb(var(--primary-11))]">Vault</span>
-                <span className="font-mono text-xs">{agent.vaultAddress}</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[#5c564c]">Spending</span>
+                <span>{agent.spendingUsedUsdc} / {agent.spendingCapUsdc} USDC</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[rgb(var(--primary-11))]">Spending</span>
-                <span>{agent.spendingUsedUsdc} / {agent.spendingCapUsdc} USDC</span>
+                <span className="text-[#5c564c]">PoAI</span>
+                <span>{agent.poaiScore.toFixed(0)}</span>
               </div>
             </CardContent>
           </Card>

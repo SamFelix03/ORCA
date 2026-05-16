@@ -1,4 +1,5 @@
 import { getAddress } from "ethers";
+import { Prisma } from "@prisma/client";
 import type {
   AgentRecord,
   AlertRecord,
@@ -28,22 +29,66 @@ import {
   toTreasuryOverview,
 } from "./serializers.js";
 
+const positionSelect = {
+  id: true,
+  userId: true,
+  chainId: true,
+  chainName: true,
+  protocol: true,
+  asset: true,
+  amountUsdc: true,
+  apy: true,
+  healthFactor: true,
+  lastUpdated: true,
+} satisfies Prisma.PositionSelect;
+
+const legacyPositionSelect = {
+  id: true,
+  chainId: true,
+  chainName: true,
+  protocol: true,
+  asset: true,
+  amountUsdc: true,
+  apy: true,
+  healthFactor: true,
+  lastUpdated: true,
+} satisfies Prisma.PositionSelect;
+
+function isMissingColumnError(error: unknown, column: string): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2022" &&
+    String(error.meta?.column ?? "").includes(column)
+  );
+}
+
 export async function listAgents(): Promise<AgentRecord[]> {
   const rows = await prisma.agent.findMany({
     orderBy: { createdAt: "asc" },
   });
 
-  if (rows.length === 0) throw new Error("No agents found in database (strict mode).");
   return rows.map(toAgentRecord);
 }
 
 export async function listPositionsForWallet(wallet: string): Promise<PositionRecord[]> {
   const w = getAddress(wallet);
-  const rows = await prisma.position.findMany({
-    where: { user: { walletAddress: w } },
-    orderBy: { updatedAt: "desc" },
-  });
-  return rows.map(toPositionRecord);
+  try {
+    const rows = await prisma.position.findMany({
+      where: { user: { walletAddress: w } },
+      select: positionSelect,
+      orderBy: { updatedAt: "desc" },
+    });
+    return rows.map(toPositionRecord);
+  } catch (error) {
+    if (!isMissingColumnError(error, "Position.userId")) {
+      throw error;
+    }
+    const rows = await prisma.position.findMany({
+      select: legacyPositionSelect,
+      orderBy: { updatedAt: "desc" },
+    });
+    return rows.map(toPositionRecord);
+  }
 }
 
 export async function listDepositsForWallet(wallet: string): Promise<DepositRecord[]> {
@@ -56,12 +101,22 @@ export async function listDepositsForWallet(wallet: string): Promise<DepositReco
 }
 
 export async function listPositions(): Promise<PositionRecord[]> {
-  const rows = await prisma.position.findMany({
-    orderBy: { updatedAt: "desc" },
-  });
-
-  if (rows.length === 0) throw new Error("No positions found in database (strict mode).");
-  return rows.map(toPositionRecord);
+  try {
+    const rows = await prisma.position.findMany({
+      select: positionSelect,
+      orderBy: { updatedAt: "desc" },
+    });
+    return rows.map(toPositionRecord);
+  } catch (error) {
+    if (!isMissingColumnError(error, "Position.userId")) {
+      throw error;
+    }
+    const rows = await prisma.position.findMany({
+      select: legacyPositionSelect,
+      orderBy: { updatedAt: "desc" },
+    });
+    return rows.map(toPositionRecord);
+  }
 }
 
 export async function listSignals(): Promise<SignalRecord[]> {
@@ -69,7 +124,6 @@ export async function listSignals(): Promise<SignalRecord[]> {
     orderBy: { createdAt: "desc" },
   });
 
-  if (rows.length === 0) throw new Error("No signals found in database (strict mode).");
   return rows.map(toSignalRecord);
 }
 
@@ -85,7 +139,6 @@ export async function listSessions(): Promise<SessionRecord[]> {
     orderBy: { createdAt: "desc" },
   });
 
-  if (rows.length === 0) throw new Error("No sessions found in database (strict mode).");
   return rows.map(toSessionRecord);
 }
 
@@ -126,7 +179,6 @@ export async function expireSession(sessionId: string): Promise<SessionRecord | 
 export async function listAlerts(): Promise<AlertRecord[]> {
   const rows = await prisma.alert.findMany({ orderBy: { createdAt: "desc" }, take: 50 });
 
-  if (rows.length === 0) throw new Error("No alerts found in database (strict mode).");
   return rows.map(toAlertRecord);
 }
 
@@ -152,7 +204,6 @@ export async function listPoaiRewardsByEpoch(epochId: number): Promise<PoAIRewar
     orderBy: { createdAt: "desc" },
   });
 
-  if (rows.length === 0) throw new Error(`No PoAI rewards found for epoch ${epochId} (strict mode).`);
   return rows.map(toPoaiRewardRecord);
 }
 
@@ -162,14 +213,13 @@ export async function listPoaiRewardsByDid(did: string): Promise<PoAIRewardRecor
     orderBy: { createdAt: "desc" },
   });
 
-  if (rows.length === 0) throw new Error(`No PoAI rewards found for DID ${did} (strict mode).`);
   return rows.map(toPoaiRewardRecord);
 }
 
 export async function getTreasuryOverview(): Promise<TreasuryOverview> {
-  const positions = await prisma.position.findMany();
-
-  if (positions.length === 0) throw new Error("No treasury positions found in database (strict mode).");
+  const positions = await prisma.position.findMany({
+    select: { amountUsdc: true },
+  });
 
   const balanceUsdc = positions.reduce((acc: number, position) => acc + Number(position.amountUsdc), 0);
 
@@ -178,7 +228,6 @@ export async function getTreasuryOverview(): Promise<TreasuryOverview> {
 
 export async function listExecutions(): Promise<ExecutionRecord[]> {
   const rows = await prisma.execution.findMany({ orderBy: { createdAt: "desc" } });
-  if (rows.length === 0) throw new Error("No executions found in database (strict mode).");
   return rows.map(toExecutionRecord);
 }
 

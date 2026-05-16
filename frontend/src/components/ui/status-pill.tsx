@@ -16,7 +16,7 @@ const statusMap: Record<StatusTone, { wrapper: string; dot: string }> = {
     dot: "bg-[rgb(var(--danger-9))]",
   },
   muted: {
-    wrapper: "bg-[rgb(var(--neutral-3))] text-[rgb(var(--neutral-11))]",
+    wrapper: "bg-[#f8f1e4] text-[#5c564c]",
     dot: "bg-[rgb(var(--neutral-9))]",
   },
 };
@@ -25,7 +25,7 @@ export function StatusPill({ tone, children }: { tone: StatusTone; children: Rea
   const classes = statusMap[tone];
 
   return (
-    <span className={cn("inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium", classes.wrapper)}>
+    <span className={cn("inline-flex items-center gap-2 rounded px-3 py-1 text-xs font-medium", classes.wrapper)}>
       <span className={cn("h-1.5 w-1.5 rounded-full", classes.dot)} />
       {children}
     </span>

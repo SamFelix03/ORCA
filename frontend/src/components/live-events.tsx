@@ -25,12 +25,12 @@ export function LiveEvents() {
       </CardHeader>
       <CardContent>
         <ul className="space-y-2">
-          {events.length === 0 ? <li className="text-sm text-[rgb(var(--primary-11))]">Waiting for websocket events...</li> : null}
+          {events.length === 0 ? <li className="text-sm text-[#5c564c]">Waiting for websocket events...</li> : null}
           {events.map((event, index) => (
-            <li key={`${event.type}-${event.at}-${index}`} className="rounded-xl border border-[rgb(var(--neutral-5))] bg-[rgb(var(--neutral-2))] px-3 py-2">
+            <li key={`${event.type}-${event.at}-${index}`} className="rounded border border-black/[0.08] bg-[#fffaf0] px-3 py-2">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[rgb(var(--primary-11))]">{event.type}</p>
-                <p className="text-xs text-[rgb(var(--neutral-10))]">{new Date(event.at).toLocaleString()}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#5c564c]">{event.type}</p>
+                <p className="text-xs text-[#5c564c]">{new Date(event.at).toLocaleString()}</p>
               </div>
             </li>
           ))}

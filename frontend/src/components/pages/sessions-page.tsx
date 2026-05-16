@@ -36,18 +36,17 @@ export function SessionsPage() {
     <Card>
       <CardHeader>
         <CardTitle>Passport Sessions</CardTitle>
-        <p className="text-sm text-[rgb(var(--primary-11))]">Approve and revoke delegated spending windows.</p>
+        <p className="text-sm text-[#5c564c]">Approve or revoke delegated spending windows.</p>
       </CardHeader>
       <CardContent>
-        {loading ? <p className="text-sm text-[rgb(var(--primary-11))]">Loading sessions...</p> : null}
+        {loading ? <p className="text-sm text-[#5c564c]">Loading sessions...</p> : null}
         {error ? <p className="text-sm text-[rgb(var(--danger-11))]">{error}</p> : null}
 
         {!loading && !error ? (
           <DataTable>
             <DataThead>
               <tr>
-                <DataTh>Session ID</DataTh>
-                <DataTh>Agent DID</DataTh>
+                <DataTh>Agent</DataTh>
                 <DataTh>Budget</DataTh>
                 <DataTh>Used</DataTh>
                 <DataTh>Status</DataTh>
@@ -57,8 +56,7 @@ export function SessionsPage() {
             <tbody>
               {(data?.sessions ?? []).map((session) => (
                 <tr key={session.id}>
-                  <DataTd className="font-mono text-xs">{session.id}</DataTd>
-                  <DataTd className="font-mono text-xs">{session.agentDid}</DataTd>
+                  <DataTd className="font-mono text-xs">{session.agentDid.split(":").at(-1) ?? session.agentDid}</DataTd>
                   <DataTd>{session.maxTotalAmountUsdc}</DataTd>
                   <DataTd>{session.usedAmountUsdc}</DataTd>
                   <DataTd>

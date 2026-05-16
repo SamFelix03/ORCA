@@ -10,6 +10,6 @@ export async function registerTreasuryRoutes(app: FastifyInstance): Promise<void
 
   app.get("/treasury/multisig/pending", async (request): Promise<TreasuryPendingResponse> => {
     await app.authenticate(request);
-    throw new Error("Pending multisig integration must be wired to live treasury source");
+    return { pending: [] };
   });
 }

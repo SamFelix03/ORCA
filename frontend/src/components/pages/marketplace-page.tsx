@@ -107,7 +107,7 @@ export function MarketplacePage() {
 
       const allowance = await readErc20Allowance(eth, challenge.stakeTokenAddress, account, challenge.registryAddress);
       if (allowance < bondWei) {
-        setNotice("Approving stake token spend for ORCARegistry…");
+        setNotice("Approving stake token spend for ORCARegistry...");
         const approveData = encodeErc20Approve(challenge.registryAddress, bondWei);
         const approveHash = await sendEvmTransaction(eth, {
           from: account,
@@ -120,7 +120,7 @@ export function MarketplacePage() {
         }
       }
 
-      setNotice("Submitting registerPermissionlessScout on-chain…");
+      setNotice("Submitting registerPermissionlessScout on-chain...");
       const txPayload = await orcaApi.scoutRegisterTxData(scout.id);
       const regHash = await sendEvmTransaction(eth, {
         from: account,
@@ -161,7 +161,7 @@ export function MarketplacePage() {
       await ensureWalletChain(eth, quote.chainId);
       const amount = BigInt(quote.amountWei);
       const transferData = encodeErc20Transfer(quote.recipient, amount);
-      setNotice(`Sending ${quote.amountWei} wei PIEUSD to listing owner…`);
+      setNotice(`Sending ${quote.amountWei} wei PIEUSD to listing owner...`);
       const txHash = await sendEvmTransaction(eth, {
         from: account,
         to: quote.token,
@@ -226,19 +226,19 @@ export function MarketplacePage() {
   return (
     <div className="space-y-4">
       {error ? <p className="text-sm text-[rgb(var(--danger-11))]">{error}</p> : null}
-      {notice ? <p className="text-sm text-[rgb(var(--primary-11))]">{notice}</p> : null}
+      {notice ? <p className="rounded border border-black/10 bg-[#fffdf8] px-3 py-2 text-sm text-[#5c564c]">{notice}</p> : null}
       <Card>
         <CardHeader>
           <CardTitle>Bring Your Own Scout</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-[rgb(var(--primary-11))]">
-            EIP-712 attest → approve stake token → call registry → API confirms the receipt. Use the Kite testnet account that matches your DID owner.
+          <p className="text-sm text-[#5c564c]">
+            {"EIP-712 attest -> approve stake token -> call registry -> API confirms the receipt."}
           </p>
-          <input className="w-full rounded border px-2 py-1" value={did} onChange={(e) => setDid(e.target.value)} placeholder="Scout DID" />
-          <input className="w-full rounded border px-2 py-1 font-mono text-sm" value={vault} onChange={(e) => setVault(e.target.value)} placeholder="Vault address (0x…)" />
+          <input className="w-full rounded border border-black/15 bg-[#fffaf0] px-2 py-1" value={did} onChange={(e) => setDid(e.target.value)} placeholder="Scout DID" />
+          <input className="w-full rounded border border-black/15 bg-[#fffaf0] px-2 py-1 font-mono text-sm" value={vault} onChange={(e) => setVault(e.target.value)} placeholder="Vault address (0x...)" />
           <input
-            className="w-full rounded border px-2 py-1"
+            className="w-full rounded border border-black/15 bg-[#fffaf0] px-2 py-1"
             type="number"
             value={stakeUsdc}
             onChange={(e) => setStakeUsdc(Number(e.target.value))}
@@ -249,10 +249,10 @@ export function MarketplacePage() {
               Connect wallet
             </Button>
             <Button type="button" onClick={registerOnChain} disabled={busy}>
-              {busy ? "Working…" : "Register on-chain"}
+              {busy ? "Working..." : "Register on-chain"}
             </Button>
           </div>
-          {account ? <p className="font-mono text-xs text-[rgb(var(--primary-11))]">Connected: {account}</p> : null}
+          {account ? <p className="font-mono text-xs text-[#5c564c]">Connected: {account}</p> : null}
         </CardContent>
       </Card>
 
@@ -261,18 +261,18 @@ export function MarketplacePage() {
           <CardTitle>Bind purchase to your deployment</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-[rgb(var(--primary-11))]">
+          <p className="text-sm text-[#5c564c]">
             After you buy, paste the purchase id and binding secret, then the Redis URL your Risk agent uses (same instance as <span className="font-mono">REDIS_URL</span>
             ). Optionally override the scout stream key (default <span className="font-mono">orca:signals:scout</span>).
           </p>
           <input
-            className="w-full rounded border px-2 py-1 font-mono text-sm"
+            className="w-full rounded border border-black/15 bg-[#fffaf0] px-2 py-1 font-mono text-sm"
             value={bindPurchaseId}
             onChange={(e) => setBindPurchaseId(e.target.value)}
             placeholder="purchaseId (cid)"
           />
           <input
-            className="w-full rounded border px-2 py-1 font-mono text-sm"
+            className="w-full rounded border border-black/15 bg-[#fffaf0] px-2 py-1 font-mono text-sm"
             value={bindSecret}
             onChange={(e) => setBindSecret(e.target.value)}
             placeholder="binding secret (hex)"
@@ -280,19 +280,19 @@ export function MarketplacePage() {
             autoComplete="off"
           />
           <input
-            className="w-full rounded border px-2 py-1 font-mono text-sm"
+            className="w-full rounded border border-black/15 bg-[#fffaf0] px-2 py-1 font-mono text-sm"
             value={bindRedisUrl}
             onChange={(e) => setBindRedisUrl(e.target.value)}
-            placeholder="redis://… or rediss://…"
+            placeholder="redis://... or rediss://..."
           />
           <input
-            className="w-full rounded border px-2 py-1 font-mono text-sm"
+            className="w-full rounded border border-black/15 bg-[#fffaf0] px-2 py-1 font-mono text-sm"
             value={bindStreamKey}
             onChange={(e) => setBindStreamKey(e.target.value)}
             placeholder="scout signal stream key (optional)"
           />
           <Button type="button" onClick={submitBinding} disabled={bindBusy || busy}>
-            {bindBusy ? "Saving…" : "Save binding"}
+            {bindBusy ? "Saving..." : "Save binding"}
           </Button>
         </CardContent>
       </Card>
@@ -321,7 +321,7 @@ export function MarketplacePage() {
                   <DataTd>{scout.status}</DataTd>
                   <DataTd>{scout.stakeUsdc}</DataTd>
                   <DataTd>{scout.reputationScore}</DataTd>
-                  <DataTd className="max-w-[140px] truncate font-mono text-xs">{scout.registrationTxHash ?? "—"}</DataTd>
+                  <DataTd className="max-w-[140px] truncate font-mono text-xs">{scout.registrationTxHash ?? "-"}</DataTd>
                   <DataTd>
                     <Button
                       type="button"
@@ -329,7 +329,7 @@ export function MarketplacePage() {
                       disabled={busy || buyingId !== null || !account}
                       onClick={() => buyScoutAccess(scout.id, scout.did)}
                     >
-                      {buyingId === scout.id ? "Buying…" : "Buy (1 PIEUSD)"}
+                      {buyingId === scout.id ? "Buying..." : "Buy (1 PIEUSD)"}
                     </Button>
                   </DataTd>
                 </tr>
@@ -337,11 +337,11 @@ export function MarketplacePage() {
             </tbody>
           </DataTable>
           {lastPurchase ? (
-            <div className="mt-4 space-y-1 rounded border border-[rgb(var(--primary-6))] bg-[rgb(var(--primary-2))] p-3 text-sm">
+            <div className="mt-4 space-y-1 rounded border border-black/10 bg-[#fffaf0] p-3 text-sm">
               <p className="font-medium">Latest purchase</p>
               <p className="break-all font-mono text-xs">purchaseId: {lastPurchase.purchaseId}</p>
               <p className="break-all font-mono text-xs">bindingSecret: {lastPurchase.bindingSecret}</p>
-              <p className="text-xs text-[rgb(var(--primary-11))]">Copy these now; the API will not show the secret again.</p>
+              <p className="text-xs text-[#5c564c]">Copy these now; the API will not show the secret again.</p>
             </div>
           ) : null}
         </CardContent>

@@ -11,10 +11,18 @@ export async function registerAuthPlugin(app: FastifyInstance): Promise<void> {
   app.decorate("authenticate", async (request: FastifyRequest) => {
     const authHeader = request.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      throw new Error("Missing bearer token");
+      request.auth = {};
+      return;
     }
     const token = authHeader.slice("Bearer ".length);
-    request.auth = verifyJwt(token);
+    try {
+      request.auth = verifyJwt(token);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid bearer token";
+      const err = new Error(message) as Error & { statusCode: number };
+      err.statusCode = 401;
+      throw err;
+    }
   });
 }
 

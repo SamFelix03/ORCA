@@ -1,17 +1,58 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
 import { SidebarNav } from "./sidebar-nav";
 import { TopHeader } from "./top-header";
 
 export function OrcaShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid min-h-screen grid-cols-1 bg-[rgb(var(--primary-1))] text-[rgb(var(--primary-12))] lg:grid-cols-[260px_1fr]">
-      <SidebarNav />
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-      <div className="flex min-h-screen flex-col">
-        <TopHeader />
-        <main className="flex-1 bg-[linear-gradient(180deg,rgba(247,250,255,0.8)_0%,rgba(255,255,255,1)_100%)] px-6 py-6">
-          {children}
-        </main>
-      </div>
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-[#fffaf0] text-black">
+      <aside className="fixed left-0 top-0 z-50 hidden h-screen w-64 flex-col space-y-8 overflow-y-auto bg-black p-6 text-[#fffaf0] antialiased lg:flex">
+        <Link href="/" className="text-center block">
+          <div className="orca-logo-text text-[#fffaf0]">ORCA</div>
+        </Link>
+        <SidebarNav />
+        <div className="mt-auto border-t border-[#fffaf0]/10 pt-6 text-xs leading-5 text-[#8d877c]">
+          Kite-native agent payments, risk checks, execution, and PoAI attribution.
+        </div>
+      </aside>
+
+      <TopHeader onOpenNavigation={() => setMobileOpen(true)} />
+
+      <main className="mt-16 h-[calc(100vh-4rem)] overflow-y-auto p-4 sm:p-8 lg:ml-64">
+        <div className="page-enter mx-auto max-w-[1440px]">{children}</div>
+      </main>
+
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60"
+            aria-label="Close navigation"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="relative flex h-full w-[280px] max-w-[88vw] flex-col space-y-8 bg-black p-6 text-[#fffaf0]">
+            <div className="flex items-start justify-between gap-4">
+              <Link href="/" onClick={() => setMobileOpen(false)}>
+                <div className="orca-logo-text text-[#fffaf0]">ORCA</div>
+                <p className="mt-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-[#8d877c]">Agent Swarm Treasury</p>
+              </Link>
+              <button
+                type="button"
+                className="grid h-8 w-8 place-items-center rounded border border-[#fffaf0]/15 text-[#fffaf0]"
+                aria-label="Close navigation"
+                onClick={() => setMobileOpen(false)}
+              >
+                x
+              </button>
+            </div>
+            <SidebarNav onNavigate={() => setMobileOpen(false)} />
+          </aside>
+        </div>
+      ) : null}
     </div>
   );
 }

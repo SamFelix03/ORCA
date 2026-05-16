@@ -4,54 +4,53 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 
-const NAV_ITEMS = [
-  { label: "Dashboard", href: "/" },
-  { label: "Positions", href: "/positions" },
-  { label: "Agents", href: "/agents" },
-  { label: "Signals", href: "/signals" },
-  { label: "Sessions", href: "/sessions" },
-  { label: "Treasury", href: "/treasury" },
-  { label: "PoAI", href: "/poai" },
-  { label: "Marketplace", href: "/marketplace" },
-  { label: "Settings", href: "/settings" },
+export const NAV_ITEMS = [
+  { label: "Dashboard", href: "/", mark: "D" },
+  { label: "Positions", href: "/positions", mark: "P" },
+  { label: "Agents", href: "/agents", mark: "A" },
+  { label: "Signals", href: "/signals", mark: "S" },
+  { label: "Sessions", href: "/sessions", mark: "K" },
+  { label: "Treasury", href: "/treasury", mark: "T" },
+  { label: "PoAI", href: "/poai", mark: "I" },
+  { label: "Marketplace", href: "/marketplace", mark: "M" },
+  { label: "Settings", href: "/settings", mark: "R" },
 ];
 
-export function SidebarNav() {
+function isActive(pathname: string, href: string) {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
+export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full flex-col border-r border-[rgb(var(--primary-6))] bg-[rgb(var(--primary-2))]">
-      <div className="border-b border-[rgb(var(--primary-6))] px-5 py-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[rgb(var(--primary-11))]">ORCA</p>
-        <h1 className="mt-1 text-lg font-semibold text-[rgb(var(--primary-12))]">Control Plane</h1>
-      </div>
-
-      <nav className="px-3 py-4">
-        <ul className="space-y-1">
-          {NAV_ITEMS.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "block rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-[rgb(var(--primary-9))] text-[rgb(var(--contrast-primary-9))]"
-                      : "text-[rgb(var(--primary-12))] hover:bg-[rgb(var(--primary-4))]"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
-
-      <div className="mt-auto border-t border-[rgb(var(--primary-6))] px-4 py-4 text-xs text-[rgb(var(--primary-11))]">
-        Kite Chain • L1 Agentic Settlement
-      </div>
-    </aside>
+    <nav className="flex-1 space-y-1">
+      {NAV_ITEMS.map((item) => {
+        const active = isActive(pathname, item.href);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-3 rounded px-4 py-3 text-sm font-medium transition-colors",
+              active
+                ? "border-r-2 border-[#fffaf0] bg-[#171717] text-[#fffaf0]"
+                : "text-[#8d877c] hover:bg-[#171717] hover:text-[#fffaf0]",
+            )}
+          >
+            <span
+              className={cn(
+                "grid h-5 w-5 place-items-center rounded-sm border text-[10px] font-bold",
+                active ? "border-[#fffaf0] text-[#fffaf0]" : "border-[#3a352e] text-[#8d877c]",
+              )}
+            >
+              {item.mark}
+            </span>
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
   );
 }

@@ -18,13 +18,29 @@ import { registerAlertRoutes } from "./routes/alerts.js";
 import { registerChainRoutes } from "./routes/chain.js";
 import { registerScoutRoutes } from "./routes/scouts.js";
 
+function isAllowedOrigin(origin: string | undefined): boolean {
+  if (!origin) return true;
+  if (config.corsOrigin === "*") return true;
+
+  const configuredOrigins = config.corsOrigin
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (configuredOrigins.includes(origin)) return true;
+
+  return /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+}
+
 export async function buildServer() {
   const app = Fastify({
     logger: true,
   });
 
   await app.register(cors, {
-    origin: config.corsOrigin,
+    origin: (origin, callback) => {
+      callback(null, isAllowedOrigin(origin));
+    },
   });
 
   await app.register(websocket);

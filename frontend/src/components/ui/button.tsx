@@ -6,21 +6,21 @@ type ButtonSize = "sm" | "md" | "lg";
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-[rgb(var(--primary-9))] text-[rgb(var(--contrast-primary-9))] hover:bg-[rgb(var(--primary-10))] border border-[rgb(var(--primary-9))]",
+    "bg-black text-[#fffaf0] hover:bg-[#1f1f1f] border border-black",
   secondary:
-    "bg-[rgb(var(--primary-2))] text-[rgb(var(--primary-12))] hover:bg-[rgb(var(--primary-3))] border border-[rgb(var(--primary-6))]",
+    "bg-[#fffdf8] text-black hover:bg-[#f5ebd8] border border-black/15",
   outline:
-    "bg-transparent text-[rgb(var(--primary-12))] hover:bg-[rgb(var(--neutral-2))] border border-[rgb(var(--neutral-6))]",
+    "bg-transparent text-black hover:bg-black/[0.04] border border-black/20",
   ghost:
-    "bg-transparent text-[rgb(var(--primary-12))] hover:bg-[rgb(var(--neutral-3))] border border-transparent",
+    "bg-transparent text-black hover:bg-black/[0.04] border border-transparent",
   danger:
     "bg-[rgb(var(--danger-9))] text-[rgb(var(--contrast-danger-9))] hover:bg-[rgb(var(--danger-10))] border border-[rgb(var(--danger-9))]",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: "h-8 rounded-lg px-2.5 text-xs",
-  md: "h-10 rounded-xl px-3 text-sm",
-  lg: "h-11 rounded-xl px-4 text-sm",
+  sm: "h-8 rounded px-2.5 text-xs",
+  md: "h-10 rounded px-3 text-sm",
+  lg: "h-11 rounded px-4 text-sm",
 };
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
