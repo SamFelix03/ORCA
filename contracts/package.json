@@ -31,6 +31,7 @@
     "decode:kite-warp-tx": "hardhat run scripts/hyperlane/decode-kite-warp-tx.ts --network kiteTestnet",
     "e2e:orca-sepolia": "hardhat run scripts/e2e-orca-bridge-and-wait.ts --network kiteTestnet",
     "diagnose:orca-dispatch": "hardhat run scripts/diagnose-orca-dispatch-tx.ts --network kiteTestnet",
+    "stub:principal": "hardhat run scripts/read-stub-principal.ts --network sepolia",
     "check:sepolia-prereqs": "hardhat run scripts/check-sepolia-delivery-prereqs.ts --network sepolia",
     "prepare:sepolia-e2e": "hardhat run scripts/prepare-spoke-e2e-collateral.ts --network kiteTestnet"
   },
