@@ -5,6 +5,7 @@ import "./Ownable.sol";
 import "./interfaces/IERC20.sol";
 import "./interfaces/IMailbox.sol";
 import "./interfaces/IMessageRecipient.sol";
+import "./interfaces/IInterchainSecurityModule.sol";
 
 interface IERC20Approve {
     function approve(address spender, uint256 amount) external returns (bool);
@@ -21,11 +22,14 @@ contract RemoteAdapter is Ownable, IMessageRecipient {
     /// @notice Bridged / local stablecoin on this chain (same token the stub vault uses as `usdt`).
     /// Beneficiary must `approve` this adapter for `collateralToken` before `handle` can pull and `depositFor`.
     address public immutable collateralToken;
+    /// @notice Per-recipient ISM override for Hyperlane delivery (e.g. NoopISM on testnet).
+    address public ism;
     mapping(uint32 => bytes32) public trustedSenders;
     mapping(bytes32 => bool) public processedMessageIds;
     bool private _locked;
 
     event TrustedSenderUpdated(uint32 indexed domain, bytes32 sender);
+    event IsmUpdated(address indexed previousIsm, address indexed newIsm);
     event RemoteRebalanceExecuted(
         bytes32 indexed messageId,
         uint32 indexed sourceDomain,
@@ -53,6 +57,16 @@ contract RemoteAdapter is Ownable, IMessageRecipient {
         require(sender != bytes32(0), "RemoteAdapter: invalid sender");
         trustedSenders[domain] = sender;
         emit TrustedSenderUpdated(domain, sender);
+    }
+
+    function setIsm(address ism_) external onlyOwner {
+        require(ism_ != address(0), "RemoteAdapter: invalid ism");
+        emit IsmUpdated(ism, ism_);
+        ism = ism_;
+    }
+
+    function interchainSecurityModule() external view returns (address) {
+        return ism;
     }
 
     function handle(uint32 origin, bytes32 sender, bytes calldata body) external payable override nonReentrant {

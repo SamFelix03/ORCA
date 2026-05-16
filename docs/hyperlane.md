@@ -127,6 +127,6 @@ Done adding warp route deploy config at filesystem registry
 ## Agent / Hardhat warp (`transfer-hub-to-dest.ts`)
 
 - **`HYPERLANE_INTEGRATION_SNAPSHOT`** — absolute or relative path to an ORCA integration snapshot JSON (`schemaVersion`, `hubChain`, `routes`). Routes must include keys for the asset you bridge, e.g. `USDT/kitetestnet-sepolia`. Older exports may only define `PIEUSD/...`; pointing the env at such a file while setting **`HYP_WARP_ASSET=USDT`** will fail at `getRoute` until you export or hand-edit a snapshot that includes the USDT routes.
-- **`HYP_WARP_ASSET`** — route key prefix passed into `getRoute` from the script (defaults to `PIEUSD` if unset). The ORCA executor sets this from its own `HYP_WARP_ASSET` when spawning Hardhat; keep it aligned with the keys in your snapshot.
+- **`HYP_WARP_ASSET`** — route key prefix (defaults to **`USDT`** in Hardhat scripts). **Yield / collateral bridging** uses **`USDT/kitetestnet-*`** with hub collateral **`0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63`**. Use **`PIEUSD`** only for payment-token smoke; do not fund RemoteAdapter pulls with PIEUSD.
 - **`HYP_DEST`** — snapshot destination slug (e.g. `sepolia`, `arbitrumsepolia`, `optimismsepolia`, `basesepolia`).
 - **`AMOUNT`** — amount in **token base units** (uint256 string), same units as `SCOUT_DEFAULT_SUGGESTED_AMOUNT` / stub `deposit` when you use the same integer end-to-end.

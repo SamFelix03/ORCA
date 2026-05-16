@@ -4,7 +4,7 @@ import { transferRemote } from "./warp";
 
 export async function runTransferHubToDest(): Promise<void> {
   const destKey = (process.env.HYP_DEST ?? "basesepolia").toLowerCase();
-  const warpAsset = (process.env.HYP_WARP_ASSET ?? "PIEUSD").trim();
+  const warpAsset = (process.env.HYP_WARP_ASSET ?? "USDT").trim();
   const snapshot = loadSnapshot();
   const route = getRoute(snapshot, destKey, warpAsset);
 

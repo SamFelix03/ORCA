@@ -8,8 +8,9 @@ import { transferRemote } from "./warp";
  */
 export async function runTransferDestToHub(): Promise<void> {
   const destKey = (process.env.HYP_DEST ?? "basesepolia").toLowerCase();
+  const warpAsset = (process.env.HYP_WARP_ASSET ?? "USDT").trim();
   const snapshot = loadSnapshot();
-  const route = getRoute(snapshot, destKey);
+  const route = getRoute(snapshot, destKey, warpAsset);
 
   const [signer] = await ethers.getSigners();
   const recipient = process.env.RECIPIENT?.trim()

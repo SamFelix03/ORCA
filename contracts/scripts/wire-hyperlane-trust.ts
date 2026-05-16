@@ -1,13 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
-import { ethers } from "ethers";
+import { ethers } from "hardhat";
 
 const ROOT = path.resolve(__dirname, "..");
 dotenv.config({ path: path.join(ROOT, ".env") });
 
-const OAPP_KITE = "0x4BbD1962B86738c322DCB48dc34e5D6CD69de885";
 const KITE_DOMAIN = 2368;
+
+function loadOappFromArtifact(): string {
+  const latest = path.join(ROOT, "deployments", "kite-testnet.latest.json");
+  const j = JSON.parse(fs.readFileSync(latest, "utf8")) as { contracts: { ORCAOApp: string } };
+  return ethers.getAddress(j.contracts.ORCAOApp);
+}
 
 const ORCA_OAPP_ABI = ["function setTrustedRemote(uint32 domain, bytes32 remote) external"];
 const REMOTE_ADAPTER_ABI = ["function setTrustedSender(uint32 domain, bytes32 sender) external"];
@@ -51,6 +56,10 @@ async function main(): Promise<void> {
   if (spokes.length !== 4) {
     throw new Error(`Expected 4 *.spoke.json, found ${spokes.length}`);
   }
+
+  const OAPP_KITE = loadOappFromArtifact();
+  // eslint-disable-next-line no-console -- CLI
+  console.log("ORCAOApp (kite-testnet.latest.json):", OAPP_KITE);
 
   const kiteUrl = RPC.kiteTestnet;
   const walletKite = new ethers.Wallet(pk, new ethers.JsonRpcProvider(kiteUrl));

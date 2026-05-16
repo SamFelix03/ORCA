@@ -1,0 +1,25 @@
+# ORCA repo-local registry fragment for Hyperlane CLI / agents (from hyperlane-outputs snapshot).
+name: kitetestnet
+displayName: Kitetestnet
+chainId: 2368
+domainId: 2368
+protocol: ethereum
+isTestnet: true
+nativeToken:
+  name: Kite
+  symbol: KITE
+  decimals: 18
+rpcUrls:
+  - http: https://rpc-testnet.gokite.ai
+blockExplorers:
+  - name: kite-testnet explorer
+    url: https://testnet.kitescan.ai
+    apiUrl: https://testnet.kitescan.ai/api
+    family: blockscout
+blocks:
+  confirmations: 1
+  estimateBlockTime: 2
+  reorgPeriod: 0
+technicalStack: other
+transactionOverrides:
+  gasPrice: 20000000000

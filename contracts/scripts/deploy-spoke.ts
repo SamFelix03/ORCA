@@ -14,6 +14,10 @@ import { ethers, network } from "hardhat";
  *
  * Writes: deployments/<network>.spoke.json
  */
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function main(): Promise<void> {
   const underlyingRaw = process.env.ORCA_UNDERLYING_TOKEN?.trim();
   if (!underlyingRaw) {
@@ -42,9 +46,18 @@ async function main(): Promise<void> {
     symbol = null;
   }
 
+  const txDelayMs = Number(process.env.DEPLOY_TX_DELAY_MS ?? "3000");
+
+  const noopIsm = await ethers.deployContract("NoopISM");
+  await noopIsm.waitForDeployment();
+  const noopIsmAddress = await noopIsm.getAddress();
+  await sleep(txDelayMs);
+
   const remoteAdapter = await ethers.deployContract("RemoteAdapter", [owner, mailbox, underlying]);
   await remoteAdapter.waitForDeployment();
   const remoteAdapterAddress = await remoteAdapter.getAddress();
+  await (await remoteAdapter.setIsm(noopIsmAddress)).wait();
+  await sleep(txDelayMs);
 
   const aave = await ethers.deployContract("OrcaAaveV3StubVault", [owner, underlying, apyBps]);
   await aave.waitForDeployment();
@@ -72,6 +85,7 @@ async function main(): Promise<void> {
     },
     apyBps: apyBps.toString(),
     contracts: {
+      NoopISM: noopIsmAddress,
       RemoteAdapter: remoteAdapterAddress,
       OrcaAaveV3StubVault: await aave.getAddress(),
       OrcaCompoundV3StubVault: await compound.getAddress(),
@@ -87,8 +101,14 @@ async function main(): Promise<void> {
   const outPath = path.join(deploymentsDir, `${network.name}.spoke.json`);
   fs.writeFileSync(outPath, JSON.stringify(artifact, null, 2));
 
+  const historyDir = path.join(deploymentsDir, "history");
+  fs.mkdirSync(historyDir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const historyPath = path.join(historyDir, `${stamp}-${network.name}-spoke.json`);
+  fs.writeFileSync(historyPath, JSON.stringify(artifact, null, 2));
+
   // eslint-disable-next-line no-console -- deploy script
-  console.log("Wrote", outPath);
+  console.log("Wrote", outPath, "and", historyPath);
   // eslint-disable-next-line no-console -- CLI
   console.log(
     "Next: owner calls RemoteAdapter.setTrustedSender(<kiteDomain 2368>, <ORCAOApp bytes32 padded>) on this chain.",

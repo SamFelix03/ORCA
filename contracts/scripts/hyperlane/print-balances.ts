@@ -14,8 +14,9 @@ function requirePrivateKeyForAddress(): string {
 
 export async function runPrintBalances(): Promise<void> {
   const destKey = (process.env.HYP_DEST ?? "basesepolia").toLowerCase();
+  const warpAsset = (process.env.HYP_WARP_ASSET ?? "USDT").trim();
   const snapshot = loadSnapshot();
-  const route = getRoute(snapshot, destKey);
+  const route = getRoute(snapshot, destKey, warpAsset);
 
   const hubNet = hubHardhatNetwork(hre);
   const destNet = hardhatNetworkForDestKey(destKey);

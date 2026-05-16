@@ -3,7 +3,7 @@ import { runPrintBalances } from "../hyperlane/print-balances";
 import { runTransferHubToDest } from "../hyperlane/transfer-hub-to-dest";
 
 /**
- * 1) Bridge hub → destination via PIEUSD warp with `RECIPIENT` = RemoteAdapter (or other custodian).
+ * 1) Bridge hub → destination via **USDT** HypCollateral warp (faucet USDT on Kite); optional `HYP_WARP_ASSET=PIEUSD` only for payment-token smoke.
  * 2) Print balances for visibility.
  *
  * Env:

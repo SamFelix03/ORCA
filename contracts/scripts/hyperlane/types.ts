@@ -51,12 +51,15 @@ export function loadSnapshot(snapshotPath?: string): IntegrationSnapshot {
   return JSON.parse(raw) as IntegrationSnapshot;
 }
 
-export function routeKey(hubKey: string, destKey: string, asset = "PIEUSD"): string {
+export function routeKey(hubKey: string, destKey: string, asset = "USDT"): string {
   return `${asset}/${hubKey.toLowerCase()}-${destKey.toLowerCase()}`;
 }
 
-/** Resolve a hub→spoke route. `asset` must match snapshot key prefix (e.g. PIEUSD, USDT); set via HYP_WARP_ASSET in transfer-hub-to-dest. */
-export function getRoute(snapshot: IntegrationSnapshot, destKey: string, asset = "PIEUSD"): IntegrationRoute {
+/**
+ * Resolve a hub→spoke route. `asset` must match snapshot key prefix (`USDT/...` = faucet USDT collateral on Kite;
+ * `PIEUSD/...` = payments token only). Set via `HYP_WARP_ASSET` in transfer / smoke scripts.
+ */
+export function getRoute(snapshot: IntegrationSnapshot, destKey: string, asset = "USDT"): IntegrationRoute {
   const key = routeKey(snapshot.hubChain, destKey, asset);
   const route = snapshot.routes[key];
   if (!route) {

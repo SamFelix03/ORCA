@@ -30,7 +30,11 @@ describe("RemoteAdapter handle", function () {
     await stub.waitForDeployment();
     const stubAddr = await stub.getAddress();
 
+    const noop = await (await ethers.getContractFactory("NoopISM")).deploy();
+    await noop.waitForDeployment();
+    await (await ra.setIsm(await noop.getAddress())).wait();
     await (await ra.setTrustedSender(ORIGIN, oappBytes32)).wait();
+    expect(await ra.interchainSecurityModule()).to.equal(await noop.getAddress());
 
     const amount = ethers.parseEther("100");
     await (await tok.mint(beneficiary.address, amount)).wait();
