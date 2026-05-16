@@ -2,6 +2,7 @@
 
 import type { SignalRecord, SignalWorkflowResponse, WorkflowEventRecord } from "@orca/shared";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, DataTd, DataTh, DataThead } from "@/components/ui/data-table";
@@ -119,95 +120,121 @@ export function SignalsPage() {
         </CardContent>
       </Card>
 
-      {selectedSignalId ? (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/50 p-4">
-          <section className="max-h-[88vh] w-full max-w-5xl overflow-y-auto rounded border border-black/15 bg-[#fffaf0] text-black shadow-2xl">
-            <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-black/10 bg-[#fffaf0] p-4">
-              <div>
-                <h3 className="text-xl font-semibold">Signal Workflow</h3>
-                <p className="mt-1 font-mono text-xs text-[#5c564c]">{selectedSignalId}</p>
-              </div>
-              <Button type="button" size="sm" variant="secondary" onClick={closeWorkflow}>
-                Close
-              </Button>
-            </header>
-
-            <div className="space-y-4 p-4">
-              {workflowLoading ? <p className="text-sm text-[#5c564c]">Loading workflow...</p> : null}
-              {workflowError ? <p className="text-sm text-[rgb(var(--danger-11))]">{workflowError}</p> : null}
-
-              {workflow ? (
-                <>
-                  <div className="grid gap-3 md:grid-cols-4">
-                    <TraceMetric label="Route" value={`${workflow.signal.srcProtocol} -> ${workflow.signal.dstProtocol}`} />
-                    <TraceMetric label="Signal" value={workflow.signal.status} />
-                    <TraceMetric label="Risk" value={workflow.riskInstruction?.approved ? "approved" : workflow.riskInstruction ? "rejected" : "pending"} />
-                    <TraceMetric label="Payments" value={String(workflow.payments.length)} />
-                  </div>
-
-                  <section className="rounded border border-black/10 bg-[#fffdf8]">
-                    <div className="border-b border-black/10 px-4 py-3">
-                      <h4 className="text-sm font-semibold">Agent Interaction Timeline</h4>
-                    </div>
-                    <div className="divide-y divide-black/10">
-                      {workflow.events.map((event, index) => (
-                        <WorkflowStep key={event.id} event={event} index={index} />
-                      ))}
-                      {workflow.events.length === 0 ? <p className="p-4 text-sm text-[#5c564c]">No workflow events have been ingested for this signal yet.</p> : null}
-                    </div>
-                  </section>
-
-                  <section className="grid gap-4 lg:grid-cols-2">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Micropayments</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-2">
-                        {workflow.payments.map((payment) => (
-                          <div key={payment.id} className="rounded border border-black/10 bg-[#fffaf0] p-3 text-sm">
-                            <p className="font-semibold">{`${payment.fromDid ?? "agent"} -> ${payment.toDid}`}</p>
-                            <p className="mt-1 text-[#5c564c]">{payment.amountWei} wei on {payment.network}</p>
-                            <a className="mt-2 block break-all font-mono text-xs underline" href={txUrl(payment.txHash)} target="_blank" rel="noreferrer">
-                              {payment.txHash}
-                            </a>
-                          </div>
-                        ))}
-                        {workflow.payments.length === 0 ? <p className="text-sm text-[#5c564c]">No x402 payments recorded yet.</p> : null}
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Relayer Messages</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-2">
-                        {workflow.relayerMessages.map((message) => (
-                          <div key={message.id} className="rounded border border-black/10 bg-[#fffaf0] p-3 text-sm">
-                            <p className="font-semibold">{`${message.originDomain} -> ${message.destinationDomain}`}</p>
-                            <p className="mt-1 text-[#5c564c]">{message.status}</p>
-                            {message.dispatchTxHash ? (
-                              <a className="mt-2 block break-all font-mono text-xs underline" href={txUrl(message.dispatchTxHash)} target="_blank" rel="noreferrer">
-                                dispatch {message.dispatchTxHash}
-                              </a>
-                            ) : null}
-                            {message.deliveryTxHash ? (
-                              <a className="mt-2 block break-all font-mono text-xs underline" href={txUrl(message.deliveryTxHash)} target="_blank" rel="noreferrer">
-                                delivery {message.deliveryTxHash}
-                              </a>
-                            ) : null}
-                          </div>
-                        ))}
-                        {workflow.relayerMessages.length === 0 ? <p className="text-sm text-[#5c564c]">No relayer messages recorded yet.</p> : null}
-                      </CardContent>
-                    </Card>
-                  </section>
-                </>
-              ) : null}
-            </div>
-          </section>
-        </div>
-      ) : null}
+      <SignalWorkflowModal
+        selectedSignalId={selectedSignalId}
+        workflow={workflow}
+        workflowLoading={workflowLoading}
+        workflowError={workflowError}
+        onClose={closeWorkflow}
+      />
     </>
+  );
+}
+
+function SignalWorkflowModal({
+  selectedSignalId,
+  workflow,
+  workflowLoading,
+  workflowError,
+  onClose,
+}: {
+  selectedSignalId: string | null;
+  workflow: SignalWorkflowResponse | null;
+  workflowLoading: boolean;
+  workflowError: string | null;
+  onClose: () => void;
+}) {
+  if (typeof document === "undefined" || !selectedSignalId) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true">
+      <button type="button" className="absolute inset-0 cursor-default" aria-label="Close signal workflow" onClick={onClose} />
+      <section className="relative z-10 max-h-[88vh] w-full max-w-5xl overflow-y-auto rounded border border-black/15 bg-[#fffaf0] text-black shadow-2xl">
+        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-black/10 bg-[#fffaf0] p-4">
+          <div>
+            <h3 className="text-xl font-semibold">Signal Workflow</h3>
+            <p className="mt-1 font-mono text-xs text-[#5c564c]">{selectedSignalId}</p>
+          </div>
+          <Button type="button" size="sm" variant="secondary" onClick={onClose}>
+            Close
+          </Button>
+        </header>
+
+        <div className="space-y-4 p-4">
+          {workflowLoading ? <p className="text-sm text-[#5c564c]">Loading workflow...</p> : null}
+          {workflowError ? <p className="text-sm text-[rgb(var(--danger-11))]">{workflowError}</p> : null}
+
+          {workflow ? (
+            <>
+              <div className="grid gap-3 md:grid-cols-4">
+                <TraceMetric label="Route" value={`${workflow.signal.srcProtocol} -> ${workflow.signal.dstProtocol}`} />
+                <TraceMetric label="Signal" value={workflow.signal.status} />
+                <TraceMetric label="Risk" value={workflow.riskInstruction?.approved ? "approved" : workflow.riskInstruction ? "rejected" : "pending"} />
+                <TraceMetric label="Payments" value={String(workflow.payments.length)} />
+              </div>
+
+              <section className="rounded border border-black/10 bg-[#fffdf8]">
+                <div className="border-b border-black/10 px-4 py-3">
+                  <h4 className="text-sm font-semibold">Agent Interaction Timeline</h4>
+                </div>
+                <div className="divide-y divide-black/10">
+                  {workflow.events.map((event, index) => (
+                    <WorkflowStep key={event.id} event={event} index={index} />
+                  ))}
+                  {workflow.events.length === 0 ? <p className="p-4 text-sm text-[#5c564c]">No workflow events have been ingested for this signal yet.</p> : null}
+                </div>
+              </section>
+
+              <section className="grid gap-4 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Micropayments</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {workflow.payments.map((payment) => (
+                      <div key={payment.id} className="rounded border border-black/10 bg-[#fffaf0] p-3 text-sm">
+                        <p className="font-semibold">{`${payment.fromDid ?? "agent"} -> ${payment.toDid}`}</p>
+                        <p className="mt-1 text-[#5c564c]">{payment.amountWei} wei on {payment.network}</p>
+                        <a className="mt-2 block break-all font-mono text-xs underline" href={txUrl(payment.txHash)} target="_blank" rel="noreferrer">
+                          {payment.txHash}
+                        </a>
+                      </div>
+                    ))}
+                    {workflow.payments.length === 0 ? <p className="text-sm text-[#5c564c]">No x402 payments recorded yet.</p> : null}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Relayer Messages</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {workflow.relayerMessages.map((message) => (
+                      <div key={message.id} className="rounded border border-black/10 bg-[#fffaf0] p-3 text-sm">
+                        <p className="font-semibold">{`${message.originDomain} -> ${message.destinationDomain}`}</p>
+                        <p className="mt-1 text-[#5c564c]">{message.status}</p>
+                        {message.dispatchTxHash ? (
+                          <a className="mt-2 block break-all font-mono text-xs underline" href={txUrl(message.dispatchTxHash)} target="_blank" rel="noreferrer">
+                            dispatch {message.dispatchTxHash}
+                          </a>
+                        ) : null}
+                        {message.deliveryTxHash ? (
+                          <a className="mt-2 block break-all font-mono text-xs underline" href={txUrl(message.deliveryTxHash)} target="_blank" rel="noreferrer">
+                            delivery {message.deliveryTxHash}
+                          </a>
+                        ) : null}
+                      </div>
+                    ))}
+                    {workflow.relayerMessages.length === 0 ? <p className="text-sm text-[#5c564c]">No relayer messages recorded yet.</p> : null}
+                  </CardContent>
+                </Card>
+              </section>
+            </>
+          ) : null}
+        </div>
+      </section>
+    </div>,
+    document.body,
   );
 }
 
