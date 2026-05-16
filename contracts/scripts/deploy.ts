@@ -123,6 +123,10 @@ async function main(): Promise<void> {
   const vault = await ethers.deployContract("ClientAgentVault", [owner, executorVault, await enforcer.getAddress()]);
   await vault.waitForDeployment();
 
+  // ORCAOApp.executeCrossChainRebalance requires msg.sender == executorVault; only ClientAgentVault calls it.
+  // Constructor received the executor EOA (EXECUTOR_VAULT); point OApp at the vault contract.
+  await (await oapp.setExecutorVault(await vault.getAddress())).wait();
+
   const treasury = await ethers.deployContract("ORCAMultisigTreasury", [
     owner,
     multisigSigners.length > 0 ? multisigSigners : [treasuryMultisig],

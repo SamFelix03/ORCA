@@ -8,6 +8,16 @@ from web3.contract import Contract
 from orca_scout.models import ActionType, PoAIRecord
 
 
+def _gwei_from_env(raw: str, name: str) -> int:
+    try:
+        gwei = float(str(raw).strip())
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a number (gwei)") from exc
+    if gwei <= 0:
+        raise ValueError(f"{name} must be positive")
+    return Web3.to_wei(gwei, "gwei")
+
+
 POAI_ABI = [
     {
         "inputs": [
@@ -48,6 +58,11 @@ class PoAIClient:
         # Use pending nonce so back-to-back records (e.g., SIGNAL then RISK_EVAL)
         # don't collide with still-pending txs and trigger replacement errors.
         nonce = self._w3.eth.get_transaction_count(self._signer.address, "pending")
+        # Concurrent txs from the same EOA (e.g. all agents sharing one key — not recommended)
+        # need fees high enough to replace pending txs; see POAI_MAX_FEE_GWEI / POAI_PRIORITY_FEE_GWEI.
+        max_fee = _gwei_from_env(os.getenv("POAI_MAX_FEE_GWEI", "25"), "POAI_MAX_FEE_GWEI")
+        priority_fee = _gwei_from_env(os.getenv("POAI_PRIORITY_FEE_GWEI", "2"), "POAI_PRIORITY_FEE_GWEI")
+
         tx = self._contract.functions.recordAction(
             epoch_id,
             (
@@ -64,8 +79,8 @@ class PoAIClient:
                 "nonce": nonce,
                 "chainId": self._chain_id,
                 "gas": 300_000,
-                "maxFeePerGas": self._w3.to_wei("2", "gwei"),
-                "maxPriorityFeePerGas": self._w3.to_wei("1", "gwei"),
+                "maxFeePerGas": max_fee,
+                "maxPriorityFeePerGas": priority_fee,
             }
         )
         signed = self._signer.sign_transaction(tx)
