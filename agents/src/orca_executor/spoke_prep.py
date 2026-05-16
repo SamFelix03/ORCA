@@ -10,6 +10,8 @@ from typing import Any
 
 from web3 import Web3
 
+from orca_common.tx_sender import send_with_nonce_retry
+
 CHAIN_ID_TO_HYP_DEST: dict[int, str] = {
     11155111: "sepolia",
     421614: "arbitrumsepolia",
@@ -125,20 +127,29 @@ def ensure_erc20_allowance(
         token_c,
         spender_c,
     )
-    tx: dict = {
-        "from": owner,
-        "chainId": chain_id,
-        "nonce": w3.eth.get_transaction_count(owner, "pending"),
-        "maxFeePerGas": w3.to_wei("2", "gwei"),
-        "maxPriorityFeePerGas": w3.to_wei("1", "gwei"),
-    }
-    built = c.functions.approve(spender_c, _MAX_UINT256).build_transaction(tx)
-    built["gas"] = int(w3.eth.estimate_gas(built))
-    signed = signer.sign_transaction(built)
-    tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-    receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-    h = receipt["transactionHash"]
-    hx = h.hex() if hasattr(h, "hex") else str(h)
+    def _build_tx(nonce: int) -> dict:
+        return c.functions.approve(spender_c, _MAX_UINT256).build_transaction(
+            {
+                "from": owner,
+                "chainId": chain_id,
+                "nonce": nonce,
+                "maxFeePerGas": w3.to_wei("2", "gwei"),
+                "maxPriorityFeePerGas": w3.to_wei("1", "gwei"),
+            }
+        )
+
+    tx_hash, receipt = send_with_nonce_retry(
+        w3=w3,
+        signer=signer,
+        build_tx=_build_tx,
+        estimate_gas_if_missing=True,
+        wait_for_receipt=True,
+    )
+    if receipt is None:
+        hx = tx_hash
+    else:
+        h = receipt["transactionHash"]
+        hx = h.hex() if hasattr(h, "hex") else str(h)
     logger.info("Executor: approve tx hash=%s", hx)
     return hx
 
