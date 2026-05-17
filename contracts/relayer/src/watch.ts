@@ -54,7 +54,7 @@ export async function processPendingDispatches(cfg: RelayerConfig, singleMessage
     singleMessageId != null
       ? Math.max(0, head - Number(process.env.RELAYER_LOOKBACK_BLOCKS ?? "500000"))
       : state.lastScannedBlock > 0
-        ? state.lastScannedBlock
+        ? state.lastScannedBlock + 1
         : Math.max(0, head - Number(process.env.RELAYER_BOOTSTRAP_BLOCKS ?? "5000"));
 
   const destDomains = new Set(cfg.destinations.keys());
@@ -92,7 +92,9 @@ export async function processPendingDispatches(cfg: RelayerConfig, singleMessage
     const recipientAddr = recipientAddressFromBytes32(ev.recipient);
     const destProvider = new JsonRpcProvider(dest.rpc);
     if (await isDelivered(dest.mailbox, messageId, destProvider)) {
-      console.log(`[skip] ${messageId.slice(0, 18)}… already delivered on ${dest.name}`);
+      if (process.env.RELAYER_LOG_SKIPS === "1") {
+        console.log(`[skip] ${messageId.slice(0, 18)}… already delivered on ${dest.name}`);
+      }
       await postRelayerEvent({
         messageId,
         originDomain: decoded.origin,

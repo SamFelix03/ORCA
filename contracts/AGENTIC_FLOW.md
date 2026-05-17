@@ -43,6 +43,15 @@ pnpm relayer:start
 
 Delivers Kite mailbox messages to Sepolia / Arb / OP / Base for ORCA `RemoteAdapter` and USDT warp routers.
 
+**Live flow:** executor or `transferRemote` on Kite → wait for `[delivered] <chain>` in this terminal (poll every `RELAYER_POLL_MS`, default 8s). `[skip] already delivered` is normal for old traffic; set `RELAYER_LOG_SKIPS=0` (default) to hide it.
+
+**Immediate delivery for one warp** (relayer need not be running):
+
+```powershell
+$env:KITE_WARP_TX="0x..."   # Kite transferRemote tx hash
+pnpm relayer:once
+```
+
 ## Terminal 2 — API
 
 ```powershell
