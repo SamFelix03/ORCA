@@ -49,14 +49,19 @@ function main(): void {
     };
   }
 
-  stubs.description = `ORCAOApp: ${manifest.orcaOAppKite2368}. HYP_TRUSTED_REMOTES=${remotes.join(",")}`;
+  const trustedRemotes = remotes.join(",");
+  stubs.description = `ORCAOApp: ${manifest.orcaOAppKite2368}. HYP_TRUSTED_REMOTES=${trustedRemotes}`;
 
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
   fs.writeFileSync(stubsPath, JSON.stringify(stubs, null, 2) + "\n");
   // eslint-disable-next-line no-console -- CLI
   console.log("Updated", manifestPath, "and", stubsPath);
   // eslint-disable-next-line no-console -- CLI
-  console.log("HYP_TRUSTED_REMOTES=" + remotes.join(","));
+  console.log("HYP_TRUSTED_REMOTES=" + trustedRemotes);
+  // eslint-disable-next-line no-console -- CLI
+  console.log(`HYP_TRUSTED_SENDERS=2368:${manifest.orcaOAppKite2368}`);
+  // eslint-disable-next-line no-console -- CLI
+  console.log("Run: pnpm hyperlane:wire-trust (from contracts/) if you deployed a new spoke.");
 }
 
 main();

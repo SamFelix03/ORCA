@@ -7,6 +7,7 @@
     "test": "hardhat test",
     "deploy:stubs": "hardhat run scripts/deploy-remote-stubs.ts",
     "deploy:spoke": "hardhat run scripts/deploy-spoke.ts",
+    "deploy:spoke:base": "hardhat run scripts/deploy-spoke.ts --network baseSepolia",
     "deploy:spokes:all": "hardhat run scripts/deploy-all-spokes.ts",
     "sync:spoke-config": "hardhat run scripts/sync-spoke-config.ts",
     "verify:spoke-ism": "hardhat run scripts/verify-spoke-ism.ts",
