@@ -10,7 +10,8 @@ async function main(): Promise<void> {
   };
   const stub = spoke.contracts.OrcaMorphoBlueStubVault;
   const abi = [
-    "function syncWarpedDeposit()",
+    "function syncWarpedDepositFor(address,uint256)",
+    "function unaccountedUnderlying() view returns (uint256)",
     "function principalOf(address) view returns (uint256)",
     "function accountedUnderlying() view returns (uint256)",
     "function underlying() view returns (address)",

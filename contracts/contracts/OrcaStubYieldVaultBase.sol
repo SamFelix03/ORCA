@@ -14,10 +14,13 @@ contract OrcaStubYieldVaultBase is Ownable, ReentrancyGuard {
     mapping(address => uint256) public principalOf;
     mapping(address => uint256) public lastAccrualTs;
     uint256 public rewardReserve;
-    /// @notice Underlying balance already credited to `principalOf` (warp direct-to-stub uses `syncWarpedDeposit`).
+    /// @notice Underlying balance already credited to `principalOf` (warp direct-to-stub uses `syncWarpedDepositFor`).
     uint256 public accountedUnderlying;
+    /// @notice May call `syncWarpedDepositFor` (e.g. ORCA executor). Defaults to owner in constructor.
+    address public warpSyncOperator;
 
     event Deposited(address indexed from, address indexed beneficiary, uint256 amount);
+    event WarpSyncOperatorUpdated(address indexed operator);
     event Withdrawn(address indexed user, uint256 principal, uint256 yieldPaid, uint256 total);
     event RewardsFunded(address indexed from, uint256 amount, uint256 newReserve);
     event ApyBpsUpdated(uint256 newApyBps);
@@ -27,6 +30,13 @@ contract OrcaStubYieldVaultBase is Ownable, ReentrancyGuard {
         require(apyBps_ <= 50_000, "OrcaStub: apy too high"); // cap 500% for safety
         underlying = underlying_;
         apyBps = apyBps_;
+        warpSyncOperator = initialOwner;
+    }
+
+    function setWarpSyncOperator(address operator) external onlyOwner {
+        require(operator != address(0), "OrcaStub: zero operator");
+        warpSyncOperator = operator;
+        emit WarpSyncOperatorUpdated(operator);
     }
 
     function setApyBps(uint256 newApyBps) external onlyOwner {
@@ -52,16 +62,36 @@ contract OrcaStubYieldVaultBase is Ownable, ReentrancyGuard {
         _depositFrom(msg.sender, beneficiary, amount);
     }
 
-    /// @notice Credit `underlying` already transferred to this contract (e.g. Hyperlane warp `recipient = address(this)`).
-    /// Position is recorded on the vault itself — no external beneficiary pull.
+    /// @notice Unaccounted `underlying` sitting on this contract (warp delivered to stub address).
+    function unaccountedUnderlying() external view returns (uint256) {
+        uint256 bal = underlying.balanceOf(address(this));
+        return bal > accountedUnderlying ? bal - accountedUnderlying : 0;
+    }
+
+    /// @notice Credit warped tokens to a user position (called by owner / `warpSyncOperator` after hub warp).
+    function syncWarpedDepositFor(address beneficiary, uint256 amount) external nonReentrant {
+        require(msg.sender == owner || msg.sender == warpSyncOperator, "OrcaStub: not sync operator");
+        _syncWarpedDepositFor(beneficiary, amount);
+    }
+
+    /// @notice Self-serve: credit all unaccounted balance to `msg.sender` (e.g. user bridged to self on stub).
     function syncWarpedDeposit() external nonReentrant {
         uint256 bal = underlying.balanceOf(address(this));
         require(bal > accountedUnderlying, "OrcaStub: nothing to sync");
         uint256 amount = bal - accountedUnderlying;
-        accountedUnderlying = bal;
-        principalOf[address(this)] += amount;
-        lastAccrualTs[address(this)] = block.timestamp;
-        emit Deposited(msg.sender, address(this), amount);
+        _syncWarpedDepositFor(msg.sender, amount);
+    }
+
+    function _syncWarpedDepositFor(address beneficiary, uint256 amount) internal {
+        require(beneficiary != address(0), "OrcaStub: zero beneficiary");
+        require(amount > 0, "OrcaStub: zero amount");
+        uint256 bal = underlying.balanceOf(address(this));
+        uint256 unaccounted = bal - accountedUnderlying;
+        require(amount <= unaccounted, "OrcaStub: insufficient unaccounted");
+        accountedUnderlying += amount;
+        principalOf[beneficiary] += amount;
+        lastAccrualTs[beneficiary] = block.timestamp;
+        emit Deposited(msg.sender, beneficiary, amount);
     }
 
     function _depositFrom(address from, address beneficiary, uint256 amount) internal {

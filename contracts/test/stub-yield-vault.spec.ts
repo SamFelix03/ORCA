@@ -93,6 +93,26 @@ describe("ORCA stub yield vaults", function () {
     expect(await vault.principalOf(bob.address)).to.equal(ethers.parseEther("10"));
   });
 
+  it("syncWarpedDepositFor credits beneficiary not vault address", async function () {
+    const [owner, alice] = await ethers.getSigners();
+    const tok = await deployToken();
+    const mint = ethers.parseEther("100");
+    await (await tok.mint(owner.address, mint)).wait();
+
+    const Base = await ethers.getContractFactory("OrcaStubYieldVaultBase");
+    const vault = await Base.deploy(owner.address, await tok.getAddress(), 0n);
+    await vault.waitForDeployment();
+    const v = await vault.getAddress();
+
+    await (await tok.transfer(v, ethers.parseEther("25"))).wait();
+    expect(await vault.unaccountedUnderlying()).to.equal(ethers.parseEther("25"));
+
+    await (await vault.connect(owner).syncWarpedDepositFor(alice.address, ethers.parseEther("25"))).wait();
+    expect(await vault.principalOf(alice.address)).to.equal(ethers.parseEther("25"));
+    expect(await vault.principalOf(v)).to.equal(0n);
+    expect(await vault.unaccountedUnderlying()).to.equal(0n);
+  });
+
   it("depositFor pulls from caller (adapter pattern)", async function () {
     const [owner, alice, adapter] = await ethers.getSigners();
     const tok = await deployToken();

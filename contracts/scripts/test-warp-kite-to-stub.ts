@@ -32,7 +32,8 @@ const DEST_KEY_TO_SPOKE_FILE: Record<string, string> = {
 };
 
 const STUB_ABI = [
-  "function syncWarpedDeposit() external",
+  "function syncWarpedDepositFor(address beneficiary, uint256 amount) external",
+  "function unaccountedUnderlying() view returns (uint256)",
   "function principalOf(address) view returns (uint256)",
   "function accountedUnderlying() view returns (uint256)",
   "function underlying() view returns (address)",
@@ -76,11 +77,14 @@ export async function runWarpKiteToStubTest(destKey: string): Promise<boolean> {
 
   const destWallet = new ethers.Wallet(pk, destProvider);
   const stubContract = new ethers.Contract(stub, STUB_ABI, destWallet);
+  const beneficiary = process.env.WARP_BENEFICIARY?.trim()
+    ? ethers.getAddress(process.env.WARP_BENEFICIARY.trim())
+    : destWallet.address;
 
   let txHash: string | undefined;
   let messageId: string | undefined;
   let balBefore = await erc20Balance(underlying, stub, destProvider);
-  const principalBefore = (await stubContract.principalOf(stub)) as bigint;
+  const principalBefore = (await stubContract.principalOf(beneficiary)) as bigint;
 
   if (!skipWarp) {
     const [signer] = await ethers.getSigners();
@@ -88,7 +92,11 @@ export async function runWarpKiteToStubTest(destKey: string): Promise<boolean> {
     balBefore = await erc20Balance(destToken, stub, destProvider);
 
     // eslint-disable-next-line no-console -- CLI
-    console.log(`\n=== ${key} transferRemote → stub ===`, { stub, amount: amount.toString() });
+    console.log(`\n=== ${key} transferRemote → stub ===`, {
+      stub,
+      beneficiary,
+      amount: amount.toString(),
+    });
     const sent = await transferRemote({
       signer,
       router: route.originRouter,
@@ -144,31 +152,32 @@ export async function runWarpKiteToStubTest(destKey: string): Promise<boolean> {
   }
 
   const balOnStub = await erc20Balance(underlying, stub, destProvider);
-  let accountedBefore = (await stubContract.accountedUnderlying()) as bigint;
-  let principalAfter = (await stubContract.principalOf(stub)) as bigint;
+  const accountedBefore = (await stubContract.accountedUnderlying()) as bigint;
+  const unaccounted = (await stubContract.unaccountedUnderlying()) as bigint;
+  let principalAfter = (await stubContract.principalOf(beneficiary)) as bigint;
   let syncTxHash: string | undefined;
 
-  if (balOnStub > accountedBefore) {
+  const creditAmount = unaccounted > 0n ? (amount <= unaccounted ? amount : unaccounted) : 0n;
+  if (creditAmount > 0n && principalAfter <= principalBefore) {
     // eslint-disable-next-line no-console -- CLI
-    console.log(`[${key}] syncWarpedDeposit`);
-    const syncTx = await stubContract.syncWarpedDeposit();
+    console.log(`[${key}] syncWarpedDepositFor`, { beneficiary, creditAmount: creditAmount.toString() });
+    const syncTx = await stubContract.syncWarpedDepositFor(beneficiary, creditAmount);
     const syncReceipt = await syncTx.wait();
     syncTxHash = syncTx.hash;
     if (!syncReceipt || syncReceipt.status !== 1) {
-      throw new Error(`[${key}] syncWarpedDeposit reverted: ${syncTx.hash}`);
+      throw new Error(`[${key}] syncWarpedDepositFor reverted: ${syncTx.hash}`);
     }
-    principalAfter = (await stubContract.principalOf(stub)) as bigint;
+    principalAfter = (await stubContract.principalOf(beneficiary)) as bigint;
   } else {
     // eslint-disable-next-line no-console -- CLI
-    console.log(`[${key}] syncWarpedDeposit skipped (already accounted)`);
+    console.log(`[${key}] sync skipped (unaccounted=${unaccounted.toString()})`);
   }
 
   const accountedAfter = (await stubContract.accountedUnderlying()) as bigint;
   const ok =
-    balOnStub > 0n &&
-    principalAfter > 0n &&
-    accountedAfter >= balOnStub &&
-    principalAfter >= accountedAfter;
+    principalAfter > principalBefore &&
+    principalAfter >= creditAmount &&
+    accountedAfter >= accountedBefore + creditAmount;
 
   // eslint-disable-next-line no-console -- CLI
   console.log(
@@ -180,9 +189,11 @@ export async function runWarpKiteToStubTest(destKey: string): Promise<boolean> {
         txHash,
         messageId,
         balOnStub: balOnStub.toString(),
+        beneficiary,
         principalBefore: principalBefore.toString(),
         principalAfter: principalAfter.toString(),
         accountedAfter: accountedAfter.toString(),
+        creditAmount: creditAmount.toString(),
         syncTx: syncTxHash ?? null,
       },
       null,

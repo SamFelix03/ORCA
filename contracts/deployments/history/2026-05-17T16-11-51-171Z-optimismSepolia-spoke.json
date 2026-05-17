@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 2,
+  "role": "hyperlane-spoke",
+  "deployedAt": "2026-05-17T16:11:51.169Z",
+  "network": "optimismSepolia",
+  "chainId": 11155420,
+  "deployer": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "owner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+  "mailboxAddress": "0x0866f40D55E96b2D74995203Caff032aD81c14B0",
+  "underlying": {
+    "address": "0xdD416C32ebA6066c273d5083b1ACa227046Bb5c9",
+    "symbol": "USDT"
+  },
+  "apyBps": "500",
+  "contracts": {
+    "NoopISM": "0x2c1f31d27645be47E0907D2eAa6A4f36F045BaE0",
+    "RemoteAdapter": "0x7C37fBeAb3594379496E488B04ab4BB8fE6eE1e8",
+    "OrcaAaveV3StubVault": "0x67F01326D6D3C1Ee49078935242DcDCC316Efd0E",
+    "OrcaCompoundV3StubVault": "0xd6Ea22b0932529F9B92A944a8c8A6d2b70af8aE2",
+    "OrcaMorphoBlueStubVault": "0x1F21C7087e211dd526c385894B51582cdA5eEDDa",
+    "OrcaUniswapV3StubVault": "0x4690E6432Fc163e51AF89f4FEd1883E7a171CcDC"
+  }
+}

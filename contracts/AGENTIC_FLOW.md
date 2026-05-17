@@ -45,6 +45,8 @@ Delivers Kite mailbox messages to Sepolia / Arb / OP / Base for ORCA `RemoteAdap
 
 **Live flow:** executor or `transferRemote` on Kite → wait for `[delivered] <chain>` in this terminal (poll every `RELAYER_POLL_MS`, default 8s). `[skip] already delivered` is normal for old traffic; set `RELAYER_LOG_SKIPS=0` (default) to hide it.
 
+**Per-user positions:** warp still sends USDT to the **stub contract**; executor then calls `syncWarpedDepositFor(beneficiary, amount)` so `principalOf[user]` is set. Set `SCOUT_CROSS_CHAIN_BENEFICIARY` in `agents/.env` to the same wallet the frontend uses for positions (API `claimableOf(ownerWallet)`).
+
 **Immediate delivery for one warp** (relayer need not be running):
 
 ```powershell

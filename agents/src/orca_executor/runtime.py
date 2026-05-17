@@ -245,21 +245,30 @@ class ExecutorRuntime:
                         raise RuntimeError(
                             f"warp_to_stub requires SCOUT_STUB_CHAIN_RPC_MAP with chainId {dst_chain}"
                         )
+                    sync_signer = Account.from_key(self._config.executor_private_key).address
+                    beneficiary = spoke_prep.resolve_spoke_beneficiary(
+                        oapp_calldata=intent.oapp_calldata,
+                        config_beneficiary=self._config.cross_chain_beneficiary_address,
+                        signer_address=sync_signer,
+                    )
                     sync_tx = spoke_prep.sync_warped_deposit_stub(
                         rpc_url=rpc,
                         chain_id=dst_chain,
                         private_key=self._config.executor_private_key,
                         stub_address=stub_addr,
+                        beneficiary=beneficiary,
+                        amount=instruction.suggested_amount,
                         logger=self._logger,
                     )
                     if sync_tx:
                         related_txs.append(
                             {
                                 "kind": "executor.stub_sync_warp",
-                                "label": "Stub syncWarpedDeposit (credit warped USDT)",
+                                "label": "Stub syncWarpedDepositFor (credit user principal)",
                                 "txHash": sync_tx,
                                 "chainId": dst_chain,
                                 "stubAddress": stub_addr,
+                                "beneficiary": beneficiary,
                             }
                         )
                 else:

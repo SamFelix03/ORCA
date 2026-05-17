@@ -312,12 +312,22 @@ def run_hub_to_dest_bridge(
 
 _STUB_SYNC_ABI = [
     {
-        "name": "syncWarpedDeposit",
+        "name": "syncWarpedDepositFor",
         "type": "function",
         "stateMutability": "nonpayable",
-        "inputs": [],
+        "inputs": [
+            {"name": "beneficiary", "type": "address"},
+            {"name": "amount", "type": "uint256"},
+        ],
         "outputs": [],
-    }
+    },
+    {
+        "name": "unaccountedUnderlying",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"type": "uint256"}],
+    },
 ]
 
 
@@ -335,19 +345,39 @@ def sync_warped_deposit_stub(
     chain_id: int,
     private_key: str,
     stub_address: str,
+    beneficiary: str,
+    amount: int,
     logger: logging.Logger,
 ) -> str | None:
     """
-    After Hyperlane warp delivers USDT to the stub contract, credit principal on the vault itself.
+    After Hyperlane warp delivers USDT to the stub, credit `principalOf[beneficiary]`.
     Returns tx hash or None if nothing to sync.
     """
     w3 = web3_for_http_rpc(rpc_url, chain_id=chain_id)
     signer = w3.eth.account.from_key(private_key)
     stub = Web3.to_checksum_address(stub_address)
+    user = Web3.to_checksum_address(beneficiary)
+    credit_amount = int(amount)
     c = w3.eth.contract(address=stub, abi=_STUB_SYNC_ABI)
 
+    try:
+        unaccounted = int(c.functions.unaccountedUnderlying().call())
+    except Exception:
+        unaccounted = credit_amount
+    if unaccounted <= 0:
+        logger.info("Executor: no unaccounted underlying on stub %s", stub)
+        return None
+    if credit_amount > unaccounted:
+        logger.warning(
+            "Executor: clamping sync amount %s to unaccounted %s on stub %s",
+            credit_amount,
+            unaccounted,
+            stub,
+        )
+        credit_amount = unaccounted
+
     def _build_tx(nonce: int) -> dict:
-        return c.functions.syncWarpedDeposit().build_transaction(
+        return c.functions.syncWarpedDepositFor(user, credit_amount).build_transaction(
             {
                 "from": signer.address,
                 "chainId": chain_id,
@@ -367,8 +397,13 @@ def sync_warped_deposit_stub(
         )
     except Exception as exc:  # noqa: BLE001
         msg = str(exc).lower()
-        if "nothing to sync" in msg or "revert" in msg:
-            logger.info("Executor: syncWarpedDeposit skipped on %s (%s)", stub, exc)
+        if "nothing to sync" in msg or "insufficient unaccounted" in msg or "revert" in msg:
+            logger.info(
+                "Executor: syncWarpedDepositFor skipped stub=%s beneficiary=%s (%s)",
+                stub,
+                user,
+                exc,
+            )
             return None
         raise
 
@@ -376,5 +411,11 @@ def sync_warped_deposit_stub(
         return tx_hash
     h = receipt["transactionHash"]
     out = h.hex() if hasattr(h, "hex") else str(h)
-    logger.info("Executor: syncWarpedDeposit stub=%s tx=%s", stub, out)
+    logger.info(
+        "Executor: syncWarpedDepositFor stub=%s beneficiary=%s amount=%s tx=%s",
+        stub,
+        user,
+        credit_amount,
+        out,
+    )
     return out
