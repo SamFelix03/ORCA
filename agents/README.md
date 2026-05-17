@@ -121,7 +121,7 @@ Buyers can **purchase** access to a marketplace-listed scout for a fixed **PIEUS
 
 - `SCOUT_PURCHASE_ID` — id returned at purchase confirm.
 - `SCOUT_BINDING_SECRET` — share securely from buyer; sent as header **`X-Orca-Binding-Secret`** to the API (not query string).
-- `ORCA_API_BASE_URL` or **`SCOUT_BINDING_API_BASE`** — base URL of the ORCA API.
+- **`SCOUT_BINDING_API_BASE`** — ORCA API base URL for binding fetch only (not `ORCA_API_BASE_URL`; that is for Risk/Executor/Audit in the same `.env`).
 
 The Scout **polls** `GET /scouts/purchases/:id/binding` until the buyer has stored a Redis URL, then uses **that** Redis client for **`SignalBroadcaster`** (`XADD` to the bound stream key, default `orca:signals:scout`). The creator’s `REDIS_URL` is still used for local preflight and any other scout-internal needs.
 

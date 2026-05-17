@@ -165,10 +165,14 @@ class ScoutRuntime:
 
     @staticmethod
     def _subscriber_binding_config(cfg: ScoutConfig) -> bool:
-        return bool(cfg.scout_purchase_id.strip() and cfg.scout_binding_secret.strip() and cfg.orca_api_base_url.strip())
+        return bool(
+            cfg.scout_purchase_id.strip()
+            and cfg.scout_binding_secret.strip()
+            and cfg.binding_api_base_url.strip()
+        )
 
     async def _poll_buyer_binding_until_ready(self) -> tuple[Redis, str]:
-        base = self._config.orca_api_base_url.rstrip("/")
+        base = self._config.binding_api_base_url.rstrip("/")
         url = f"{base}/scouts/purchases/{self._config.scout_purchase_id.strip()}/binding"
         headers = {"X-Orca-Binding-Secret": self._config.scout_binding_secret.strip()}
         delay = 1.0

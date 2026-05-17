@@ -6,7 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from web3 import Web3
 
@@ -43,10 +43,8 @@ class ScoutConfig(GroqSettingsMixin, BaseSettings):
 
     scout_purchase_id: str = Field(default="", alias="SCOUT_PURCHASE_ID")
     scout_binding_secret: str = Field(default="", alias="SCOUT_BINDING_SECRET")
-    orca_api_base_url: str = Field(
-        default="",
-        validation_alias=AliasChoices("ORCA_API_BASE_URL", "SCOUT_BINDING_API_BASE"),
-    )
+    # Marketplace binding only — not ORCA_API_BASE_URL (Risk/Executor use that in the same .env).
+    binding_api_base_url: str = Field(default="", alias="SCOUT_BINDING_API_BASE")
 
     # Legacy Lucid fields retained for backward compatibility but not primary in hybrid mode.
     lucid_api_base_url: str = Field(default="", alias="LUCID_API_BASE_URL")
@@ -466,13 +464,13 @@ class ScoutConfig(GroqSettingsMixin, BaseSettings):
                 raise ValueError("SCOUT_REQUIRE_REGISTRY=true requires ORCA_REGISTRY_ADDRESS.")
         purchase_id = self.scout_purchase_id.strip()
         binding_secret = self.scout_binding_secret.strip()
-        api_base = self.orca_api_base_url.strip()
-        mode_bits = [bool(purchase_id), bool(binding_secret), bool(api_base)]
-        if any(mode_bits) and not all(mode_bits):
-            raise ValueError(
-                "Marketplace subscriber mode requires SCOUT_PURCHASE_ID, SCOUT_BINDING_SECRET, "
-                "and ORCA_API_BASE_URL (or SCOUT_BINDING_API_BASE) together."
-            )
+        api_base = self.binding_api_base_url.strip()
+        if purchase_id or binding_secret:
+            if not (purchase_id and binding_secret and api_base):
+                raise ValueError(
+                    "Marketplace subscriber mode requires SCOUT_PURCHASE_ID, SCOUT_BINDING_SECRET, "
+                    "and SCOUT_BINDING_API_BASE together."
+                )
         return self
 
 
