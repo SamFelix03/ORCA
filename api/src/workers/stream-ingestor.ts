@@ -33,6 +33,13 @@ function jsonValue(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value ?? null)) as Prisma.InputJsonValue;
 }
 
+function optionalJsonValue(value: unknown): Prisma.InputJsonValue | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  return jsonValue(value);
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
@@ -75,7 +82,14 @@ async function createWorkflowEvent(params: {
   deliberationStep?: string;
 }) {
   const deliberation = parseLlmDeliberation(params.payload);
-  const llmFields = deliberation ? deliberationToWorkflowFields(deliberation) : {};
+  const llmFields = deliberation
+    ? deliberationToWorkflowFields(deliberation)
+    : {
+        chainOfThought: null,
+        verdict: null,
+        verdictSummary: null,
+        llmModel: null,
+      };
   const summary = llmFields.verdictSummary ?? params.summary;
   if (deliberation && params.agentType && params.deliberationStep) {
     await persistAgentDeliberation({
@@ -98,8 +112,8 @@ async function createWorkflowEvent(params: {
       txHash: params.txHash,
       paymentTxHash: params.paymentTxHash,
       chainId: params.chainId,
-      chainOfThought: llmFields.chainOfThought,
-      verdict: llmFields.verdict,
+      chainOfThought: optionalJsonValue(llmFields.chainOfThought),
+      verdict: optionalJsonValue(llmFields.verdict),
       verdictSummary: llmFields.verdictSummary,
       llmModel: llmFields.llmModel,
       payload: jsonValue(params.payload),
@@ -116,8 +130,8 @@ async function createWorkflowEvent(params: {
       txHash: params.txHash,
       paymentTxHash: params.paymentTxHash,
       chainId: params.chainId,
-      chainOfThought: llmFields.chainOfThought,
-      verdict: llmFields.verdict,
+      chainOfThought: optionalJsonValue(llmFields.chainOfThought),
+      verdict: optionalJsonValue(llmFields.verdict),
       verdictSummary: llmFields.verdictSummary,
       llmModel: llmFields.llmModel,
       payload: jsonValue(params.payload),

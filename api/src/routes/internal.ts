@@ -1,7 +1,8 @@
 import type { FastifyInstance } from "fastify";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../db/prisma.js";
-import { readTreasurySnapshot } from "../adapters/kite.js";
+import { readSpendingWindowSnapshot } from "../adapters/kite.js";
 import {
   deliberationToWorkflowFields,
   parseLlmDeliberation,
@@ -35,6 +36,10 @@ function assertInternalKey(request: { headers: Record<string, unknown> }) {
   if (provided !== expected) {
     throw new Error("Unauthorized internal request");
   }
+}
+
+function jsonValue(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value ?? null)) as Prisma.InputJsonValue;
 }
 
 export async function registerInternalRoutes(app: FastifyInstance): Promise<void> {
@@ -89,8 +94,7 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
       : null;
     let spendingWindow: unknown = null;
     try {
-      const treasury = await readTreasurySnapshot();
-      spendingWindow = treasury.spendingWindow ?? null;
+      spendingWindow = await readSpendingWindowSnapshot();
     } catch {
       spendingWindow = null;
     }
@@ -138,7 +142,7 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
           verdict: fields.verdict,
           verdictSummary: fields.verdictSummary,
           llmModel: fields.llmModel,
-          payload: body.llmDeliberation,
+          payload: jsonValue(body.llmDeliberation),
         },
       });
       broadcast({
