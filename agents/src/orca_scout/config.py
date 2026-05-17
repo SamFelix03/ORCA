@@ -11,14 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from web3 import Web3
 
 from orca_common.llm.settings import GroqSettingsMixin
-
-# Mainnet chain IDs → ORCA stub deployment testnets (DefiLlama feed → execution chain).
-DEFAULT_FEED_TO_STUB_CHAIN: dict[int, int] = {
-    1: 11155111,
-    42161: 421614,
-    10: 11155420,
-    8453: 84532,
-}
+from orca_common.market.feed_stub_chain import parse_feed_to_stub_chain_map
 
 
 class ScoutConfig(GroqSettingsMixin, BaseSettings):
@@ -249,22 +242,7 @@ class ScoutConfig(GroqSettingsMixin, BaseSettings):
         return out
 
     def feed_to_stub_chain_remap(self) -> dict[int, int]:
-        merged: dict[int, int] = dict(DEFAULT_FEED_TO_STUB_CHAIN)
-        raw = self.scout_feed_to_stub_chain_map.strip()
-        for entry in raw.split(","):
-            item = entry.strip()
-            if not item:
-                continue
-            parts = item.split(":")
-            if len(parts) != 2:
-                raise ValueError(
-                    f"Invalid SCOUT_FEED_TO_STUB_CHAIN_MAP item '{item}'. Expected 'feedChainId:stubChainId'."
-                )
-            a, b = parts[0].strip(), parts[1].strip()
-            if not a.isdigit() or not b.isdigit():
-                raise ValueError(f"Invalid SCOUT_FEED_TO_STUB_CHAIN_MAP item '{item}' (chain ids must be integers).")
-            merged[int(a)] = int(b)
-        return merged
+        return parse_feed_to_stub_chain_map(self.scout_feed_to_stub_chain_map)
 
     @staticmethod
     def stub_manifest_allowed_chain_protocol_pairs(path_str: str) -> set[tuple[int, str]]:

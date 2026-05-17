@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from orca_common.llm.settings import GroqSettingsMixin
 from orca_common.market.config import MarketDataSettingsMixin
+from orca_common.market.feed_stub_chain import parse_feed_to_stub_chain_map
 
 
 class RiskConfig(GroqSettingsMixin, MarketDataSettingsMixin, BaseSettings):
@@ -59,9 +60,17 @@ class RiskConfig(GroqSettingsMixin, MarketDataSettingsMixin, BaseSettings):
         alias="RISK_SCOUT_DID_ALLOWLIST",
         description="Comma-separated scout DIDs; when non-empty, only these DIDs pass Risk after registry checks.",
     )
+    scout_feed_to_stub_chain_map: str = Field(
+        default="",
+        alias="SCOUT_FEED_TO_STUB_CHAIN_MAP",
+        description="Same CSV as Scout: feedChainId:stubChainId overrides for DefiLlama→stub market resolution.",
+    )
 
     signal_domain_name: str = Field(default="ORCA Risk Instruction", alias="RISK_SIGNAL_DOMAIN_NAME")
     signal_domain_version: str = Field(default="1", alias="RISK_SIGNAL_DOMAIN_VERSION")
+
+    def feed_to_stub_chain_remap(self) -> dict[int, int]:
+        return parse_feed_to_stub_chain_map(self.scout_feed_to_stub_chain_map)
 
     @classmethod
     def _validate_optional_address(cls, value: str) -> str:

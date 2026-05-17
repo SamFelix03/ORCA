@@ -10,6 +10,7 @@ import asyncio
 from pydantic import BaseModel
 
 from orca_common.market.factory import build_market_stack
+from orca_common.market.feed_stub_chain import find_market_for_exec_chain
 from orca_common.models.market import YieldMarket
 from orca_common.registry_client import OrcaRegistryReader
 from orca_risk.config import RiskConfig
@@ -44,9 +45,35 @@ class RiskContextBuilder:
         if self._goldsky is not None:
             await self._goldsky.fetch_recent_protocol_events()
 
-        src = self._find_market(markets, signal.src_chain, signal.src_protocol)
-        dst = self._find_market(markets, signal.dst_chain, signal.dst_protocol)
-        markets_found = src is not None and dst is not None
+        feed_to_stub = self._config.feed_to_stub_chain_remap()
+        src, src_feed_chain = find_market_for_exec_chain(
+            markets, signal.src_chain, str(signal.src_protocol), feed_to_stub
+        )
+        dst, dst_feed_chain = find_market_for_exec_chain(
+            markets, signal.dst_chain, str(signal.dst_protocol), feed_to_stub
+        )
+        kite_chain = self._config.kite_chain_id
+        src_anchor = src is None and signal.src_chain == kite_chain
+        markets_found = dst is not None and (src is not None or src_anchor)
+        if src is None and not src_anchor:
+            self._logger.warning(
+                "Risk: no live market for src %s@%s (feed remap tried)",
+                signal.src_protocol,
+                signal.src_chain,
+            )
+        if dst is None:
+            self._logger.warning(
+                "Risk: no live market for dst %s@%s (feed remap tried)",
+                signal.dst_protocol,
+                signal.dst_chain,
+            )
+        elif dst_feed_chain is not None and dst_feed_chain != signal.dst_chain:
+            self._logger.info(
+                "Risk: resolved dst %s exec_chain=%s via feed_chain=%s",
+                signal.dst_protocol,
+                signal.dst_chain,
+                dst_feed_chain,
+            )
 
         fresh_bridge_apy = await self._estimator.estimate_annualized_cost_apy(
             signal.src_chain, signal.dst_chain, signal.suggested_amount
@@ -96,6 +123,11 @@ class RiskContextBuilder:
                 "src_protocol": signal.src_protocol,
                 "dst_protocol": signal.dst_protocol,
                 "suggested_amount": signal.suggested_amount,
+                "market_resolution": {
+                    "src_feed_chain": src_feed_chain,
+                    "dst_feed_chain": dst_feed_chain,
+                    "src_anchor_kite": src_anchor,
+                },
             },
             signal_claimed={
                 "current_apy": str(signal.current_apy),
@@ -143,13 +175,6 @@ class RiskContextBuilder:
         except Exception as exc:
             self._logger.warning("Risk API context fetch failed: %s", exc)
             return {"available": False, "error": str(exc)}
-
-    @staticmethod
-    def _find_market(markets: list[YieldMarket], chain_id: int, protocol: str) -> YieldMarket | None:
-        for item in markets:
-            if item.chain_id == chain_id and item.protocol == protocol:
-                return item
-        return None
 
     @staticmethod
     def _market_dict(market: YieldMarket | None) -> dict[str, str] | None:
