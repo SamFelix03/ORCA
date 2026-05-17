@@ -2,6 +2,7 @@ import { Redis } from "ioredis";
 import type { FastifyInstance } from "fastify";
 import { Prisma } from "@prisma/client";
 import { createExecutionRecord } from "../repositories/orca.js";
+import { bootstrapAgentsFromEnv, ensureAgentForDid, inferAgentTypeFromDid } from "../db/ensure-agent.js";
 import { prisma } from "../db/prisma.js";
 import { broadcast } from "../ws/gateway.js";
 import {
@@ -53,14 +54,6 @@ function asNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function didAgentType(did: string): string | null {
-  const lower = did.toLowerCase();
-  for (const type of ["scout", "risk", "executor", "audit"]) {
-    if (lower.includes(type)) return type;
-  }
-  return null;
-}
-
 function explorerUrl(txHash: string, chainId?: number | null): string {
   void chainId;
   return txHash;
@@ -81,6 +74,13 @@ async function createWorkflowEvent(params: {
   payload: StreamPayload;
   deliberationStep?: string;
 }) {
+  if (params.signalId) {
+    const signal = await prisma.signal.findUnique({
+      where: { id: params.signalId },
+      select: { id: true },
+    });
+    if (!signal) return;
+  }
   const deliberation = parseLlmDeliberation(params.payload);
   const llmFields = deliberation
     ? deliberationToWorkflowFields(deliberation)
@@ -193,6 +193,8 @@ async function handleScoutSignal(stream: string, id: string, payload: StreamPayl
   const scoutDid = asString(signal.scout_did);
   const paymentTxHash = asString(payload.paymentTxHash) || null;
 
+  await ensureAgentForDid(scoutDid, "scout");
+
   await prisma.signal.upsert({
     where: { id: signalId },
     update: {
@@ -274,6 +276,9 @@ async function handleRiskInstruction(stream: string, id: string, payload: Stream
   const reason = asString(instruction.reason);
   const paymentTxHash = asString(payload.paymentTxHash) || null;
 
+  await ensureAgentForDid(riskDid, "risk");
+  await ensureAgentForDid(executorDid, "executor");
+
   await prisma.riskInstruction.upsert({
     where: { signalId },
     update: {
@@ -334,6 +339,8 @@ async function handleExecution(stream: string, id: string, payload: StreamPayloa
   const signalId = asString(payload.signal_id);
   const txHash = asString(payload.tx_hash);
   const paymentTxHash = asString(payload.paymentTxHash) || null;
+  const executorDid = asString(payload.executor_did);
+  await ensureAgentForDid(executorDid, "executor");
   const execution = await createExecutionRecord({
     signalId,
     instructionId: asString(payload.instruction_id),
@@ -442,7 +449,7 @@ async function handleGeneric(stream: string, id: string, payload: StreamPayload)
     eventType,
     signalId,
     agentDid: did,
-    agentType: did ? didAgentType(did) : null,
+    agentType: did ? inferAgentTypeFromDid(did) : null,
     title: "Agent event",
     summary: eventType,
     txHash: asString(payload.txHash) || asString(payload.tx_hash) || null,
@@ -473,6 +480,10 @@ async function handlePayload(stream: string, id: string, payload: StreamPayload)
 
 export async function startStreamIngestor(app: FastifyInstance, redisUrl: string): Promise<() => Promise<void>> {
   const redis = new Redis(redisUrl);
+  const bootstrapped = await bootstrapAgentsFromEnv();
+  if (bootstrapped > 0) {
+    app.log.info({ count: bootstrapped }, "Bootstrapped agents from env");
+  }
   const streams = [SIGNAL_STREAM, INSTRUCTION_STREAM, EXEC_STREAM, AUDIT_STREAM, RELAYER_STREAM];
   for (const stream of streams) {
     await ensureGroup(redis, stream);

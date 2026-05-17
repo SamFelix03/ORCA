@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { ensureAgentForDid, shouldLinkWorkflowEvent } from "../db/ensure-agent.js";
 import { prisma } from "../db/prisma.js";
 import { readSpendingWindowSnapshot } from "../adapters/kite.js";
 import {
@@ -119,6 +120,9 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
     if (!deliberation) {
       return reply.status(400).send({ ok: false, error: "Invalid llmDeliberation" });
     }
+    if (body.agentDid) {
+      await ensureAgentForDid(body.agentDid, body.agentType);
+    }
     await persistAgentDeliberation({
       signalId: body.signalId,
       agentType: body.agentType,
@@ -126,32 +130,42 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
       step: body.step,
       deliberation,
     });
+    let workflowEventSkipped = false;
     if (body.signalId) {
-      const fields = deliberationToWorkflowFields(deliberation);
-      await prisma.workflowEvent.create({
-        data: {
-          signalId: body.signalId,
-          stream: "http:agent-deliberation",
-          streamEventId: `${body.step}:${Date.now()}`,
-          eventType: `agent.${body.agentType}.deliberation`,
-          agentDid: body.agentDid,
-          agentType: body.agentType,
-          title: `${body.agentType} deliberation`,
-          summary: fields.verdictSummary ?? body.step,
-          chainOfThought: fields.chainOfThought,
-          verdict: fields.verdict,
-          verdictSummary: fields.verdictSummary,
-          llmModel: fields.llmModel,
-          payload: jsonValue(body.llmDeliberation),
-        },
+      const signal = await prisma.signal.findUnique({
+        where: { id: body.signalId },
+        select: { id: true },
       });
-      broadcast({
-        type: "workflow.updated",
-        at: new Date().toISOString(),
-        payload: { signalId: body.signalId, eventType: `agent.${body.agentType}.deliberation` },
-      });
+      if (shouldLinkWorkflowEvent(body.signalId, signal)) {
+        const fields = deliberationToWorkflowFields(deliberation);
+        await prisma.workflowEvent.create({
+          data: {
+            signalId: body.signalId,
+            stream: "http:agent-deliberation",
+            streamEventId: `${body.step}:${Date.now()}`,
+            eventType: `agent.${body.agentType}.deliberation`,
+            agentDid: body.agentDid,
+            agentType: body.agentType,
+            title: `${body.agentType} deliberation`,
+            summary: fields.verdictSummary ?? body.step,
+            chainOfThought: fields.chainOfThought,
+            verdict: fields.verdict,
+            verdictSummary: fields.verdictSummary,
+            llmModel: fields.llmModel,
+            payload: jsonValue(body.llmDeliberation),
+          },
+        });
+        broadcast({
+          type: "workflow.updated",
+          at: new Date().toISOString(),
+          payload: { signalId: body.signalId, eventType: `agent.${body.agentType}.deliberation` },
+        });
+      } else {
+        workflowEventSkipped = true;
+        request.log.warn({ signalId: body.signalId }, "Skipped workflow event: signal not ingested yet");
+      }
     }
-    return { ok: true };
+    return { ok: true, workflowEventSkipped };
   });
 
   app.post("/internal/relayer-event", async (request, reply) => {
