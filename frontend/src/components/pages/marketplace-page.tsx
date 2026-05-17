@@ -1,5 +1,6 @@
 "use client";
 
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,28 +9,30 @@ import { TxLink } from "@/components/ui/tx-link";
 import { useOrcaResource } from "./use-orca-resource";
 import { orcaApi } from "@/lib/api";
 import { formatTokenAmountRaw, formatTokenNumber } from "@/lib/format-chain";
+import { primaryPrivyWalletAddress } from "@/lib/privy-user";
 import {
   bondWeiFromUsdc,
   computeDidHashHex,
   encodeErc20Approve,
   encodeErc20Transfer,
-  ensureWalletChain,
-  getConnectedAccount,
-  getInjectedEthereum,
   readErc20Allowance,
   sendEvmTransaction,
   signScoutRegistrationTypedData,
   waitForTxReceipt,
 } from "@/lib/scout-registration";
+import { ensureWalletOnChain, resolveEthereumProvider } from "@/lib/wallet-provider";
 import { getAddress } from "ethers";
 
 export function MarketplacePage() {
+  const { authenticated, user } = usePrivy();
+  const { wallets } = useWallets();
+  const walletAddress = primaryPrivyWalletAddress(user, wallets);
+
   const scouts = useOrcaResource(() => orcaApi.scouts(), []);
   const payouts = useOrcaResource(() => orcaApi.scoutPayouts(), []);
-  const [did, setDid] = useState("did:kite:orca/scout-external-demo");
-  const [vault, setVault] = useState("");
+  const [did, setDid] = useState("did:kite:orca/scout-1");
+  const [vault, setVault] = useState("0x1bcdcf2acc93d01F7F66010BE7B5a647A7cfC40f");
   const [stakeUsdc, setStakeUsdc] = useState(100);
-  const [account, setAccount] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,47 +50,32 @@ export function MarketplacePage() {
   const [bindBusy, setBindBusy] = useState(false);
 
   const loading = scouts.loading || payouts.loading;
+  const ownerAddress = walletAddress ? getAddress(walletAddress) : null;
 
-  async function connectWallet() {
-    setError(null);
-    setNotice(null);
-    const eth = getInjectedEthereum();
-    if (!eth) {
-      setError("No injected wallet found (install MetaMask or similar).");
-      return;
+  async function requireWalletContext() {
+    if (!authenticated || !ownerAddress) {
+      throw new Error("Sign in with Privy to use your embedded wallet for marketplace transactions.");
     }
-    const accounts = (await eth.request({ method: "eth_requestAccounts", params: [] })) as string[];
-    const addr = accounts[0];
-    setAccount(addr ? getAddress(addr) : null);
-    setNotice(addr ? `Connected ${getAddress(addr)}` : null);
+    const eth = await resolveEthereumProvider(wallets, ownerAddress);
+    return { eth, ownerAddress };
   }
 
   async function registerOnChain() {
     setError(null);
     setNotice(null);
-    const eth = getInjectedEthereum();
-    if (!eth) {
-      setError("No injected wallet found.");
-      return;
-    }
-    if (!account) {
-      setError("Connect a wallet first.");
-      return;
-    }
     if (!vault.trim()) {
       setError("Enter a vault contract address.");
       return;
     }
     setBusy(true);
     try {
-      const signingAccount = await getConnectedAccount(eth);
-      setAccount(signingAccount);
+      const { eth, ownerAddress: owner } = await requireWalletContext();
       const challenge = await orcaApi.scoutRegisterChallenge(did.trim());
-      await ensureWalletChain(eth, challenge.domain.chainId);
+      await ensureWalletOnChain(eth, challenge.domain.chainId);
       const didHashHex = challenge.didHashHex ?? computeDidHashHex(did);
       const bondWei = bondWeiFromUsdc(stakeUsdc, challenge.stakeDecimals);
 
-      const { signature, ownerAddress } = await signScoutRegistrationTypedData(eth, signingAccount, challenge, {
+      const signature = await signScoutRegistrationTypedData(eth, owner, challenge, {
         did: did.trim(),
         didHashHex,
         vault: vault.trim(),
@@ -102,7 +90,7 @@ export function MarketplacePage() {
         did: did.trim(),
         vault: vault.trim(),
         bondAmountWei: bondWei.toString(),
-        ownerAddress,
+        ownerAddress: owner,
         nonce: challenge.nonce,
         deadline: String(challenge.deadline),
         signature,
@@ -111,12 +99,12 @@ export function MarketplacePage() {
 
       const { scout } = await orcaApi.scoutRegisterAttest(attestBody);
 
-      const allowance = await readErc20Allowance(eth, challenge.stakeTokenAddress, ownerAddress, challenge.registryAddress);
+      const allowance = await readErc20Allowance(eth, challenge.stakeTokenAddress, owner, challenge.registryAddress);
       if (allowance < bondWei) {
         setNotice("Approving stake token spend for ORCARegistry...");
         const approveData = encodeErc20Approve(challenge.registryAddress, bondWei);
         const approveHash = await sendEvmTransaction(eth, {
-          from: ownerAddress,
+          from: owner,
           to: challenge.stakeTokenAddress,
           data: approveData,
         });
@@ -129,7 +117,7 @@ export function MarketplacePage() {
       setNotice("Submitting registerPermissionlessScout on-chain...");
       const txPayload = await orcaApi.scoutRegisterTxData(scout.id);
       const regHash = await sendEvmTransaction(eth, {
-        from: ownerAddress,
+        from: owner,
         to: txPayload.to,
         data: txPayload.data,
       });
@@ -152,24 +140,16 @@ export function MarketplacePage() {
   async function buyScoutAccess(marketplaceId: string, scoutDid: string) {
     setError(null);
     setNotice(null);
-    const eth = getInjectedEthereum();
-    if (!eth) {
-      setError("No injected wallet found.");
-      return;
-    }
-    if (!account) {
-      setError("Connect a wallet first.");
-      return;
-    }
     setBuyingId(marketplaceId);
     try {
+      const { eth, ownerAddress: owner } = await requireWalletContext();
       const quote = await orcaApi.scoutPurchaseQuote(marketplaceId);
-      await ensureWalletChain(eth, quote.chainId);
+      await ensureWalletOnChain(eth, quote.chainId);
       const amount = BigInt(quote.amountWei);
       const transferData = encodeErc20Transfer(quote.recipient, amount);
       setNotice(`Sending ${formatTokenAmountRaw(quote.amountWei, 18)} PIEUSD to listing owner...`);
       const txHash = await sendEvmTransaction(eth, {
-        from: account,
+        from: owner,
         to: quote.token,
         data: transferData,
       });
@@ -178,7 +158,7 @@ export function MarketplacePage() {
         throw new Error("PIEUSD transfer failed.");
       }
       const { purchaseId, bindingSecret } = await orcaApi.scoutPurchaseConfirm(marketplaceId, {
-        buyerWallet: account,
+        buyerWallet: owner,
         txHash,
       });
       setLastPurchase({ marketplaceId, scoutDid, purchaseId, bindingSecret });
@@ -199,18 +179,15 @@ export function MarketplacePage() {
   async function submitBinding() {
     setError(null);
     setNotice(null);
-    if (!account) {
-      setError("Connect a wallet first.");
-      return;
-    }
     if (!bindPurchaseId.trim() || !bindSecret.trim() || !bindRedisUrl.trim()) {
       setError("purchaseId, binding secret, and redisUrl are required.");
       return;
     }
     setBindBusy(true);
     try {
+      const { ownerAddress: owner } = await requireWalletContext();
       await orcaApi.scoutPurchaseBinding(bindPurchaseId.trim(), {
-        buyerWallet: account,
+        buyerWallet: owner,
         redisUrl: bindRedisUrl.trim(),
         scoutSignalStreamKey: bindStreamKey.trim() || undefined,
         bindingSecret: bindSecret.trim(),
@@ -239,9 +216,14 @@ export function MarketplacePage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-[#5c564c]">
-            EIP-712 attest → approve stake token → call registry → API confirms the receipt. Use the same MetaMask account
-            for Connect wallet, the signature popup, and both on-chain transactions (must match your scout operator EOA).
+            EIP-712 attest → approve stake token → call registry → API confirms the receipt. Uses your Privy wallet (same
+            as the header) for signing and on-chain transactions.
           </p>
+          {!authenticated || !ownerAddress ? (
+            <p className="text-sm text-[rgb(var(--warning-11))]">Sign in to register a scout with your Privy wallet.</p>
+          ) : (
+            <p className="font-mono text-xs text-[#5c564c]">Privy wallet: {ownerAddress}</p>
+          )}
           <input className="w-full rounded border border-black/15 bg-[#fffaf0] px-2 py-1" value={did} onChange={(e) => setDid(e.target.value)} placeholder="Scout DID" />
           <input className="w-full rounded border border-black/15 bg-[#fffaf0] px-2 py-1 font-mono text-sm" value={vault} onChange={(e) => setVault(e.target.value)} placeholder="Vault address (0x...)" />
           <input
@@ -251,15 +233,9 @@ export function MarketplacePage() {
             onChange={(e) => setStakeUsdc(Number(e.target.value))}
             placeholder="Stake (USDC units)"
           />
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={connectWallet} disabled={busy}>
-              Connect wallet
-            </Button>
-            <Button type="button" onClick={registerOnChain} disabled={busy}>
-              {busy ? "Working..." : "Register on-chain"}
-            </Button>
-          </div>
-          {account ? <p className="font-mono text-xs text-[#5c564c]">Connected: {account}</p> : null}
+          <Button type="button" onClick={registerOnChain} disabled={busy || !ownerAddress}>
+            {busy ? "Working..." : "Register on-chain"}
+          </Button>
         </CardContent>
       </Card>
 
@@ -298,7 +274,7 @@ export function MarketplacePage() {
             onChange={(e) => setBindStreamKey(e.target.value)}
             placeholder="scout signal stream key (optional)"
           />
-          <Button type="button" onClick={submitBinding} disabled={bindBusy || busy}>
+          <Button type="button" onClick={submitBinding} disabled={bindBusy || busy || !ownerAddress}>
             {bindBusy ? "Saving..." : "Save binding"}
           </Button>
         </CardContent>
@@ -335,7 +311,7 @@ export function MarketplacePage() {
                     <Button
                       type="button"
                       variant="secondary"
-                      disabled={busy || buyingId !== null || !account}
+                      disabled={busy || buyingId !== null || !ownerAddress}
                       onClick={() => buyScoutAccess(scout.id, scout.did)}
                     >
                       {buyingId === scout.id ? "Buying..." : "Buy (1 PIEUSD)"}

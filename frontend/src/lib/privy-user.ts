@@ -8,11 +8,13 @@ function accountAddress(account: LinkedAccountWithMetadata): string | null {
 }
 
 export function primaryPrivyWalletAddress(user: User | null | undefined, wallets: ConnectedWallet[] = []): string | null {
+  const primary = user?.wallet?.address;
+  if (primary) {
+    const match = wallets.find((w) => w.address?.toLowerCase() === primary.toLowerCase());
+    return match?.address ?? primary;
+  }
   if (wallets.length > 0 && wallets[0]?.address) {
     return wallets[0].address;
-  }
-  if (user?.wallet?.address) {
-    return user.wallet.address;
   }
   for (const account of user?.linkedAccounts ?? []) {
     const address = accountAddress(account);

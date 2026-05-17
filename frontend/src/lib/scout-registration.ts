@@ -67,43 +67,18 @@ export function buildTypedDataForSigning(
   };
 }
 
-/** Active wallet from the provider (avoids stale React state vs MetaMask account switch). */
-export async function getConnectedAccount(eth: InjectedEthereum): Promise<string> {
-  const accounts = (await eth.request({ method: "eth_accounts", params: [] })) as string[];
-  if (!accounts?.length) {
-    throw new Error("No wallet account connected. Click Connect wallet first.");
-  }
-  return getAddress(accounts[0]);
-}
-
 export async function signScoutRegistrationTypedData(
   eth: InjectedEthereum,
-  account: string,
+  ownerAddress: string,
   challenge: ScoutRegistrationChallengeResponse,
   params: { did: string; didHashHex: string; vault: string; bondAmountWei: bigint },
-): Promise<{ signature: string; ownerAddress: string }> {
-  const signer = getAddress(account);
+): Promise<string> {
+  const signer = getAddress(ownerAddress);
   const typedData = buildTypedDataForSigning(challenge, params);
-  const signature = (await eth.request({
+  return (await eth.request({
     method: "eth_signTypedData_v4",
     params: [signer, JSON.stringify(typedData)],
   })) as string;
-
-  const { verifyTypedData } = await import("ethers");
-  const recovered = verifyTypedData(
-    typedData.domain,
-    typedData.types,
-    typedData.message,
-    signature,
-  );
-  const ownerAddress = getAddress(recovered);
-  if (ownerAddress.toLowerCase() !== signer.toLowerCase()) {
-    throw new Error(
-      `MetaMask signed as ${ownerAddress}, but the connected account is ${signer}. ` +
-        "Switch to the correct account in MetaMask, click Connect wallet again, then retry.",
-    );
-  }
-  return { signature, ownerAddress };
 }
 
 export async function sendEvmTransaction(
