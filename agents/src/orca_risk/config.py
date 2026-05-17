@@ -10,9 +10,16 @@ from orca_common.market.config import MarketDataSettingsMixin
 from orca_common.market.feed_stub_chain import parse_feed_to_stub_chain_map
 
 
+def _env_bool(value: str | bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
 class RiskConfig(GroqSettingsMixin, MarketDataSettingsMixin, BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
+    demo_mode: bool = Field(default=False, alias="DEMO_MODE")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     redis_url: str = Field(alias="REDIS_URL")
     scout_signal_stream_key: str = Field(default="orca:signals:scout", alias="SCOUT_REDIS_STREAM_KEY")
@@ -71,6 +78,13 @@ class RiskConfig(GroqSettingsMixin, MarketDataSettingsMixin, BaseSettings):
 
     def feed_to_stub_chain_remap(self) -> dict[int, int]:
         return parse_feed_to_stub_chain_map(self.scout_feed_to_stub_chain_map)
+
+    @field_validator("demo_mode", mode="before")
+    @classmethod
+    def _parse_demo_mode(cls, value: object) -> bool:
+        if value is None:
+            return False
+        return _env_bool(str(value))
 
     @classmethod
     def _validate_optional_address(cls, value: str) -> str:

@@ -14,6 +14,7 @@ from orca_common.market.feed_stub_chain import find_market_for_exec_chain
 from orca_common.models.market import YieldMarket
 from orca_common.registry_client import OrcaRegistryReader
 from orca_risk.config import RiskConfig
+from orca_risk.demo import apply_demo_preflight_override
 from orca_scout.models import YieldSignal
 
 
@@ -113,6 +114,8 @@ class RiskContextBuilder:
             "min_tvl_ok": tvl_ok,
             "utilization_below_cap": util_ok,
         }
+        if self._config.demo_mode:
+            preflight = apply_demo_preflight_override(preflight)
 
         pack = RiskEvidencePack(
             signal_id=signal.signal_id,
