@@ -206,7 +206,7 @@ class ExecutorRuntime:
                     contracts = Path(self._config.contracts_dir).expanduser()
                     if not contracts.is_absolute():
                         contracts = (Path.cwd() / contracts).resolve()
-                    spoke_prep.run_hub_to_dest_bridge(
+                    bridge_result = spoke_prep.run_hub_to_dest_bridge(
                         contracts_dir=contracts,
                         hyp_dest=hyp_dest,
                         amount=instruction.suggested_amount,
@@ -215,6 +215,17 @@ class ExecutorRuntime:
                         warp_asset=self._config.hyperlane_warp_asset,
                         logger=self._logger,
                     )
+                    if bridge_result and bridge_result.get("txHash"):
+                        related_txs.append(
+                            {
+                                "kind": "executor.hyperlane_dispatch",
+                                "label": "Executor Hyperlane dispatch",
+                                "txHash": str(bridge_result["txHash"]),
+                                "chainId": self._config.kite_chain_id,
+                                "destinationDomain": bridge_result.get("destinationDomain"),
+                                "destination": bridge_result.get("destKey"),
+                            }
+                        )
                     time.sleep(self._config.bridge_wait_seconds)
 
                 if dst_chain != self._config.kite_chain_id:

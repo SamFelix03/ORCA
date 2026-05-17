@@ -1,6 +1,8 @@
 import { formatUnits } from "ethers";
 
-export const PIEUSD_PAYMENT_DECIMALS = 6;
+export const PIEUSD_LEGACY_PAYMENT_DECIMALS = 6;
+export const PIEUSD_X402_PAYMENT_DECIMALS = 18;
+const PIEUSD_X402_RAW_THRESHOLD = BigInt(10) ** BigInt(12);
 
 const EXPLORER_BY_CHAIN_ID: Record<number, string> = {
   2368: "https://testnet.kitescan.ai",
@@ -63,7 +65,11 @@ export function formatTokenBalanceAmountRaw(value: bigint | string | number | nu
 }
 
 export function formatPieUsdPaymentAmountRaw(value: bigint | string | number | null | undefined): string {
-  return formatTokenAmountRaw(value, PIEUSD_PAYMENT_DECIMALS, PIEUSD_PAYMENT_DECIMALS);
+  if (value === null || value === undefined || value === "") return "--";
+  const raw = typeof value === "bigint" ? value : BigInt(typeof value === "number" ? Math.trunc(value).toString() : value);
+  const absoluteRaw = raw < BigInt(0) ? -raw : raw;
+  const decimals = absoluteRaw >= PIEUSD_X402_RAW_THRESHOLD ? PIEUSD_X402_PAYMENT_DECIMALS : PIEUSD_LEGACY_PAYMENT_DECIMALS;
+  return formatTokenAmountRaw(raw, decimals, 6);
 }
 
 export function formatTokenNumber(value: number | null | undefined, maximumFractionDigits = 6): string {

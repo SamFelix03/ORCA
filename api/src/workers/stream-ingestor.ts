@@ -188,6 +188,31 @@ async function createWorkflowEvent(params: {
   }
 }
 
+async function findSignalIdForRelayerEvent(signalId?: string | null, dispatchTxHash?: string | null): Promise<string | null> {
+  if (signalId) return signalId;
+  if (!dispatchTxHash) return null;
+
+  const executionSignal = await prisma.execution.findFirst({
+    where: { txHash: dispatchTxHash },
+    select: { signalId: true },
+  });
+  if (executionSignal?.signalId) return executionSignal.signalId;
+
+  const workflowSignal = await prisma.workflowEvent.findFirst({
+    where: { txHash: dispatchTxHash, signalId: { not: null } },
+    orderBy: { createdAt: "desc" },
+    select: { signalId: true },
+  });
+  if (workflowSignal?.signalId) return workflowSignal.signalId;
+
+  const signal = await prisma.signal.findFirst({
+    where: { txHash: dispatchTxHash },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  return signal?.id ?? null;
+}
+
 async function recordPayment(params: {
   signalId?: string | null;
   instructionId?: string | null;
@@ -500,10 +525,7 @@ async function handleExecution(stream: string, id: string, payload: StreamPayloa
 
 async function handleRelayer(stream: string, id: string, payload: StreamPayload) {
   const dispatchTxHash = asString(payload.dispatchTxHash) || null;
-  const executionSignal = payload.signalId || !dispatchTxHash
-    ? null
-    : await prisma.execution.findFirst({ where: { txHash: dispatchTxHash }, select: { signalId: true } });
-  const signalId = asString(payload.signalId) || executionSignal?.signalId || null;
+  const signalId = await findSignalIdForRelayerEvent(asString(payload.signalId) || null, dispatchTxHash);
   const messageId = asString(payload.messageId);
   if (!messageId) return;
   await prisma.relayerMessage.upsert({

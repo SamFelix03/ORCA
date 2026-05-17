@@ -44,6 +44,31 @@ function jsonValue(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value ?? null)) as Prisma.InputJsonValue;
 }
 
+async function findSignalIdForRelayerEvent(signalId?: string | null, dispatchTxHash?: string | null): Promise<string | null> {
+  if (signalId) return signalId;
+  if (!dispatchTxHash) return null;
+
+  const executionSignal = await prisma.execution.findFirst({
+    where: { txHash: dispatchTxHash },
+    select: { signalId: true },
+  });
+  if (executionSignal?.signalId) return executionSignal.signalId;
+
+  const workflowSignal = await prisma.workflowEvent.findFirst({
+    where: { txHash: dispatchTxHash, signalId: { not: null } },
+    orderBy: { createdAt: "desc" },
+    select: { signalId: true },
+  });
+  if (workflowSignal?.signalId) return workflowSignal.signalId;
+
+  const signal = await prisma.signal.findFirst({
+    where: { txHash: dispatchTxHash },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  return signal?.id ?? null;
+}
+
 export async function registerInternalRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", async (request, reply) => {
     if (!request.url.startsWith("/internal/")) return;
@@ -175,15 +200,7 @@ export async function registerInternalRoutes(app: FastifyInstance): Promise<void
       return reply.status(400).send({ ok: false, error: parsed.error.message });
     }
     const body = parsed.data;
-    const executionSignal = body.signalId
-      ? null
-      : body.dispatchTxHash
-        ? await prisma.execution.findFirst({
-            where: { txHash: body.dispatchTxHash },
-            select: { signalId: true },
-          })
-        : null;
-    const signalId = body.signalId ?? executionSignal?.signalId ?? null;
+    const signalId = await findSignalIdForRelayerEvent(body.signalId ?? null, body.dispatchTxHash ?? null);
 
     await prisma.relayerMessage.upsert({
       where: { messageId: body.messageId },

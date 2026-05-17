@@ -267,7 +267,7 @@ def run_hub_to_dest_bridge(
     snapshot_path: str,
     warp_asset: str,
     logger: logging.Logger,
-) -> None:
+) -> dict[str, Any] | None:
     root = contracts_dir.resolve()
     script = root / "scripts" / "hyperlane" / "transfer-hub-to-dest.ts"
     if not script.is_file():
@@ -292,4 +292,19 @@ def run_hub_to_dest_bridge(
         recipient,
         warp_asset,
     )
-    subprocess.run(cmd, cwd=str(root), env=env, check=True)
+    result = subprocess.run(cmd, cwd=str(root), env=env, check=True, capture_output=True, text=True)
+    if result.stdout:
+        for line in result.stdout.splitlines():
+            logger.info("Executor bridge stdout: %s", line)
+    if result.stderr:
+        for line in result.stderr.splitlines():
+            logger.warning("Executor bridge stderr: %s", line)
+
+    match = re.search(r"\{[\s\S]*\}", result.stdout or "")
+    if not match:
+        return None
+    try:
+        parsed = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
