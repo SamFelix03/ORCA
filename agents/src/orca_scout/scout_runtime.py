@@ -134,6 +134,11 @@ class ScoutRuntime:
             model=config.groq_model,
             base_url=config.groq_base_url,
             timeout_seconds=config.groq_timeout_seconds,
+            request_delay_seconds=config.groq_request_delay_seconds,
+            request_jitter_seconds=config.groq_request_jitter_seconds,
+            max_retries=config.groq_max_retries,
+            retry_base_delay_seconds=config.groq_retry_base_delay_seconds,
+            retry_max_delay_seconds=config.groq_retry_max_delay_seconds,
         )
         self._llm_selector = LLMOpportunitySelector(
             client=groq_client,
