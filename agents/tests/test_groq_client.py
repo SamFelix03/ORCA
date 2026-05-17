@@ -44,6 +44,42 @@ async def test_deliberate_parses_reasoning_steps() -> None:
 
 
 @pytest.mark.asyncio
+async def test_deliberate_accepts_reasoning_step_objects() -> None:
+    client = GroqDeliberationClient(
+        api_key="test-key",
+        model="test-model",
+        base_url="https://api.groq.com/openai/v1",
+        timeout_seconds=5.0,
+    )
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "reasoning_steps": [
+                                {"step": 1, "text": "Observed scout signal"},
+                                "Confirmed payment fields present",
+                            ],
+                            "verdict": {"value_delta": 5},
+                            "verdict_summary": "OK",
+                        }
+                    )
+                }
+            }
+        ]
+    }
+    mock_response.raise_for_status = MagicMock()
+    client._client.post = AsyncMock(return_value=mock_response)  # noqa: SLF001
+
+    result, _ = await client.deliberate("system", {})
+    assert len(result.reasoning_steps) == 2
+    assert "scout signal" in result.reasoning_steps[0].lower()
+    await client.close()
+
+
+@pytest.mark.asyncio
 async def test_deliberate_missing_reasoning_raises() -> None:
     client = GroqDeliberationClient(
         api_key="test-key",

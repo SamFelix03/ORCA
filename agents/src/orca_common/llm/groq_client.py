@@ -8,6 +8,53 @@ import httpx
 
 from orca_common.llm.deliberation import LlmDeliberationResponse
 
+_REASONING_STEP_ALIASES = ("reasoning_steps", "chain_of_thought", "reasoning", "steps", "audit_trail")
+
+
+def _coerce_reasoning_step_item(item: object) -> str | None:
+    if isinstance(item, str):
+        text = item.strip()
+        return text or None
+    if isinstance(item, (int, float, bool)):
+        return str(item)
+    if isinstance(item, dict):
+        for key in ("text", "content", "step", "reasoning", "summary", "detail"):
+            value = item.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        flattened = json.dumps(item, ensure_ascii=False).strip()
+        return flattened or None
+    if item is None:
+        return None
+    text = str(item).strip()
+    return text or None
+
+
+def normalize_reasoning_steps(parsed: dict[str, Any]) -> list[str]:
+    """Accept strict string arrays and common Groq JSON variants."""
+    raw: object | None = None
+    for key in _REASONING_STEP_ALIASES:
+        candidate = parsed.get(key)
+        if candidate is not None:
+            raw = candidate
+            break
+
+    if isinstance(raw, str) and raw.strip():
+        return [raw.strip()]
+
+    if isinstance(raw, dict):
+        raw = list(raw.values())
+
+    if not isinstance(raw, list):
+        return []
+
+    steps: list[str] = []
+    for item in raw:
+        text = _coerce_reasoning_step_item(item)
+        if text:
+            steps.append(text)
+    return steps
+
 
 class GroqDeliberationClient:
     def __init__(
@@ -49,8 +96,12 @@ class GroqDeliberationClient:
             .get("content", "{}")
         )
         parsed = json.loads(content)
-        steps = parsed.get("reasoning_steps")
-        if not isinstance(steps, list) or not steps or not all(isinstance(s, str) for s in steps):
+        if not isinstance(parsed, dict):
+            raise RuntimeError("LLM response must be a JSON object")
+        steps = normalize_reasoning_steps(parsed)
+        if not steps:
+            preview = content[:500] if isinstance(content, str) else str(content)[:500]
+            self._logger.error("LLM JSON missing reasoning_steps (preview): %s", preview)
             raise RuntimeError("LLM response missing valid reasoning_steps array")
         verdict = parsed.get("verdict")
         if not isinstance(verdict, dict):
