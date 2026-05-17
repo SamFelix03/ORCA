@@ -59,6 +59,21 @@ function asNullableNumber(value: unknown): number | null {
   return parsed > 0 ? parsed : null;
 }
 
+const DECIMAL_20_6_ABS_LIMIT = 100_000_000_000_000;
+
+function normalizeSignalAmountUsdc(value: unknown): number {
+  const parsed = asNumber(value);
+  if (!Number.isFinite(parsed)) return 0;
+  if (Math.abs(parsed) < DECIMAL_20_6_ABS_LIMIT) return parsed;
+
+  const decimals = Number(process.env.SIGNAL_AMOUNT_TOKEN_DECIMALS ?? process.env.PIEUSD_DECIMALS ?? "6");
+  const divisor = 10 ** (Number.isFinite(decimals) && decimals >= 0 ? decimals : 6);
+  const normalized = parsed / divisor;
+  if (Math.abs(normalized) < DECIMAL_20_6_ABS_LIMIT) return normalized;
+
+  return Math.sign(normalized) * (DECIMAL_20_6_ABS_LIMIT - 1);
+}
+
 function paymentAmountWei(payload: StreamPayload): string {
   const direct = asString(payload.paymentAmountWei) || asString(payload.amountWei);
   if (direct) return direct;
@@ -219,6 +234,7 @@ async function handleScoutSignal(stream: string, id: string, payload: StreamPayl
   const signalId = asString(signal.signal_id);
   const scoutDid = asString(signal.scout_did);
   const paymentTxHash = asString(payload.paymentTxHash) || null;
+  const suggestedAmountUsdc = normalizeSignalAmountUsdc(signal.suggested_amount);
 
   await ensureAgentForDid(scoutDid, "scout");
 
@@ -226,7 +242,7 @@ async function handleScoutSignal(stream: string, id: string, payload: StreamPayl
     where: { id: signalId },
     update: {
       netDeltaApy: asNumber(signal.net_delta_apy),
-      suggestedAmountUsdc: asNumber(signal.suggested_amount),
+      suggestedAmountUsdc,
       txHash: paymentTxHash,
       status: "pending",
     },
@@ -238,7 +254,7 @@ async function handleScoutSignal(stream: string, id: string, payload: StreamPayl
       srcProtocol: asString(signal.src_protocol),
       dstProtocol: asString(signal.dst_protocol),
       netDeltaApy: asNumber(signal.net_delta_apy),
-      suggestedAmountUsdc: asNumber(signal.suggested_amount),
+      suggestedAmountUsdc,
       status: "pending",
       txHash: paymentTxHash,
     },
@@ -284,7 +300,7 @@ async function handleScoutSignal(stream: string, id: string, payload: StreamPayl
         srcProtocol: asString(signal.src_protocol),
         dstProtocol: asString(signal.dst_protocol),
         netDeltaApy: asNumber(signal.net_delta_apy),
-        suggestedAmountUsdc: asNumber(signal.suggested_amount),
+        suggestedAmountUsdc,
         status: "pending",
         txHash: paymentTxHash ?? undefined,
         createdAt: new Date().toISOString(),
@@ -302,9 +318,31 @@ async function handleRiskInstruction(stream: string, id: string, payload: Stream
   const approved = Boolean(instruction.approved);
   const reason = asString(instruction.reason);
   const paymentTxHash = asString(payload.paymentTxHash) || null;
+  const suggestedAmountUsdc = normalizeSignalAmountUsdc(instruction.suggested_amount);
 
   await ensureAgentForDid(riskDid, "risk");
   await ensureAgentForDid(executorDid, "executor");
+  const existingSignal = await prisma.signal.findUnique({ where: { id: signalId }, select: { id: true } });
+  if (!existingSignal) {
+    const sourceSignal = asRecord(payload.signal);
+    const scoutDid = asString(sourceSignal.scout_did) || process.env.SCOUT_DID || "did:kite:orca/scout-1";
+    await ensureAgentForDid(scoutDid, "scout");
+    await prisma.signal.upsert({
+      where: { id: signalId },
+      update: {},
+      create: {
+        id: signalId,
+        scoutDid,
+        srcChain: asNumber(instruction.src_chain),
+        dstChain: asNumber(instruction.dst_chain),
+        srcProtocol: asString(instruction.src_protocol),
+        dstProtocol: asString(instruction.dst_protocol),
+        netDeltaApy: asNumber(instruction.net_delta_apy),
+        suggestedAmountUsdc,
+        status: "pending",
+      },
+    });
+  }
 
   await prisma.riskInstruction.upsert({
     where: { signalId },
@@ -562,8 +600,35 @@ export async function startStreamIngestor(app: FastifyInstance, redisUrl: string
   }
 
   let running = true;
+  const processRecord = async (stream: string, id: string, fields: string[]) => {
+    try {
+      const payloadIndex = fields.findIndex((fieldName: string) => fieldName === "payload");
+      const payloadRaw = payloadIndex >= 0 ? fields[payloadIndex + 1] : undefined;
+      if (!payloadRaw) {
+        app.log.error("Missing payload in stream event %s", id);
+        return;
+      }
+      const payload = JSON.parse(payloadRaw) as StreamPayload;
+      await handlePayload(stream, id, payload);
+      await redis.xack(stream, GROUP, id);
+    } catch (error) {
+      app.log.error({ error, stream, id }, "Failed to ingest stream event");
+    }
+  };
+  const recoverPending = async () => {
+    for (const stream of streams) {
+      const response = await redis.xautoclaim(stream, GROUP, CONSUMER, 1_000, "0-0", "COUNT", 20);
+      const claimed = response?.[1] as [string, string[]][] | undefined;
+      if (!claimed?.length) continue;
+      app.log.info({ stream, count: claimed.length }, "Recovering pending stream events");
+      for (const [id, fields] of claimed) {
+        await processRecord(stream, id, fields);
+      }
+    }
+  };
   const loop = async () => {
     while (running) {
+      await recoverPending();
       const entries = await redis.xreadgroup(
         "GROUP",
         GROUP,
@@ -580,19 +645,7 @@ export async function startStreamIngestor(app: FastifyInstance, redisUrl: string
       const streamEntries = entries as [string, string[][]][];
       for (const [stream, records] of streamEntries) {
         for (const [id, fields] of records as [string, string[]][]) {
-          try {
-            const payloadIndex = fields.findIndex((fieldName: string) => fieldName === "payload");
-            const payloadRaw = payloadIndex >= 0 ? fields[payloadIndex + 1] : undefined;
-            if (!payloadRaw) {
-              app.log.error("Missing payload in stream event %s", id);
-              continue;
-            }
-            const payload = JSON.parse(payloadRaw) as StreamPayload;
-            await handlePayload(stream, id, payload);
-            await redis.xack(stream, GROUP, id);
-          } catch (error) {
-            app.log.error({ error, stream, id }, "Failed to ingest stream event");
-          }
+          await processRecord(stream, id, fields);
         }
       }
     }

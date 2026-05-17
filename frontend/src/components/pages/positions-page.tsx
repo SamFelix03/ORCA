@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TxLink } from "@/components/ui/tx-link";
-import { ReloadButton, VaultHoldingCard } from "@/components/wallet/vault-holding-card";
+import { VaultHoldingCard } from "@/components/wallet/vault-holding-card";
 import { orcaApi } from "@/lib/api";
 import { primaryPrivyWalletAddress } from "@/lib/privy-user";
 import { withdrawStubVaultHolding } from "@/lib/stub-vault-withdraw";
@@ -17,25 +17,26 @@ export function PositionsPage() {
   const walletAddress = primaryPrivyWalletAddress(user, wallets);
   const [holdings, setHoldings] = useState<VaultHoldingRecord[]>([]);
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [withdrawTx, setWithdrawTx] = useState<{ chainId: number; txHash: string } | null>(null);
 
-  const refreshHoldings = useCallback(async () => {
-    if (!walletAddress || refreshing) return;
-    setRefreshing(true);
+  const loadHoldings = useCallback(async () => {
+    if (!walletAddress) return;
+    await Promise.resolve();
+    setLoading(true);
     setError(null);
     try {
-      const next = await orcaApi.refreshVaultHoldings(null, walletAddress);
+      const next = await orcaApi.myVaultHoldings(null, walletAddress);
       setHoldings(next.holdings);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to refresh vault holdings");
+      setHoldings([]);
+      setError(err instanceof Error ? err.message : "Unable to load vault holdings");
     } finally {
-      setRefreshing(false);
+      setLoading(false);
     }
-  }, [refreshing, walletAddress]);
+  }, [walletAddress]);
 
   const withdrawHolding = async (holding: VaultHoldingRecord) => {
     if (!walletAddress || withdrawingId) return;
@@ -45,7 +46,7 @@ export function PositionsPage() {
     try {
       const txHash = await withdrawStubVaultHolding({ holding, ownerAddress: walletAddress, wallets });
       setWithdrawTx({ chainId: holding.chainId, txHash });
-      await refreshHoldings();
+      await loadHoldings();
     } catch (err) {
       setWithdrawError(err instanceof Error ? err.message : "Withdraw failed");
     } finally {
@@ -58,39 +59,12 @@ export function PositionsPage() {
       return;
     }
 
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const existing = await orcaApi.myVaultHoldings(null, walletAddress);
-        if (cancelled) return;
-        if (existing.holdings.length > 0) {
-          setHoldings(existing.holdings);
-          return;
-        }
-        const refreshed = await orcaApi.refreshVaultHoldings(null, walletAddress);
-        if (!cancelled) {
-          setHoldings(refreshed.holdings);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setHoldings([]);
-          setError(err instanceof Error ? err.message : "Unable to load vault holdings");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
+    const timer = window.setTimeout(() => {
+      void loadHoldings();
+    }, 0);
 
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authenticated, walletAddress]);
+    return () => window.clearTimeout(timer);
+  }, [authenticated, walletAddress, loadHoldings]);
 
   const visibleHoldings = authenticated && walletAddress ? holdings : [];
 
@@ -102,7 +76,6 @@ export function PositionsPage() {
             <CardTitle>Holdings</CardTitle>
             <p className="text-sm text-[#5c564c]">Indexed on-chain balances across configured vaults.</p>
           </div>
-          <ReloadButton onClick={() => void refreshHoldings()} disabled={!walletAddress || refreshing} busy={refreshing} />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

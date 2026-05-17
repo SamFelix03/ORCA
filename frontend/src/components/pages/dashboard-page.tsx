@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, DataTd, DataTh, DataThead } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -10,21 +11,25 @@ import { formatPieUsdPaymentAmountRaw, formatTokenBalanceAmountRaw, formatTokenN
 import { VaultHoldingCard } from "@/components/wallet/vault-holding-card";
 import { LiveEvents } from "@/components/live-events";
 import { connectOrcaEvents } from "@/lib/ws";
+import { primaryPrivyWalletAddress } from "@/lib/privy-user";
 
 const AGENT_FLOW = ["scout", "risk", "executor", "audit"];
 
 export function DashboardPage() {
+  const { user } = usePrivy();
+  const { wallets } = useWallets();
+  const walletAddress = primaryPrivyWalletAddress(user, wallets);
   const { data, loading, error, reload } = useOrcaResource(async () => {
     const [agents, vaultHoldings, signals, treasury, alerts] = await Promise.all([
       orcaApi.agents(),
-      orcaApi.vaultHoldings(),
+      walletAddress ? orcaApi.myVaultHoldings(null, walletAddress) : orcaApi.vaultHoldings(),
       orcaApi.signals(),
       orcaApi.treasury(),
       orcaApi.alerts(),
     ]);
 
     return { agents, vaultHoldings, signals, treasury, alerts };
-  }, []);
+  }, [walletAddress]);
 
   useEffect(() => {
     const ws = connectOrcaEvents((event) => {

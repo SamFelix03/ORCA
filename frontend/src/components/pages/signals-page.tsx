@@ -1,7 +1,7 @@
 "use client";
 
 import type { SignalRecord, SignalWorkflowResponse, WorkflowEventRecord } from "@orca/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -179,6 +179,7 @@ function collectWorkflowTransactions(workflow: SignalWorkflowResponse): SignalTr
 export function SignalsPage() {
   const { data, loading, error, reload } = useOrcaResource(() => orcaApi.signals(), []);
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
+  const [timeSort, setTimeSort] = useState<"desc" | "asc">("desc");
   const [workflow, setWorkflow] = useState<SignalWorkflowResponse | null>(null);
   const [workflowLoading, setWorkflowLoading] = useState(false);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
@@ -221,6 +222,13 @@ export function SignalsPage() {
     setWorkflowError(null);
   }
 
+  const sortedSignals = useMemo(() => {
+    return [...(data?.signals ?? [])].sort((a, b) => {
+      const delta = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return timeSort === "asc" ? delta : -delta;
+    });
+  }, [data?.signals, timeSort]);
+
   return (
     <>
       <Card>
@@ -236,6 +244,15 @@ export function SignalsPage() {
             <DataTable>
               <DataThead>
                 <tr>
+                  <DataTh>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-left uppercase tracking-[0.12em]"
+                      onClick={() => setTimeSort((current) => (current === "desc" ? "asc" : "desc"))}
+                    >
+                      Time {timeSort === "desc" ? "newest" : "oldest"}
+                    </button>
+                  </DataTh>
                   <DataTh>Route</DataTh>
                   <DataTh>Net APY</DataTh>
                   <DataTh>Payment Value</DataTh>
@@ -245,8 +262,9 @@ export function SignalsPage() {
                 </tr>
               </DataThead>
               <tbody>
-                {(data?.signals ?? []).map((signal) => (
+                {sortedSignals.map((signal) => (
                   <tr key={signal.id} className="cursor-pointer hover:bg-black/[0.03]" onClick={() => void loadWorkflow(signal.id)}>
+                    <DataTd className="font-mono text-xs">{new Date(signal.createdAt).toLocaleString()}</DataTd>
                     <DataTd>{`${signal.srcProtocol} -> ${signal.dstProtocol}`}</DataTd>
                     <DataTd>{signal.netDeltaApy.toFixed(2)}%</DataTd>
                     <DataTd>{signal.paymentAmountWei ? `${formatPieUsdPaymentAmountRaw(signal.paymentAmountWei)} pieUSD` : "-"}</DataTd>

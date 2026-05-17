@@ -38,6 +38,7 @@ export async function registerPortfolioRoutes(app: FastifyInstance): Promise<voi
 
   app.get("/me/vault-holdings", async (request): Promise<VaultHoldingsResponse> => {
     const wallet = await walletFromRequest(app, request);
+    await refreshVaultHoldings(wallet);
     return { holdings: await listVaultHoldings(wallet) };
   });
 
