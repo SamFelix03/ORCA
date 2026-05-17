@@ -46,6 +46,7 @@ class ScoutRuntime:
                 config.defillama_pools_path,
                 config.defillama_timeout_seconds,
                 config.defillama_min_tvl_usd,
+                config.defillama_max_apy_percent,
             )
             self._enrichers = [
                 AaveUtilizationEnricher(
@@ -282,7 +283,8 @@ class ScoutRuntime:
                 suggested_amount_usdc=self._config.default_suggested_amount,
                 max_suggested_amount_usdc=self._config.max_suggested_amount,
                 kite_chain_id=self._config.kite_chain_id,
-                kite_anchor_protocol="aave-v3",
+                kite_anchor_protocol=self._config.scout_kite_anchor_protocol,  # type: ignore[arg-type]
+                max_candidates=self._config.scout_feed_rank_max_candidates,
             )
             if not ranked and self._config.scout_stub_apy_fallback:
                 self._logger.warning(
@@ -300,7 +302,7 @@ class ScoutRuntime:
                     suggested_amount_usdc=self._config.default_suggested_amount,
                     max_suggested_amount_usdc=self._config.max_suggested_amount,
                     kite_chain_id=self._config.kite_chain_id,
-                    kite_anchor_protocol="aave-v3",
+                    kite_anchor_protocol=self._config.scout_kite_anchor_protocol,  # type: ignore[arg-type]
                 )
             ranked = [r for r in ranked if r.net_delta_apy >= self._config.min_net_delta_apy]
         else:

@@ -49,10 +49,10 @@
         "remote": "0x0000000000000000000000002ed22aa87c87e4b0139552d50cb5b049e369c295"
       }
     ],
-    "bridgeGuardThresholdUsdc": "50000000000",
+    "bridgeGuardThresholdUsdc": "50000000000000000000000",
     "spendingWindow": "86400",
-    "spendingBudget": "5000000000",
-    "spendingMaxPerTx": "500000000",
+    "spendingBudget": "5000000000000000000000",
+    "spendingMaxPerTx": "500000000000000000000",
     "multisigSigners": [
       "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844"
     ],

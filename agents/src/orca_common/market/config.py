@@ -16,6 +16,12 @@ class MarketDataSettingsMixin(BaseSettings):
     defillama_pools_path: str = Field(default="/pools", alias="DEFILLAMA_POOLS_PATH")
     defillama_timeout_seconds: float = Field(default=10.0, alias="DEFILLAMA_TIMEOUT_SECONDS")
     defillama_min_tvl_usd: float = Field(default=100_000, alias="DEFILLAMA_MIN_TVL_USD")
+    defillama_max_apy_percent: float = Field(
+        default=500.0,
+        ge=0,
+        alias="DEFILLAMA_MAX_APY_PERCENT",
+        description="Drop DefiLlama pools above this APY %% (filters bad feed rows e.g. morpho@ethereum ~3e5).",
+    )
     aave_data_api_base_url: str = Field(default="", alias="AAVE_DATA_API_BASE_URL")
     aave_data_api_key: str = Field(default="", alias="AAVE_DATA_API_KEY")
     compound_data_api_base_url: str = Field(default="", alias="COMPOUND_DATA_API_BASE_URL")

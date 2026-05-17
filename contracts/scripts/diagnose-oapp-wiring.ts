@@ -25,6 +25,7 @@ async function main(): Promise<void> {
 
   const guard = await ethers.getContractAt("LZBridgeGuard", bridgeGuardAddr, provider);
   const oappAuthorized = await guard.authorizedCallers(oappAddr);
+  const guardThreshold = await guard.approvalThresholdUsdc();
 
   const vault = await ethers.getContractAt("ClientAgentVault", vaultAddr, provider);
   const vaultExecutor = await vault.executor();
@@ -36,6 +37,10 @@ async function main(): Promise<void> {
   console.log("Wiring OK (vault is executorVault):", executorVault.toLowerCase() === vaultAddr.toLowerCase());
   console.log("Vault.executor (must match EXECUTOR_PRIVATE_KEY):", vaultExecutor);
   console.log("LZBridgeGuard:", bridgeGuardAddr);
+  console.log("BridgeGuard approvalThresholdUsdc:", guardThreshold.toString());
+  console.log(
+    "  (amounts < threshold skip approveTransfer; threshold should exceed SCOUT_MAX_SUGGESTED_AMOUNT for demo)",
+  );
   console.log("BridgeGuard authorized OApp caller:", oappAuthorized);
 
   const remotes = artifact.configs?.trustedRemotes ?? [];

@@ -16,6 +16,8 @@
     "relayer:inspect": "tsx relayer/src/inspect.ts",
     "prepare:spoke-e2e": "hardhat run scripts/prepare-spoke-e2e-collateral.ts --network kiteTestnet",
     "enforcer:whitelist-oapp": "hardhat run scripts/whitelist-enforcer-providers.ts --network kiteTestnet",
+    "enforcer:configure-rules": "hardhat run scripts/configure-enforcer-rules.ts --network kiteTestnet",
+    "bridge-guard:configure-threshold": "hardhat run scripts/configure-bridge-guard.ts --network kiteTestnet",
     "vault:sync-executor": "hardhat run scripts/sync-vault-executor.ts --network kiteTestnet",
     "oapp:wire-vault": "hardhat run scripts/wire-oapp-vault-caller.ts --network kiteTestnet",
     "oapp:diagnose": "hardhat run scripts/diagnose-oapp-wiring.ts --network kiteTestnet",

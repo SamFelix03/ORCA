@@ -23,6 +23,7 @@ def build_market_stack(config: MarketDataSettingsMixin) -> tuple[Any, list[Any],
             config.defillama_pools_path,
             config.defillama_timeout_seconds,
             config.defillama_min_tvl_usd,
+            config.defillama_max_apy_percent,
         )
         enrichers = [
             AaveUtilizationEnricher(

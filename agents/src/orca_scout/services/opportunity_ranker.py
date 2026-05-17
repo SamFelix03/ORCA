@@ -122,8 +122,9 @@ class OpportunityRanker:
         max_suggested_amount_usdc: int,
         kite_chain_id: int,
         kite_anchor_protocol: ProtocolName,
+        max_candidates: int = 5,
     ) -> list[RankedOpportunity]:
-        """Rank by real feed APY; map feed chains to manifest stub chains; pick best (exec_chain, protocol) slot."""
+        """Rank by real feed APY; map feed chains to manifest stub chains; return top destination protocols for the LLM."""
         if not markets or not manifest_pairs:
             return []
         manifest_chains = {c for c, _ in manifest_pairs}
@@ -151,28 +152,42 @@ class OpportunityRanker:
             self._logger.info("Feed-ranked stub: no markets mapped to manifest slots (check feeds, TVL, SCOUT_FEED_TO_STUB_CHAIN_MAP).")
             return []
 
-        best_slot = max(best_by_slot.keys(), key=lambda k: best_by_slot[k][0])
-        best_apy, feed_chain_used = best_by_slot[best_slot]
-        exec_chain, proto_str = best_slot
-        dst_protocol = proto_str  # type: ignore[assignment]
-        self._logger.info(
-            "Feed-ranked stub: chose feed_chain=%s exec_chain=%s protocol=%s apy=%s",
-            feed_chain_used,
-            exec_chain,
-            proto_str,
-            str(best_apy),
-        )
-        anchor_apy = Decimal("0")
-        return [
-            RankedOpportunity(
-                src_chain=kite_chain_id,
-                dst_chain=exec_chain,
-                src_protocol=kite_anchor_protocol,
-                dst_protocol=dst_protocol,
-                current_apy=anchor_apy,
-                target_apy=best_apy,
-                net_delta_apy=best_apy - anchor_apy,
-                suggested_amount=capped_amount,
-                annualized_bridge_cost_apy=Decimal("0"),
-            )
+        # Best APY per destination protocol (may be on different exec chains).
+        best_by_protocol: dict[str, tuple[Decimal, int, int]] = {}
+        for (exec_chain, proto_str), (apy, feed_chain_used) in best_by_slot.items():
+            prev = best_by_protocol.get(proto_str)
+            if prev is None or apy > prev[0]:
+                best_by_protocol[proto_str] = (apy, feed_chain_used, exec_chain)
+
+        ranked_protocols = sorted(best_by_protocol.items(), key=lambda item: item[1][0], reverse=True)[
+            : max(1, max_candidates)
         ]
+        anchor_apy = Decimal("0")
+        opportunities: list[RankedOpportunity] = []
+        for proto_str, (best_apy, feed_chain_used, exec_chain) in ranked_protocols:
+            dst_protocol = proto_str  # type: ignore[assignment]
+            opportunities.append(
+                RankedOpportunity(
+                    src_chain=kite_chain_id,
+                    dst_chain=exec_chain,
+                    src_protocol=kite_anchor_protocol,
+                    dst_protocol=dst_protocol,
+                    current_apy=anchor_apy,
+                    target_apy=best_apy,
+                    net_delta_apy=best_apy - anchor_apy,
+                    suggested_amount=capped_amount,
+                    annualized_bridge_cost_apy=Decimal("0"),
+                )
+            )
+        if opportunities:
+            top = opportunities[0]
+            top_meta = best_by_protocol[str(top.dst_protocol)]
+            self._logger.info(
+                "Feed-ranked stub: %d candidate(s); top feed_chain=%s exec_chain=%s protocol=%s apy=%s",
+                len(opportunities),
+                top_meta[1],
+                top.dst_chain,
+                top.dst_protocol,
+                str(top.target_apy),
+            )
+        return opportunities

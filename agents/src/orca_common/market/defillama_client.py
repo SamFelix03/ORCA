@@ -37,10 +37,18 @@ PROTOCOL_MAP: tuple[tuple[str, str], ...] = (
 
 
 class DefiLlamaClient:
-    def __init__(self, base_url: str, pools_path: str, timeout_seconds: float, min_tvl_usd: float = 0.0) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        pools_path: str,
+        timeout_seconds: float,
+        min_tvl_usd: float = 0.0,
+        max_apy_percent: float = 500.0,
+    ) -> None:
         self._client = httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=timeout_seconds)
         self._pools_path = pools_path
         self._min_tvl_usd = Decimal(str(min_tvl_usd))
+        self._max_apy_percent = Decimal(str(max_apy_percent))
         self._logger = logging.getLogger("orca_common.market.defillama")
 
     @retry(wait=wait_exponential(min=1, max=8), stop=stop_after_attempt(3), reraise=True)
@@ -68,6 +76,7 @@ class DefiLlamaClient:
             items = []
 
         markets: list[YieldMarket] = []
+        skipped_insane_apy = 0
         now = int(time())
         for item in items:
             if not isinstance(item, dict):
@@ -82,7 +91,11 @@ class DefiLlamaClient:
             if chain_id is None:
                 continue
 
-            apy = self._to_decimal(item.get("apy"), default=Decimal("0"))
+            apy_raw = self._to_decimal(item.get("apy"), default=Decimal("0"))
+            apy, ok = self._normalize_apy_percent(apy_raw)
+            if not ok:
+                skipped_insane_apy += 1
+                continue
             tvl_usd = self._to_decimal(item.get("tvlUsd"), default=Decimal("0"))
             if tvl_usd < self._min_tvl_usd:
                 continue
@@ -101,7 +114,21 @@ class DefiLlamaClient:
                     timestamp=timestamp,
                 )
             )
+        if skipped_insane_apy:
+            self._logger.info(
+                "DefiLlama skipped_insane_apy=%d (raw apy > %s or <= 0; yields API reports APY as percent)",
+                skipped_insane_apy,
+                str(self._max_apy_percent),
+            )
         return markets
+
+    def _normalize_apy_percent(self, apy_percent: Decimal) -> tuple[Decimal, bool]:
+        """DefiLlama /pools `apy` is APY in percent (5.2 => 5.2%%). ORCA uses decimal fraction (0.052 => 5.2%%)."""
+        if apy_percent <= 0:
+            return Decimal("0"), False
+        if apy_percent > self._max_apy_percent:
+            return Decimal("0"), False
+        return (apy_percent / Decimal("100")).quantize(Decimal("0.0000001")), True
 
     @staticmethod
     def _to_decimal(value: Any, default: Decimal = Decimal("0")) -> Decimal:

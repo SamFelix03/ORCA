@@ -50,6 +50,19 @@ class ScoutConfig(GroqSettingsMixin, BaseSettings):
     defillama_pools_path: str = Field(default="/pools", alias="DEFILLAMA_POOLS_PATH")
     defillama_timeout_seconds: float = Field(default=10.0, alias="DEFILLAMA_TIMEOUT_SECONDS")
     defillama_min_tvl_usd: float = Field(default=100_000, alias="DEFILLAMA_MIN_TVL_USD")
+    defillama_max_apy_percent: float = Field(default=500.0, ge=0, alias="DEFILLAMA_MAX_APY_PERCENT")
+    scout_feed_rank_max_candidates: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        alias="SCOUT_FEED_RANK_MAX_CANDIDATES",
+        description="In best_stub_deposit mode, max distinct destination protocols offered to the LLM.",
+    )
+    scout_kite_anchor_protocol: str = Field(
+        default="aave-v3",
+        alias="SCOUT_KITE_ANCHOR_PROTOCOL",
+        description="Synthetic Kite source leg for feed-ranked stub deposits (manifest must list this on kite chain).",
+    )
     aave_data_api_base_url: str = Field(default="", alias="AAVE_DATA_API_BASE_URL")
     aave_data_api_key: str = Field(default="", alias="AAVE_DATA_API_KEY")
     compound_data_api_base_url: str = Field(default="", alias="COMPOUND_DATA_API_BASE_URL")
