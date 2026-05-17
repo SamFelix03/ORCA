@@ -15,20 +15,20 @@
     "trustedSender": "",
     "trustedRemotes": [
       {
-        "domain": 11155111,
-        "remote": "0x0000000000000000000000007f9d7362ad621b3edc9b77370855a6f4aca9cdd2"
-      },
-      {
         "domain": 421614,
-        "remote": "0x000000000000000000000000cdff2e12f7a25af287612377090e7d1e65024dec"
-      },
-      {
-        "domain": 11155420,
-        "remote": "0x0000000000000000000000001b42e6cceabd808e3d27309881ca4ae6b79dbf16"
+        "remote": "0x0000000000000000000000004e4d20d7bc954fde4c447a21255b9ed39cfab938"
       },
       {
         "domain": 84532,
-        "remote": "0x000000000000000000000000415e73d86197dc83440a2dbe70dae00c441e5f18"
+        "remote": "0x0000000000000000000000008c1fc785b71a6a095878fb49bddcb5788d553c2d"
+      },
+      {
+        "domain": 11155420,
+        "remote": "0x000000000000000000000000583c17fdf9031ece81251ea2f8c819c84fe7f69d"
+      },
+      {
+        "domain": 11155111,
+        "remote": "0x000000000000000000000000a171fdedc284cfe3c0e00a808fcd427729c39a05"
       }
     ],
     "trustedSenders": [

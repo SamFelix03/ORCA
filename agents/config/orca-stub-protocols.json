@@ -31,5 +31,6 @@
       "morpho": "0x2d43aC514B55A308bC3b6479D6B66c7Bfa4e4c34",
       "uniswap-v3": "0xEffB4586Cc973fF41Ff2777D5d571aEf31b300CA"
     }
-  }
+  },
+  "schemaVersion": 1
 }
