@@ -199,6 +199,20 @@ class ExecutorRuntime:
                     )
                     manifest = spoke_prep.load_collateral_manifest(manifest_path)
                     token, adapter = spoke_prep.spoke_collateral_and_adapter(manifest, dst_chain)
+                    from eth_account import Account
+
+                    signer_address = Account.from_key(self._config.executor_private_key).address
+                    beneficiary = spoke_prep.resolve_spoke_beneficiary(
+                        oapp_calldata=intent.oapp_calldata,
+                        config_beneficiary=self._config.cross_chain_beneficiary_address,
+                        signer_address=signer_address,
+                    )
+                    spoke_prep.assert_spoke_beneficiary_can_approve(
+                        beneficiary=beneficiary,
+                        signer_address=signer_address,
+                        vault_address=intent.vault_address,
+                        logger=self._logger,
+                    )
                     spoke_prep.ensure_erc20_allowance(
                         rpc_url=rpc,
                         chain_id=dst_chain,
@@ -207,6 +221,7 @@ class ExecutorRuntime:
                         spender=adapter,
                         min_amount=intent.amount_for_rule,
                         logger=self._logger,
+                        owner=beneficiary,
                     )
 
                 if not calldata or calldata.lower() == "0x":
@@ -245,7 +260,6 @@ class ExecutorRuntime:
             status="executed",
             tx_hash=tx_hash,
             llm_deliberation=llm_deliberation,
-            payment_tx_hash=payment_tx_hash,
         )
 
     async def _publish_settled(

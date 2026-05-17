@@ -19,7 +19,7 @@ CHAIN_ID_TO_HYP_DEST: dict[int, str] = {
     84532: "basesepolia",
 }
 
-_ERC20_ALLOWANCE_ABI = [
+_ERC20_ABI = [
     {
         "name": "allowance",
         "inputs": [
@@ -40,9 +40,34 @@ _ERC20_ALLOWANCE_ABI = [
         "stateMutability": "nonpayable",
         "type": "function",
     },
+    {
+        "name": "balanceOf",
+        "inputs": [{"name": "account", "type": "address"}],
+        "outputs": [{"type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
 ]
 
 _MAX_UINT256 = 2**256 - 1
+
+_OAPP_REBALANCE_ABI = [
+    {
+        "type": "function",
+        "name": "executeCrossChainRebalance",
+        "stateMutability": "payable",
+        "inputs": [
+            {"name": "dstDomain", "type": "uint32"},
+            {"name": "destinationAdapter", "type": "bytes32"},
+            {"name": "fromProtocol", "type": "address"},
+            {"name": "toProtocol", "type": "address"},
+            {"name": "beneficiary", "type": "address"},
+            {"name": "amount", "type": "uint256"},
+            {"name": "hookMetadata", "type": "bytes"},
+        ],
+        "outputs": [],
+    }
+]
 
 
 def parse_chain_rpc_map(raw: str) -> dict[int, str]:
@@ -80,6 +105,69 @@ def load_collateral_manifest(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def decode_cross_chain_beneficiary(oapp_calldata: str) -> str | None:
+    """Decode beneficiary from ORCAOApp.executeCrossChainRebalance calldata."""
+    raw = oapp_calldata.strip()
+    if not raw or raw.lower() in ("0x", "0x0"):
+        return None
+    w3 = Web3()
+    contract = w3.eth.contract(abi=_OAPP_REBALANCE_ABI)
+    try:
+        _fn, args = contract.decode_function_input(raw)
+    except Exception:
+        return None
+    if isinstance(args, (list, tuple)):
+        if len(args) < 5:
+            return None
+        beneficiary = args[4]
+    elif isinstance(args, dict):
+        beneficiary = args.get("beneficiary")
+    else:
+        return None
+    if not beneficiary:
+        return None
+    return Web3.to_checksum_address(str(beneficiary))
+
+
+def resolve_spoke_beneficiary(
+    *,
+    oapp_calldata: str,
+    config_beneficiary: str,
+    signer_address: str,
+) -> str:
+    """Beneficiary RemoteAdapter pulls from on delivery (must match allowance owner)."""
+    decoded = decode_cross_chain_beneficiary(oapp_calldata)
+    if decoded:
+        return decoded
+    configured = config_beneficiary.strip()
+    if configured:
+        return Web3.to_checksum_address(configured)
+    return Web3.to_checksum_address(signer_address)
+
+
+def assert_spoke_beneficiary_can_approve(
+    *,
+    beneficiary: str,
+    signer_address: str,
+    vault_address: str | None,
+    logger: logging.Logger,
+) -> None:
+    """RemoteAdapter.transferFrom(beneficiary, …) requires beneficiary to have approved the adapter."""
+    if beneficiary.lower() == signer_address.lower():
+        return
+    if vault_address and beneficiary.lower() == vault_address.lower():
+        raise RuntimeError(
+            "Cross-chain beneficiary is ClientAgentVault, but the vault cannot hold Sepolia USDT or "
+            "approve RemoteAdapter on a spoke. Set SCOUT_CROSS_CHAIN_BENEFICIARY to the executor EOA "
+            f"({signer_address}) in agents/.env for both Scout and Executor, then re-run Scout so "
+            "new signals encode the EOA as beneficiary. Run: cd contracts && pnpm prepare:sepolia-e2e"
+        )
+    raise RuntimeError(
+        f"Cross-chain beneficiary {beneficiary} does not match executor signer {signer_address}. "
+        "Set SCOUT_CROSS_CHAIN_BENEFICIARY to the executor EOA in agents/.env or align intent encoding."
+    )
+
+
 def spoke_collateral_and_adapter(manifest: dict[str, Any], chain_id: int) -> tuple[str, str]:
     tokens = manifest.get("collateralTokenByChainId")
     adapters = manifest.get("remoteAdapterByChainId")
@@ -100,6 +188,7 @@ def ensure_erc20_allowance(
     spender: str,
     min_amount: int,
     logger: logging.Logger,
+    owner: str | None = None,
 ) -> str | None:
     """Broadcast approve(2**256-1) if allowance < min_amount. Returns tx hash or None if already sufficient."""
     w3 = Web3(Web3.HTTPProvider(rpc_url))
@@ -107,18 +196,34 @@ def ensure_erc20_allowance(
         raise RuntimeError("ensure_erc20_allowance: Web3 provider not connected")
 
     signer = w3.eth.account.from_key(private_key)
-    owner = signer.address
+    owner_addr = Web3.to_checksum_address(owner or signer.address)
+    if owner_addr.lower() != signer.address.lower():
+        raise RuntimeError(
+            f"ensure_erc20_allowance: cannot approve for owner={owner_addr} with signer={signer.address}"
+        )
+    owner = owner_addr
     token_c = Web3.to_checksum_address(token)
     spender_c = Web3.to_checksum_address(spender)
-    c = w3.eth.contract(address=token_c, abi=_ERC20_ALLOWANCE_ABI)
+    c = w3.eth.contract(address=token_c, abi=_ERC20_ABI)
+    balance = int(c.functions.balanceOf(owner).call())
     current = int(c.functions.allowance(owner, spender_c).call())
+    if balance < min_amount:
+        logger.warning(
+            "Executor: spoke beneficiary %s balance=%s on token=%s (need>=%s). "
+            "Bridge collateral: cd contracts && pnpm prepare:sepolia-e2e",
+            owner,
+            balance,
+            token_c,
+            min_amount,
+        )
     if current >= min_amount:
         logger.info(
-            "Executor: spoke ERC20 allowance OK owner=%s spender=%s current=%s need=%s",
+            "Executor: spoke ERC20 allowance OK owner=%s spender=%s current=%s need=%s balance=%s",
             owner,
             spender_c,
             current,
             min_amount,
+            balance,
         )
         return None
 
