@@ -74,6 +74,14 @@ class ExecutorConfig(GroqSettingsMixin, BaseSettings):
             "no RemoteAdapter beneficiary pull. mailbox_oapp: legacy OApp dispatch + spoke approve."
         ),
     )
+    executor_deterministic_routing: bool = Field(
+        default=True,
+        alias="EXECUTOR_DETERMINISTIC_ROUTING",
+        description=(
+            "When true, resolve kite_deposit / warp_to_stub / mailbox paths from dst_chain and env "
+            "instead of allowing LLM abort on spoke instructions."
+        ),
+    )
     hyperlane_snapshot_path: str = Field(
         default="",
         alias="HYPERLANE_INTEGRATION_SNAPSHOT",
@@ -111,6 +119,15 @@ class ExecutorConfig(GroqSettingsMixin, BaseSettings):
         if v in (True, "true", "True", "1", 1, "yes", "YES", "on", "ON"):
             return True
         return False
+
+    @field_validator("executor_deterministic_routing", mode="before")
+    @classmethod
+    def _coerce_deterministic_routing(cls, v: object) -> bool:
+        if v in (False, "false", "False", "0", 0, "no", "NO", "off", "OFF"):
+            return False
+        if v in (True, "true", "True", "1", 1, "yes", "YES", "on", "ON"):
+            return True
+        return True
 
     @field_validator("executor_private_key")
     @classmethod

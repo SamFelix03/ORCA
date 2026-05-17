@@ -18,6 +18,7 @@ from orca_common.llm import GroqDeliberationClient
 from orca_common.llm.deliberation import LlmDeliberation
 from orca_executor.config import ExecutorConfig
 from orca_executor import spoke_prep
+from orca_executor.path_resolution import resolve_execution_path
 from orca_executor.services.executor_llm_advisor import ExecutorLlmAdvisor
 from orca_scout.integrations.passport_cli import PassportCLI
 from orca_scout.integrations.poai_client import PoAIClient
@@ -144,9 +145,28 @@ class ExecutorRuntime:
         if instruction.execution_intent is None:
             raise RuntimeError(f"Instruction {instruction.instruction_id} missing execution intent")
 
-        llm_deliberation = await self._llm_advisor.deliberate(instruction)
-        execution_path = str(llm_deliberation.verdict.get("execution_path", "abort"))
-        proceed = bool(llm_deliberation.verdict.get("proceed", False))
+        llm_deliberation = await self._llm_advisor.deliberate(instruction, config=self._config)
+        deterministic = (
+            resolve_execution_path(instruction, self._config)
+            if self._config.executor_deterministic_routing
+            else None
+        )
+        if deterministic:
+            execution_path = deterministic.execution_path
+            proceed = deterministic.proceed
+            llm_path = str(llm_deliberation.verdict.get("execution_path", "abort"))
+            llm_proceed = bool(llm_deliberation.verdict.get("proceed", False))
+            if llm_path != execution_path or not llm_proceed:
+                self._logger.warning(
+                    "Executor: using deterministic path %s (%s); LLM wanted %s proceed=%s",
+                    execution_path,
+                    deterministic.reason,
+                    llm_path,
+                    llm_proceed,
+                )
+        else:
+            execution_path = str(llm_deliberation.verdict.get("execution_path", "abort"))
+            proceed = bool(llm_deliberation.verdict.get("proceed", False))
         if execution_path == "abort" or not proceed:
             await self._publish_settled(
                 instruction,
