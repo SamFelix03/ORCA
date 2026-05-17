@@ -9,6 +9,7 @@ import type {
   ScoutPayoutRecord,
   SignalRecord,
   TreasuryOverview,
+  TokenBalanceRecord,
   RelayerMessageRecord,
   RiskInstructionRecord,
   VaultHoldingRecord,
@@ -43,6 +44,10 @@ export interface DepositsResponse {
 
 export interface VaultHoldingsResponse {
   holdings: VaultHoldingRecord[];
+}
+
+export interface TokenBalancesResponse {
+  balances: TokenBalanceRecord[];
 }
 
 export interface PositionHistoryResponse {

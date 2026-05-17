@@ -92,7 +92,6 @@ export async function resolveEthereumProvider(
 }
 
 async function ensureWalletOnChain(eth: InjectedEthereum, chainId: number): Promise<void> {
-  const chainIdHex = `0x${BigInt(chainId).toString(16)}`;
   try {
     await ensureWalletChain(eth, chainId);
     return;

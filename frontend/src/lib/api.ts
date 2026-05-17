@@ -22,6 +22,7 @@ import type {
   SignalWorkflowResponse,
   SignalsResponse,
   TreasuryResponse,
+  TokenBalancesResponse,
   VaultHoldingsResponse,
 } from "@orca/shared";
 import { ORCA_API_BASE_URL } from "./config";
@@ -168,6 +169,16 @@ export const orcaApi = {
       throw new Error("Provide wallet for unauthenticated /me/vault-holdings");
     }
     return apiGet<VaultHoldingsResponse>(`/me/vault-holdings${q}`);
+  },
+  myTokenBalances: (token: string | null, wallet?: string) => {
+    const q = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
+    if (token) {
+      return apiGetAuth<TokenBalancesResponse>(`/me/token-balances${q}`, token);
+    }
+    if (!wallet) {
+      throw new Error("Provide wallet for unauthenticated /me/token-balances");
+    }
+    return apiGet<TokenBalancesResponse>(`/me/token-balances${q}`);
   },
   refreshVaultHoldings: (token: string | null, wallet?: string) => {
     const q = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";

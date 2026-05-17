@@ -20,6 +20,7 @@ const relayerEventSchema = z.object({
   dispatchTxHash: z.string().optional(),
   deliveryTxHash: z.string().optional(),
   status: z.string().min(1),
+  error: z.string().optional(),
 });
 
 const deliberationSchema = z.object({

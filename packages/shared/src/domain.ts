@@ -11,6 +11,9 @@ export interface AgentRecord {
   lastActionAt: string;
   spendingUsedUsdc: number;
   spendingCapUsdc: number;
+  x402PaymentCount?: number;
+  x402PaymentAmountWei?: string;
+  x402PaymentAsset?: string;
   poaiScore: number;
 }
 
@@ -50,6 +53,9 @@ export interface SignalRecord {
   riskDecisionReason?: string;
   txHash?: string;
   paymentTxHash?: string;
+  paymentAmountWei?: string;
+  paymentCount?: number;
+  paymentAsset?: string;
   executionId?: string;
   createdAt: string;
 }
@@ -128,6 +134,14 @@ export interface VaultHoldingRecord {
   amountUsdc: number;
   sourceTxHash?: string | null;
   updatedAt: string;
+}
+
+export interface TokenBalanceRecord {
+  symbol: string;
+  address: string;
+  raw: string;
+  decimals: number;
+  balance: number;
 }
 
 export interface ExecutionRecord {

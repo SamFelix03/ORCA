@@ -7,14 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, DataTd, DataTh, DataThead } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/ui/status-pill";
+import { TxLink } from "@/components/ui/tx-link";
 import { orcaApi } from "@/lib/api";
+import { formatPieUsdPaymentAmountRaw, shortTxHash } from "@/lib/format-chain";
 import { connectOrcaEvents } from "@/lib/ws";
 import { useOrcaResource } from "./use-orca-resource";
-
-function txUrl(txHash: string, chainId?: number | null) {
-  void chainId;
-  return `https://testnet.kitescan.ai/tx/${txHash}`;
-}
 
 function statusTone(status: SignalRecord["status"]) {
   if (status === "failed" || status === "rejected") return "critical";
@@ -88,7 +85,7 @@ export function SignalsPage() {
                 <tr>
                   <DataTh>Route</DataTh>
                   <DataTh>Net APY</DataTh>
-                  <DataTh>Amount</DataTh>
+                  <DataTh>Payment Value</DataTh>
                   <DataTh>Status</DataTh>
                   <DataTh>Verdict</DataTh>
                   <DataTh>Trace</DataTh>
@@ -99,7 +96,7 @@ export function SignalsPage() {
                   <tr key={signal.id} className="cursor-pointer hover:bg-black/[0.03]" onClick={() => void loadWorkflow(signal.id)}>
                     <DataTd>{`${signal.srcProtocol} -> ${signal.dstProtocol}`}</DataTd>
                     <DataTd>{signal.netDeltaApy.toFixed(2)}%</DataTd>
-                    <DataTd>{signal.suggestedAmountUsdc.toLocaleString()}</DataTd>
+                    <DataTd>{signal.paymentAmountWei ? `${formatPieUsdPaymentAmountRaw(signal.paymentAmountWei)} pieUSD` : "-"}</DataTd>
                     <DataTd>
                       <StatusPill tone={statusTone(signal.status)}>{signal.status}</StatusPill>
                     </DataTd>
@@ -194,10 +191,8 @@ function SignalWorkflowModal({
                     {workflow.payments.map((payment) => (
                       <div key={payment.id} className="rounded border border-black/10 bg-[#fffaf0] p-3 text-sm">
                         <p className="font-semibold">{`${payment.fromDid ?? "agent"} -> ${payment.toDid}`}</p>
-                        <p className="mt-1 text-[#5c564c]">{payment.amountWei} wei on {payment.network}</p>
-                        <a className="mt-2 block break-all font-mono text-xs underline" href={txUrl(payment.txHash)} target="_blank" rel="noreferrer">
-                          {payment.txHash}
-                        </a>
+                        <p className="mt-1 text-[#5c564c]">{formatPieUsdPaymentAmountRaw(payment.amountWei)} PIEUSD on {payment.network}</p>
+                        <TxLink txHash={payment.txHash} chainId={2368} className="mt-2 text-xs" />
                       </div>
                     ))}
                     {workflow.payments.length === 0 ? <p className="text-sm text-[#5c564c]">No x402 payments recorded yet.</p> : null}
@@ -214,14 +209,10 @@ function SignalWorkflowModal({
                         <p className="font-semibold">{`${message.originDomain} -> ${message.destinationDomain}`}</p>
                         <p className="mt-1 text-[#5c564c]">{message.status}</p>
                         {message.dispatchTxHash ? (
-                          <a className="mt-2 block break-all font-mono text-xs underline" href={txUrl(message.dispatchTxHash)} target="_blank" rel="noreferrer">
-                            dispatch {message.dispatchTxHash}
-                          </a>
+                          <TxLink txHash={message.dispatchTxHash} chainId={message.originDomain} label={`dispatch ${shortTxHash(message.dispatchTxHash)}`} className="mt-2 text-xs" />
                         ) : null}
                         {message.deliveryTxHash ? (
-                          <a className="mt-2 block break-all font-mono text-xs underline" href={txUrl(message.deliveryTxHash)} target="_blank" rel="noreferrer">
-                            delivery {message.deliveryTxHash}
-                          </a>
+                          <TxLink txHash={message.deliveryTxHash} chainId={message.destinationDomain} label={`delivery ${shortTxHash(message.deliveryTxHash)}`} className="mt-2 text-xs" />
                         ) : null}
                       </div>
                     ))}
@@ -268,14 +259,10 @@ function WorkflowStep({ event, index }: { event: WorkflowEventRecord; index: num
         </div>
         <div className="space-y-1 text-right font-mono text-xs">
           {event.txHash ? (
-            <a className="block underline" href={txUrl(event.txHash, event.chainId)} target="_blank" rel="noreferrer">
-              tx
-            </a>
+            <TxLink txHash={event.txHash} chainId={event.chainId} label={`tx ${shortTxHash(event.txHash)}`} className="block" />
           ) : null}
           {event.paymentTxHash ? (
-            <a className="block underline" href={txUrl(event.paymentTxHash, event.chainId)} target="_blank" rel="noreferrer">
-              x402
-            </a>
+            <TxLink txHash={event.paymentTxHash} chainId={2368} label={`x402 ${shortTxHash(event.paymentTxHash)}`} className="block" />
           ) : null}
         </div>
       </div>

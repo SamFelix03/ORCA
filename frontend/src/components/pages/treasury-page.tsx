@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { orcaApi } from "@/lib/api";
+import { formatTokenAmountRaw, formatTokenNumber } from "@/lib/format-chain";
 import { useOrcaResource } from "./use-orca-resource";
 
 export function TreasuryPage() {
@@ -30,7 +31,7 @@ export function TreasuryPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#5c564c]">Native KITE</span>
-                <span className="font-semibold">{data.treasury.nativeBalance.toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
+                <span className="font-semibold">{formatTokenNumber(data.treasury.nativeBalance, 6)}</span>
               </div>
             </>
           ) : null}
@@ -46,7 +47,7 @@ export function TreasuryPage() {
             <div key={item.address} className="rounded border border-black/10 bg-[#fffaf0] p-3">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-black">{item.symbol}</span>
-                <span>{item.balance.toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
+                <span>{formatTokenAmountRaw(item.raw, item.decimals)} {item.symbol}</span>
               </div>
               <p className="mt-2 break-all font-mono text-xs text-[#5c564c]">{item.address}</p>
             </div>

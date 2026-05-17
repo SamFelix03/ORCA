@@ -83,6 +83,16 @@ async function readTokenBalance(provider: JsonRpcProvider, owner: string, symbol
   };
 }
 
+export async function readWalletTokenBalances(owner: string) {
+  const provider = createProvider();
+  const tokens = [
+    { symbol: "PIEUSD", address: config.pieUsdAddress },
+    { symbol: "USDT", address: config.usdtAddress },
+  ].filter((item, index, all) => item.address && isAddress(item.address) && all.findIndex((other) => other.address.toLowerCase() === item.address.toLowerCase()) === index);
+  const balances = await Promise.all(tokens.map((item) => readTokenBalance(provider, getAddress(owner), item.symbol, item.address)));
+  return balances.filter((item): item is NonNullable<typeof item> => Boolean(item));
+}
+
 export async function readKiteNetworkStatus() {
   const provider = createProvider();
   const blockNumber = await provider.getBlockNumber();

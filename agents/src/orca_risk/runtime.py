@@ -223,6 +223,9 @@ class RiskRuntime:
             instruction=instruction,
             sourceSignalHash=source_signal_hash,
             paymentTxHash=payment_tx_hash,
+            paymentAmountWei=str(self._config.x402_max_amount_required_wei),
+            paymentAsset=self._config.x402_asset_address,
+            paymentNetwork=self._config.x402_network,
             llm_deliberation=llm_deliberation,
         )
         await self._redis.xadd(

@@ -54,6 +54,28 @@ function asNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function paymentAmountWei(payload: StreamPayload): string {
+  const direct = asString(payload.paymentAmountWei) || asString(payload.amountWei);
+  if (direct) return direct;
+  const payment = asRecord(payload.payment);
+  const nested = asString(payment.amountWei) || asString(payment.amount);
+  return nested || process.env.X402_MAX_AMOUNT_REQUIRED_WEI || "100000000000000000";
+}
+
+function paymentAsset(payload: StreamPayload): string {
+  const direct = asString(payload.paymentAsset) || asString(payload.asset);
+  if (direct) return direct;
+  const payment = asRecord(payload.payment);
+  return asString(payment.asset) || process.env.X402_ASSET_ADDRESS || process.env.PIEUSD_TOKEN_ADDRESS || "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A";
+}
+
+function paymentNetwork(payload: StreamPayload): string {
+  const direct = asString(payload.paymentNetwork) || asString(payload.network);
+  if (direct) return direct;
+  const payment = asRecord(payload.payment);
+  return asString(payment.network) || process.env.X402_NETWORK || "kite-testnet";
+}
+
 function explorerUrl(txHash: string, chainId?: number | null): string {
   void chainId;
   return txHash;
@@ -166,9 +188,9 @@ async function recordPayment(params: {
       instructionId: params.instructionId,
       fromDid: params.fromDid,
       toDid: params.toDid,
-      amountWei: String(params.amountWei ?? process.env.X402_MAX_AMOUNT_REQUIRED_WEI ?? "1000000"),
-      asset: params.asset ?? process.env.X402_ASSET_ADDRESS ?? "",
-      network: params.network ?? process.env.X402_NETWORK ?? "kite-testnet",
+      amountWei: String(params.amountWei ?? paymentAmountWei(params.payload)),
+      asset: params.asset ?? paymentAsset(params.payload),
+      network: params.network ?? paymentNetwork(params.payload),
       memo: params.memo,
       payload: jsonValue(params.payload),
     },
@@ -177,9 +199,9 @@ async function recordPayment(params: {
       instructionId: params.instructionId,
       fromDid: params.fromDid,
       toDid: params.toDid,
-      amountWei: String(params.amountWei ?? process.env.X402_MAX_AMOUNT_REQUIRED_WEI ?? "1000000"),
-      asset: params.asset ?? process.env.X402_ASSET_ADDRESS ?? "",
-      network: params.network ?? process.env.X402_NETWORK ?? "kite-testnet",
+      amountWei: String(params.amountWei ?? paymentAmountWei(params.payload)),
+      asset: params.asset ?? paymentAsset(params.payload),
+      network: params.network ?? paymentNetwork(params.payload),
       memo: params.memo,
       txHash: params.txHash,
       payload: jsonValue(params.payload),

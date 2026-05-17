@@ -1,12 +1,25 @@
 "use client";
 
+import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { orcaApi } from "@/lib/api";
+import { formatPieUsdPaymentAmountRaw } from "@/lib/format-chain";
+import { connectOrcaEvents } from "@/lib/ws";
 import { useOrcaResource } from "./use-orca-resource";
 
 export function AgentsPage() {
-  const { data, loading, error } = useOrcaResource(() => orcaApi.agents(), []);
+  const { data, loading, error, reload } = useOrcaResource(() => orcaApi.agents(), []);
+
+  useEffect(() => {
+    const ws = connectOrcaEvents((event) => {
+      if (event.type === "workflow.updated" || event.type === "signal.created" || event.type === "execution.settled") {
+        void reload();
+      }
+    });
+
+    return () => ws.close();
+  }, [reload]);
 
   return (
     <div className="space-y-4">
@@ -31,7 +44,11 @@ export function AgentsPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#5c564c]">x402 Payments</span>
-                <span>{agent.spendingUsedUsdc}</span>
+                <span>{agent.x402PaymentCount ?? agent.spendingUsedUsdc}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[#5c564c]">Payment value</span>
+                <span className="text-right">{formatPieUsdPaymentAmountRaw(agent.x402PaymentAmountWei ?? "0")} pieUSD</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#5c564c]">Last action</span>

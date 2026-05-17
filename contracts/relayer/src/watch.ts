@@ -13,17 +13,23 @@ const DISPATCH_ABI = [
 
 type State = { lastScannedBlock: number };
 
-async function postRelayerEvent(payload: Record<string, unknown>): Promise<void> {
+async function postRelayerEvent(payload: Record<string, unknown>, error?: unknown): Promise<void> {
   const base = process.env.ORCA_API_BASE_URL?.trim();
   if (!base) return;
+  const apiKey = process.env.ORCA_INTERNAL_API_KEY?.trim();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (apiKey) headers["x-orca-internal-key"] = apiKey;
   try {
     await fetch(`${base.replace(/\/$/, "")}/internal/relayer-event`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers,
+      body: JSON.stringify({
+        ...payload,
+        ...(error ? { error: error instanceof Error ? error.message : String(error) } : {}),
+      }),
     });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
+  } catch (postError) {
+    const msg = postError instanceof Error ? postError.message : String(postError);
     console.error(`[relayer-api-fail] ${msg}`);
   }
 }
@@ -82,13 +88,31 @@ export async function processPendingDispatches(cfg: RelayerConfig, singleMessage
     if (!dest) continue;
 
     const messageId = messageIdFromBytes(ev.messageBytes);
+    const decoded = decodeMessage(ev.messageBytes);
+    const recipientAddr = recipientAddressFromBytes32(ev.recipient);
     const destProvider = new JsonRpcProvider(dest.rpc);
     if (await isDelivered(dest.mailbox, messageId, destProvider)) {
       console.log(`[skip] ${messageId.slice(0, 18)}… already delivered on ${dest.name}`);
+      await postRelayerEvent({
+        messageId,
+        originDomain: decoded.origin,
+        destinationDomain: ev.destination,
+        recipient: recipientAddr,
+        dispatchTxHash: ev.dispatchTxHash,
+        status: "delivered",
+      });
       continue;
     }
 
-    const recipientAddr = recipientAddressFromBytes32(ev.recipient);
+    await postRelayerEvent({
+      messageId,
+      originDomain: decoded.origin,
+      destinationDomain: ev.destination,
+      recipient: recipientAddr,
+      dispatchTxHash: ev.dispatchTxHash,
+      status: "pending",
+    });
+
     let metadata = "0x";
     try {
       const ism = await resolveIsm(dest.mailbox, recipientAddr, destProvider);
@@ -96,6 +120,17 @@ export async function processPendingDispatches(cfg: RelayerConfig, singleMessage
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error(`[ism-fail] ${dest.name} ${messageId.slice(0, 18)}… ${msg}`);
+      await postRelayerEvent(
+        {
+          messageId,
+          originDomain: decoded.origin,
+          destinationDomain: ev.destination,
+          recipient: recipientAddr,
+          dispatchTxHash: ev.dispatchTxHash,
+          status: "metadata_failed",
+        },
+        e,
+      );
       continue;
     }
 
@@ -107,7 +142,6 @@ export async function processPendingDispatches(cfg: RelayerConfig, singleMessage
         metadata,
         signer: wallet,
       });
-      const decoded = decodeMessage(ev.messageBytes);
       console.log(
         `[delivered] ${dest.name} ${messageId.slice(0, 18)}… tx=${txHash} origin=${decoded.origin} recipient=${recipientAddr}`,
       );
@@ -123,6 +157,17 @@ export async function processPendingDispatches(cfg: RelayerConfig, singleMessage
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error(`[deliver-fail] ${dest.name} ${messageId.slice(0, 18)}… ${msg}`);
+      await postRelayerEvent(
+        {
+          messageId,
+          originDomain: decoded.origin,
+          destinationDomain: ev.destination,
+          recipient: recipientAddr,
+          dispatchTxHash: ev.dispatchTxHash,
+          status: "failed",
+        },
+        e,
+      );
     }
   }
 }

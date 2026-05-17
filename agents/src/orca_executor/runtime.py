@@ -293,6 +293,9 @@ class ExecutorRuntime:
             status=status,
             tx_hash=tx_hash,
             paymentTxHash=payment_tx_hash,
+            paymentAmountWei=str(self._config.x402_max_amount_required_wei),
+            paymentAsset=self._config.x402_asset_address,
+            paymentNetwork=self._config.x402_network,
             timestamp=int(time.time()),
             llm_deliberation=llm_deliberation,
         )

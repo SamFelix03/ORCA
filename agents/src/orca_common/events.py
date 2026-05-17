@@ -39,6 +39,9 @@ class RiskInstructionEvent(BaseModel):
     instruction: RiskInstruction
     sourceSignalHash: str
     paymentTxHash: str
+    paymentAmountWei: str | None = None
+    paymentAsset: str | None = None
+    paymentNetwork: str | None = None
     llm_deliberation: LlmDeliberation
 
 
@@ -51,5 +54,8 @@ class ExecutionSettledEvent(BaseModel):
     status: str
     tx_hash: str
     paymentTxHash: str
+    paymentAmountWei: str | None = None
+    paymentAsset: str | None = None
+    paymentNetwork: str | None = None
     timestamp: int
     llm_deliberation: LlmDeliberation | None = None

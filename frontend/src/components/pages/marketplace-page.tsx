@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, DataTd, DataTh, DataThead } from "@/components/ui/data-table";
+import { TxLink } from "@/components/ui/tx-link";
 import { useOrcaResource } from "./use-orca-resource";
 import { orcaApi } from "@/lib/api";
+import { formatTokenAmountRaw, formatTokenNumber } from "@/lib/format-chain";
 import {
   bondWeiFromUsdc,
   computeDidHashHex,
@@ -161,7 +163,7 @@ export function MarketplacePage() {
       await ensureWalletChain(eth, quote.chainId);
       const amount = BigInt(quote.amountWei);
       const transferData = encodeErc20Transfer(quote.recipient, amount);
-      setNotice(`Sending ${quote.amountWei} wei PIEUSD to listing owner...`);
+      setNotice(`Sending ${formatTokenAmountRaw(quote.amountWei, 18)} PIEUSD to listing owner...`);
       const txHash = await sendEvmTransaction(eth, {
         from: account,
         to: quote.token,
@@ -321,7 +323,9 @@ export function MarketplacePage() {
                   <DataTd>{scout.status}</DataTd>
                   <DataTd>{scout.stakeUsdc}</DataTd>
                   <DataTd>{scout.reputationScore}</DataTd>
-                  <DataTd className="max-w-[140px] truncate font-mono text-xs">{scout.registrationTxHash ?? "-"}</DataTd>
+                  <DataTd className="max-w-[140px] truncate font-mono text-xs">
+                    {scout.registrationTxHash ? <TxLink txHash={scout.registrationTxHash} chainId={scout.chainId ?? 2368} /> : "-"}
+                  </DataTd>
                   <DataTd>
                     <Button
                       type="button"
@@ -366,7 +370,7 @@ export function MarketplacePage() {
                 <tr key={payout.id}>
                   <DataTd className="font-mono text-xs">{payout.scoutDid}</DataTd>
                   <DataTd>{payout.epochId}</DataTd>
-                  <DataTd>{payout.amountUsdc}</DataTd>
+                  <DataTd>{formatTokenNumber(payout.amountUsdc, 6)} USDC</DataTd>
                   <DataTd>{payout.status}</DataTd>
                 </tr>
               ))}

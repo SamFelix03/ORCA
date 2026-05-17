@@ -1,17 +1,21 @@
 "use client";
 
+import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable, DataTd, DataTh, DataThead } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/ui/status-pill";
 import { useOrcaResource } from "./use-orca-resource";
 import { orcaApi } from "@/lib/api";
+import { formatPieUsdPaymentAmountRaw, formatTokenAmountRaw, formatTokenNumber, tokenAmountRawToNumber } from "@/lib/format-chain";
 import { WalletPortfolioCard } from "@/components/wallet/wallet-portfolio-card";
+import { VaultHoldingCard } from "@/components/wallet/vault-holding-card";
 import { LiveEvents } from "@/components/live-events";
+import { connectOrcaEvents } from "@/lib/ws";
 
 const AGENT_FLOW = ["scout", "risk", "executor", "audit"];
 
 export function DashboardPage() {
-  const { data, loading, error } = useOrcaResource(async () => {
+  const { data, loading, error, reload } = useOrcaResource(async () => {
     const [agents, vaultHoldings, signals, treasury, alerts] = await Promise.all([
       orcaApi.agents(),
       orcaApi.vaultHoldings(),
@@ -23,10 +27,30 @@ export function DashboardPage() {
     return { agents, vaultHoldings, signals, treasury, alerts };
   }, []);
 
+  useEffect(() => {
+    const ws = connectOrcaEvents((event) => {
+      if (
+        event.type === "signal.created" ||
+        event.type === "signal.updated" ||
+        event.type === "execution.created" ||
+        event.type === "execution.settled" ||
+        event.type === "workflow.updated"
+      ) {
+        void reload();
+      }
+    });
+
+    return () => ws.close();
+  }, [reload]);
+
   const activeAgents = data?.agents.agents.filter((item) => item.online).length ?? 0;
   const acceptedSignals = data?.signals.signals.filter((item) => ["approved", "executing", "executed"].includes(item.status)).length ?? 0;
-  const portfolioValue = data?.vaultHoldings.holdings.reduce((sum, item) => sum + item.amountUsdc, 0) ?? 0;
+  const portfolioValue = data?.vaultHoldings.holdings.reduce((sum, item) => sum + tokenAmountRawToNumber(item.balanceRaw, item.decimals), 0) ?? 0;
   const treasuryTokens = data?.treasury.treasury.tokenBalances ?? [];
+  const topHoldings = [...(data?.vaultHoldings.holdings ?? [])]
+    .filter((item) => BigInt(item.balanceRaw || "0") > BigInt(0))
+    .sort((a, b) => tokenAmountRawToNumber(b.balanceRaw, b.decimals) - tokenAmountRawToNumber(a.balanceRaw, a.decimals))
+    .slice(0, 3);
 
   return (
     <div className="space-y-6">
@@ -42,11 +66,25 @@ export function DashboardPage() {
       <WalletPortfolioCard />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Indexed Vaults" value={loading ? "--" : `$${portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`} />
+        <MetricCard label="Indexed Vaults" value={loading ? "--" : `${formatTokenNumber(portfolioValue, 18)} USDT`} />
         <MetricCard label="Online Agents" value={loading ? "--" : `${activeAgents}/4`} />
         <MetricCard label="Accepted Signals" value={loading ? "--" : String(acceptedSignals)} />
         <MetricCard label="Treasury Tokens" value={loading ? "--" : String(treasuryTokens.length)} />
       </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Holdings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-3">
+            {topHoldings.map((holding) => (
+              <VaultHoldingCard key={holding.id} holding={holding} />
+            ))}
+          </div>
+          {!loading && topHoldings.length === 0 ? <p className="text-sm text-[#5c564c]">No indexed holdings yet.</p> : null}
+        </CardContent>
+      </Card>
 
       <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
         <Card>
@@ -58,13 +96,15 @@ export function DashboardPage() {
               {AGENT_FLOW.map((type) => {
                 const agent = data?.agents.agents.find((item) => item.type === type);
                 return (
-                  <div key={type} className="rounded border border-black/[0.08] bg-[#fffaf0] p-3">
+                  <div key={type} className="min-w-0 rounded border border-black/[0.08] bg-[#fffaf0] p-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#5c564c]">{type}</p>
-                    <div className="mt-3 flex items-center justify-between">
-                      <span className="text-sm font-semibold capitalize text-black">{type} Agent</span>
+                    <div className="mt-3 flex min-w-0 items-center justify-between gap-2">
+                      <span className="min-w-0 text-sm font-semibold capitalize text-black">{type} Agent</span>
                       <StatusPill tone={agent?.online ? "healthy" : "muted"}>{agent?.online ? "online" : "idle"}</StatusPill>
                     </div>
-                    <p className="mt-3 text-xs text-[#5c564c]">{agent ? `x402 payments: ${agent.spendingUsedUsdc}` : "No runtime events yet"}</p>
+                    <p className="mt-3 truncate text-xs text-[#5c564c]">
+                      {agent ? `x402 payments: ${agent.x402PaymentCount ?? agent.spendingUsedUsdc}` : "No runtime events yet"}
+                    </p>
                   </div>
                 );
               })}
@@ -82,7 +122,7 @@ export function DashboardPage() {
               {!loading && data?.treasury.treasury.tokenBalances.map((item) => (
                 <div key={item.address} className="flex items-center justify-between text-sm">
                   <span className="text-[#5c564c]">{item.symbol}</span>
-                  <span className="font-semibold text-black">{item.balance.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                  <span className="font-semibold text-black">{formatTokenAmountRaw(item.raw, item.decimals)} {item.symbol}</span>
                 </div>
               ))}
             </div>
@@ -103,7 +143,7 @@ export function DashboardPage() {
                   <DataTh>Route</DataTh>
                   <DataTh>Delta APY</DataTh>
                   <DataTh>Status</DataTh>
-                  <DataTh>Amount</DataTh>
+                  <DataTh>Payment Value</DataTh>
                 </tr>
               </DataThead>
               <tbody>
@@ -116,7 +156,9 @@ export function DashboardPage() {
                         {signal.status}
                       </StatusPill>
                     </DataTd>
-                    <DataTd>{signal.suggestedAmountUsdc.toLocaleString()} USDC</DataTd>
+                    <DataTd>
+                      {signal.paymentAmountWei ? `${formatPieUsdPaymentAmountRaw(signal.paymentAmountWei)} pieUSD` : "-"}
+                    </DataTd>
                   </tr>
                 ))}
               </tbody>
@@ -150,7 +192,7 @@ function MetricCard({ label, value }: { label: string; value: string }) {
     <Card>
       <CardContent className="space-y-1 p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#5c564c]">{label}</p>
-        <p className="text-2xl font-semibold text-black">{value}</p>
+        <p className="break-words text-xl font-semibold leading-tight text-black sm:text-2xl">{value}</p>
       </CardContent>
     </Card>
   );

@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 
 export const NAV_ITEMS = [
   { label: "Dashboard", href: "/", mark: "D" },
-  { label: "Positions", href: "/positions", mark: "P" },
+  { label: "Holdings", href: "/positions", mark: "H" },
   { label: "Agents", href: "/agents", mark: "A" },
   { label: "Signals", href: "/signals", mark: "S" },
   { label: "Treasury", href: "/treasury", mark: "T" },

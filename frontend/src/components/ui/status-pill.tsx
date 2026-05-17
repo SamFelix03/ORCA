@@ -25,9 +25,9 @@ export function StatusPill({ tone, children }: { tone: StatusTone; children: Rea
   const classes = statusMap[tone];
 
   return (
-    <span className={cn("inline-flex items-center gap-2 rounded px-3 py-1 text-xs font-medium", classes.wrapper)}>
-      <span className={cn("h-1.5 w-1.5 rounded-full", classes.dot)} />
-      {children}
+    <span className={cn("inline-flex max-w-full shrink-0 items-center gap-1.5 overflow-hidden rounded px-2 py-0.5 text-[11px] font-medium leading-5", classes.wrapper)}>
+      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", classes.dot)} />
+      <span className="min-w-0 truncate">{children}</span>
     </span>
   );
 }

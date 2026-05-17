@@ -45,6 +45,9 @@ class SignalBroadcaster:
             "event": "scout.signal.created",
             "signal": signal_wire,
             "paymentTxHash": payment_tx,
+            "paymentAmountWei": str(self._x402_max_amount_required_wei),
+            "paymentAsset": self._x402_asset_address,
+            "paymentNetwork": self._x402_network,
             "llm_deliberation": llm_deliberation.model_dump(),
         }
         event_id = await self._write_event(event_payload)

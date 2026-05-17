@@ -246,7 +246,7 @@ model VaultHolding {
   token         String
   balanceRaw    String
   decimals      Int
-  amountUsdc    Decimal  @db.Decimal(20, 6)
+  amountUsdc    Decimal  @db.Decimal(38, 18)
   sourceTxHash  String?
   updatedAt     DateTime @updatedAt
   createdAt     DateTime @default(now())

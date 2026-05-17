@@ -25,6 +25,22 @@ function runStep(name, command, args, options = {}) {
   }
 }
 
+function readEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) return {};
+  const out = {};
+  const raw = fs.readFileSync(filePath, "utf8");
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const index = trimmed.indexOf("=");
+    if (index < 1) continue;
+    const key = trimmed.slice(0, index).trim();
+    const value = trimmed.slice(index + 1).trim().replace(/^['"]|['"]$/g, "");
+    if (key) out[key] = value;
+  }
+  return out;
+}
+
 function hasAgentDependencies(python) {
   const result = spawnSync(
     python,
@@ -49,16 +65,27 @@ function ensureAgentsVenv() {
 }
 
 const python = ensureAgentsVenv();
+const agentsEnv = readEnvFile(path.join(agentsDir, ".env"));
+const sharedRuntimeEnv = {
+  ORCA_INTERNAL_API_KEY: process.env.ORCA_INTERNAL_API_KEY ?? agentsEnv.ORCA_INTERNAL_API_KEY,
+  X402_NETWORK: process.env.X402_NETWORK ?? agentsEnv.X402_NETWORK,
+  X402_ASSET_ADDRESS: process.env.X402_ASSET_ADDRESS ?? agentsEnv.X402_ASSET_ADDRESS,
+  X402_MAX_AMOUNT_REQUIRED_WEI: process.env.X402_MAX_AMOUNT_REQUIRED_WEI ?? agentsEnv.X402_MAX_AMOUNT_REQUIRED_WEI,
+  X402_TOKEN_NAME: process.env.X402_TOKEN_NAME ?? agentsEnv.X402_TOKEN_NAME_FALLBACK,
+  X402_TOKEN_VERSION: process.env.X402_TOKEN_VERSION ?? agentsEnv.X402_TOKEN_VERSION_FALLBACK,
+  PIEUSD_TOKEN_ADDRESS: process.env.PIEUSD_TOKEN_ADDRESS ?? agentsEnv.X402_ASSET_ADDRESS,
+  KITE_CHAIN_ID: process.env.KITE_CHAIN_ID ?? agentsEnv.KITE_CHAIN_ID,
+};
 
 const tasks = [
-  { name: "api", command: "pnpm", args: ["--dir", "api", "dev"] },
+  { name: "api", command: "pnpm", args: ["--dir", "api", "dev"], env: sharedRuntimeEnv },
   { name: "frontend", command: "pnpm", args: ["--dir", "frontend", "dev"] },
-  { name: "x402", command: "pnpm", args: ["--filter", "@orca/x402-provider", "dev"] },
+  { name: "x402", command: "pnpm", args: ["--filter", "@orca/x402-provider", "dev"], env: sharedRuntimeEnv },
   {
     name: "relayer",
     command: "pnpm",
     args: ["--dir", "contracts", "relayer:start"],
-    env: { ORCA_API_BASE_URL: process.env.ORCA_API_BASE_URL ?? "http://localhost:4000" },
+    env: { ...sharedRuntimeEnv, ORCA_API_BASE_URL: process.env.ORCA_API_BASE_URL ?? agentsEnv.ORCA_API_BASE_URL ?? "http://localhost:4000" },
   },
   { name: "scout", command: python, args: ["-m", "orca_scout.main"], cwd: "agents", env: { PYTHONPATH: "src" } },
   { name: "risk", command: python, args: ["-m", "orca_risk.main"], cwd: "agents", env: { PYTHONPATH: "src" } },

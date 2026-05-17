@@ -5,8 +5,14 @@ import { Contract, formatUnits, getAddress, isAddress, JsonRpcProvider } from "e
 import { prisma } from "../db/prisma.js";
 
 const VAULT_ABI = [
+  "function underlying() view returns (address)",
   "function principalOf(address owner) view returns (uint256)",
-  "function claimableOf(address owner) view returns (uint256)",
+  "function claimableOf(address owner) view returns (uint256 principal, uint256 yield_, uint256 total)",
+];
+
+const ERC20_ABI = [
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)",
 ];
 
 type StubManifest = {
@@ -63,10 +69,35 @@ function vaultAddress(value: { vault?: string; vaultAddress?: string; address?: 
   return getAddress(raw);
 }
 
+async function readVaultToken(provider: JsonRpcProvider, vault: string, fallbackSymbol: string) {
+  const contract = new Contract(vault, VAULT_ABI, provider);
+  try {
+    const underlying = getAddress(String(await contract.underlying()));
+    const token = new Contract(underlying, ERC20_ABI, provider);
+    const [decimalsResult, symbolResult] = await Promise.allSettled([token.decimals(), token.symbol()]);
+    const symbol = symbolResult.status === "fulfilled" ? String(symbolResult.value).trim().toUpperCase() : "";
+    return {
+      address: underlying,
+      decimals: decimalsResult.status === "fulfilled" ? Number(decimalsResult.value) : 18,
+      symbol: symbol || fallbackSymbol,
+    };
+  } catch {
+    return {
+      address: null,
+      decimals: Number(process.env.VAULT_HOLDINGS_TOKEN_DECIMALS ?? "18"),
+      symbol: fallbackSymbol,
+    };
+  }
+}
+
 async function readVaultBalance(provider: JsonRpcProvider, vault: string, ownerWallet: string): Promise<bigint> {
   const contract = new Contract(vault, VAULT_ABI, provider);
   try {
-    return BigInt((await contract.claimableOf(ownerWallet)) as bigint);
+    const claimable = await contract.claimableOf(ownerWallet);
+    if (Array.isArray(claimable) && claimable.length >= 3) {
+      return BigInt(claimable[2]);
+    }
+    return BigInt(claimable);
   } catch {
     return BigInt((await contract.principalOf(ownerWallet)) as bigint);
   }
@@ -76,8 +107,7 @@ export async function refreshVaultHoldings(ownerWalletInput: string): Promise<Re
   const ownerWallet = getAddress(ownerWalletInput);
   const manifest = loadJsonFile<StubManifest>(stubManifestPath());
   const rpcByChain = configuredRpcMap();
-  const decimals = Number(process.env.VAULT_HOLDINGS_TOKEN_DECIMALS ?? "18");
-  const token = process.env.VAULT_HOLDINGS_TOKEN_SYMBOL ?? "USDT";
+  const fallbackToken = process.env.VAULT_HOLDINGS_TOKEN_SYMBOL ?? "USDT";
   const providers = new Map<number, JsonRpcProvider>();
   const chains =
     manifest.chains ??
@@ -100,16 +130,19 @@ export async function refreshVaultHoldings(ownerWalletInput: string): Promise<Re
       if (!vault) return [];
       return [
         async () => {
-          const raw = await readVaultBalance(provider, vault, ownerWallet);
+          const [{ decimals, symbol }, raw] = await Promise.all([
+            readVaultToken(provider, vault, fallbackToken),
+            readVaultBalance(provider, vault, ownerWallet),
+          ]);
           const amount = Number(formatUnits(raw, decimals));
-          return prisma.vaultHolding.upsert({
+          const row = await prisma.vaultHolding.upsert({
             where: {
               ownerWallet_vaultAddress_chainId_protocol_token: {
                 ownerWallet,
                 vaultAddress: vault,
                 chainId: chain.chainId,
                 protocol,
-                token,
+                token: symbol,
               },
             },
             update: {
@@ -118,7 +151,7 @@ export async function refreshVaultHoldings(ownerWalletInput: string): Promise<Re
               chainId: chain.chainId,
               chainName: chain.name ?? CHAIN_NAME_BY_ID[chain.chainId] ?? `Chain ${chain.chainId}`,
               protocol,
-              token,
+              token: symbol,
               balanceRaw: raw.toString(),
               decimals,
               amountUsdc: amount,
@@ -129,12 +162,22 @@ export async function refreshVaultHoldings(ownerWalletInput: string): Promise<Re
               chainId: chain.chainId,
               chainName: chain.name ?? CHAIN_NAME_BY_ID[chain.chainId] ?? `Chain ${chain.chainId}`,
               protocol,
-              token,
+              token: symbol,
               balanceRaw: raw.toString(),
               decimals,
               amountUsdc: amount,
             },
           });
+          await prisma.vaultHolding.deleteMany({
+            where: {
+              ownerWallet,
+              vaultAddress: vault,
+              chainId: chain.chainId,
+              protocol,
+              token: { not: symbol },
+            },
+          });
+          return row;
         },
       ];
     });
