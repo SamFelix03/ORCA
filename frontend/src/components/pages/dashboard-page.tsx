@@ -88,7 +88,7 @@ export function DashboardPage() {
         </CardContent>
       </Card>
 
-      <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+      <section>
         <Card>
           <CardHeader>
             <CardTitle>Agent Flow</CardTitle>
@@ -110,24 +110,6 @@ export function DashboardPage() {
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Treasury</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {loading || !data ? <p className="text-3xl font-semibold text-black">--</p> : null}
-              {!loading && data?.treasury.treasury.tokenBalances.map((item) => (
-                <div key={item.address} className="flex items-center justify-between text-sm">
-                  <span className="text-[#5c564c]">{item.symbol}</span>
-                  <span className="font-semibold text-black">{formatTokenBalanceAmountRaw(item.raw, item.decimals)} {item.symbol}</span>
-                </div>
-              ))}
-            </div>
-            <p className="mt-2 text-sm text-[#5c564c]">On-chain treasury balances</p>
           </CardContent>
         </Card>
       </section>
@@ -182,8 +164,6 @@ export function DashboardPage() {
           </CardContent>
         </Card>
       </section>
-
-      <LiveEvents />
     </div>
   );
 }

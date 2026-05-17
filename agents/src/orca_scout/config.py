@@ -20,7 +20,7 @@ class ScoutConfig(GroqSettingsMixin, BaseSettings):
     scout_did: str = Field(alias="SCOUT_DID")
     scout_private_key: str = Field(alias="SCOUT_PRIVATE_KEY")
     risk_agent_did: str = Field(alias="RISK_AGENT_DID")
-    scan_interval_seconds: int = Field(default=60, ge=1, alias="SCAN_INTERVAL_SECONDS")
+    scan_interval_seconds: int = Field(default=300, ge=1, alias="SCAN_INTERVAL_SECONDS")
     min_net_delta_apy: Decimal = Field(default=Decimal("0.50"), alias="SCOUT_MIN_NET_DELTA_APY")
     default_suggested_amount: int = Field(default=10_000, alias="SCOUT_DEFAULT_SUGGESTED_AMOUNT")
     max_suggested_amount: int = Field(default=50_000, alias="SCOUT_MAX_SUGGESTED_AMOUNT")

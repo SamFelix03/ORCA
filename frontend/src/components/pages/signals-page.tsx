@@ -375,7 +375,7 @@ function SignalWorkflowModal({
                 </div>
               </section>
 
-              <section className="grid gap-4 lg:grid-cols-2">
+              <section>
                 <Card>
                   <CardHeader>
                     <CardTitle>Micropayments</CardTitle>
@@ -389,27 +389,6 @@ function SignalWorkflowModal({
                       </div>
                     ))}
                     {workflow.payments.length === 0 ? <p className="text-sm text-[#5c564c]">No x402 payments recorded yet.</p> : null}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Relayer Messages</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {workflow.relayerMessages.map((message) => (
-                      <div key={message.id} className="rounded border border-black/10 bg-[#fffaf0] p-3 text-sm">
-                        <p className="font-semibold">{`${message.originDomain} -> ${message.destinationDomain}`}</p>
-                        <p className="mt-1 text-[#5c564c]">{message.status}</p>
-                        {message.dispatchTxHash ? (
-                          <TxLink txHash={message.dispatchTxHash} chainId={message.originDomain} label={`dispatch ${shortTxHash(message.dispatchTxHash)}`} className="mt-2 text-xs" />
-                        ) : null}
-                        {message.deliveryTxHash ? (
-                          <TxLink txHash={message.deliveryTxHash} chainId={message.destinationDomain} label={`delivery ${shortTxHash(message.deliveryTxHash)}`} className="mt-2 text-xs" />
-                        ) : null}
-                      </div>
-                    ))}
-                    {workflow.relayerMessages.length === 0 ? <p className="text-sm text-[#5c564c]">No relayer messages recorded yet.</p> : null}
                   </CardContent>
                 </Card>
               </section>
