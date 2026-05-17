@@ -109,6 +109,7 @@ export async function refreshVaultHoldings(ownerWalletInput: string): Promise<Re
   const rpcByChain = configuredRpcMap();
   const fallbackToken = process.env.VAULT_HOLDINGS_TOKEN_SYMBOL ?? "USDT";
   const providers = new Map<number, JsonRpcProvider>();
+  const activeVaultsByChainProtocol = new Map<string, Set<string>>();
   const chains =
     manifest.chains ??
     Object.entries(manifest.stubsByChainId ?? {}).map(([chainId, protocols]) => ({
@@ -116,6 +117,17 @@ export async function refreshVaultHoldings(ownerWalletInput: string): Promise<Re
       name: CHAIN_NAME_BY_ID[Number(chainId)] ?? `Chain ${chainId}`,
       protocols,
     }));
+
+  for (const chain of chains) {
+    for (const [protocol, value] of Object.entries(chain.protocols ?? {})) {
+      const vault = vaultAddress(value);
+      if (!vault) continue;
+      const key = `${chain.chainId}:${protocol}`;
+      const activeVaults = activeVaultsByChainProtocol.get(key) ?? new Set<string>();
+      activeVaults.add(vault);
+      activeVaultsByChainProtocol.set(key, activeVaults);
+    }
+  }
 
   const tasks = chains.flatMap((chain) => {
     const rpc = rpcByChain[String(chain.chainId)];
@@ -185,6 +197,20 @@ export async function refreshVaultHoldings(ownerWalletInput: string): Promise<Re
 
   const results = await Promise.allSettled(tasks.map((task) => task()));
   const holdings = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+
+  await Promise.all(
+    Array.from(activeVaultsByChainProtocol.entries()).map(([key, activeVaults]) => {
+      const [chainIdRaw, protocol] = key.split(":");
+      return prisma.vaultHolding.deleteMany({
+        where: {
+          ownerWallet,
+          chainId: Number(chainIdRaw),
+          protocol,
+          vaultAddress: { notIn: Array.from(activeVaults) },
+        },
+      });
+    }),
+  );
 
   if (holdings.length === 0 && tasks.length > 0) {
     const firstError = results.find((result) => result.status === "rejected");

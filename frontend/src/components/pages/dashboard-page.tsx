@@ -22,7 +22,7 @@ export function DashboardPage() {
   const { data, loading, error, reload } = useOrcaResource(async () => {
     const [agents, vaultHoldings, signals, treasury, alerts] = await Promise.all([
       orcaApi.agents(),
-      walletAddress ? orcaApi.myVaultHoldings(null, walletAddress) : orcaApi.vaultHoldings(),
+      walletAddress ? orcaApi.refreshVaultHoldings(null, walletAddress) : Promise.resolve({ holdings: [] }),
       orcaApi.signals(),
       orcaApi.treasury(),
       orcaApi.alerts(),
