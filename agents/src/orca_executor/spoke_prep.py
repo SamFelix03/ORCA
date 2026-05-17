@@ -11,6 +11,7 @@ from typing import Any
 from web3 import Web3
 
 from orca_common.tx_sender import send_with_nonce_retry
+from orca_common.web3_rpc import web3_for_http_rpc
 
 CHAIN_ID_TO_HYP_DEST: dict[int, str] = {
     11155111: "sepolia",
@@ -191,9 +192,7 @@ def ensure_erc20_allowance(
     owner: str | None = None,
 ) -> str | None:
     """Broadcast approve(2**256-1) if allowance < min_amount. Returns tx hash or None if already sufficient."""
-    w3 = Web3(Web3.HTTPProvider(rpc_url))
-    if not w3.is_connected():
-        raise RuntimeError("ensure_erc20_allowance: Web3 provider not connected")
+    w3 = web3_for_http_rpc(rpc_url, chain_id=chain_id)
 
     signer = w3.eth.account.from_key(private_key)
     owner_addr = Web3.to_checksum_address(owner or signer.address)

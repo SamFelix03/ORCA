@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -11,6 +12,7 @@ from redis.asyncio import Redis
 from web3 import Web3
 
 from orca_common.events import ExecutionSettledEvent, RiskInstruction, RiskInstructionEvent
+from orca_common.web3_rpc import web3_for_http_rpc
 from orca_common.internal_api import post_agent_deliberation
 from orca_common.llm import GroqDeliberationClient
 from orca_common.llm.deliberation import LlmDeliberation
@@ -99,6 +101,28 @@ class ExecutorRuntime:
         if not self._poai.is_connected():
             raise RuntimeError("Executor PoAI connectivity preflight failed.")
         self._logger.info("Executor PoAI RPC preflight OK.")
+        if self._config.executor_submit_vault_tx:
+            await self._preflight_spoke_rpcs()
+
+    async def _preflight_spoke_rpcs(self) -> None:
+        raw = self._config.executor_stub_chain_rpc_map.strip()
+        if not raw:
+            raw = os.environ.get("SCOUT_STUB_CHAIN_RPC_MAP", "").strip()
+        if not raw:
+            self._logger.warning(
+                "EXECUTOR_SUBMIT_VAULT_TX=true but SCOUT_STUB_CHAIN_RPC_MAP / EXECUTOR_STUB_CHAIN_RPC_MAP unset; "
+                "cross-chain instructions (dst != Kite) will fail at spoke ERC20 approve."
+            )
+            return
+
+        rpc_map = spoke_prep.parse_chain_rpc_map(raw)
+
+        def _check() -> None:
+            for chain_id, url in sorted(rpc_map.items()):
+                block = web3_for_http_rpc(url, chain_id=chain_id).eth.block_number
+                self._logger.info("Executor spoke RPC preflight OK chainId=%s block=%s url=%s", chain_id, block, url)
+
+        await asyncio.to_thread(_check)
 
     async def _ensure_passport_session(self) -> None:
         self._passport.ensure_active_session(
@@ -202,8 +226,14 @@ class ExecutorRuntime:
                     if not rpc:
                         raise RuntimeError(
                             f"Spoke execution requires EXECUTOR_STUB_CHAIN_RPC_MAP or SCOUT_STUB_CHAIN_RPC_MAP "
-                            f"with chainId {dst_chain}"
+                            f"with chainId {dst_chain} (e.g. 11155111:https://ethereum-sepolia.publicnode.com,...)"
                         )
+                    self._logger.info(
+                        "Executor: spoke prep chainId=%s rpc=%s execution_path=%s",
+                        dst_chain,
+                        rpc,
+                        execution_path,
+                    )
                     manifest_path = spoke_prep.resolve_collateral_manifest_path(
                         self._config.collateral_manifest_path
                     )
