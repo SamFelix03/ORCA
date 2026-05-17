@@ -54,6 +54,11 @@ function asNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function asNullableNumber(value: unknown): number | null {
+  const parsed = asNumber(value);
+  return parsed > 0 ? parsed : null;
+}
+
 function paymentAmountWei(payload: StreamPayload): string {
   const direct = asString(payload.paymentAmountWei) || asString(payload.amountWei);
   if (direct) return direct;
@@ -362,6 +367,7 @@ async function handleExecution(stream: string, id: string, payload: StreamPayloa
   const txHash = asString(payload.tx_hash);
   const paymentTxHash = asString(payload.paymentTxHash) || null;
   const executorDid = asString(payload.executor_did);
+  const txChainId = asNullableNumber(payload.txChainId);
   await ensureAgentForDid(executorDid, "executor");
   const execution = await createExecutionRecord({
     signalId,
@@ -400,9 +406,47 @@ async function handleExecution(stream: string, id: string, payload: StreamPayloa
     summary: `Execution ${asString(payload.status)} with tx ${explorerUrl(txHash)}`,
     txHash,
     paymentTxHash,
+    chainId: txChainId,
     payload,
     deliberationStep: "executor.execution",
   });
+
+  const relatedTxs = Array.isArray(payload.relatedTxs) ? payload.relatedTxs : [];
+  for (const [index, item] of relatedTxs.entries()) {
+    const tx = asRecord(item);
+    const relatedTxHash = asString(tx.txHash);
+    if (!relatedTxHash) continue;
+    await createWorkflowEvent({
+      stream,
+      streamEventId: `${id}:related:${index}:${relatedTxHash}`,
+      eventType: asString(tx.kind) || "executor.related_tx",
+      signalId,
+      agentDid: executorDid,
+      agentType: "executor",
+      title: asString(tx.label) || "Executor transaction",
+      summary: `${asString(tx.label) || "Executor transaction"} ${explorerUrl(relatedTxHash)}`,
+      txHash: relatedTxHash,
+      chainId: asNullableNumber(tx.chainId) ?? txChainId,
+      payload: { ...payload, relatedTx: tx },
+    });
+  }
+
+  const poaiTxHash = asString(payload.poaiTxHash);
+  if (poaiTxHash && !relatedTxs.some((item) => asString(asRecord(item).txHash) === poaiTxHash)) {
+    await createWorkflowEvent({
+      stream,
+      streamEventId: `${id}:poai:${poaiTxHash}`,
+      eventType: "executor.poai.recorded",
+      signalId,
+      agentDid: executorDid,
+      agentType: "executor",
+      title: "Executor PoAI attribution",
+      summary: `Executor recorded PoAI attribution ${explorerUrl(poaiTxHash)}`,
+      txHash: poaiTxHash,
+      chainId: asNullableNumber(payload.poaiChainId) ?? txChainId,
+      payload,
+    });
+  }
 
   broadcast({
     type: "execution.created",
@@ -457,6 +501,9 @@ async function handleRelayer(stream: string, id: string, payload: StreamPayload)
     title: "Relayer message update",
     summary: `Message ${messageId} ${asString(payload.status) || "updated"}`,
     txHash: asString(payload.deliveryTxHash) || asString(payload.dispatchTxHash) || null,
+    chainId: asString(payload.deliveryTxHash)
+      ? asNullableNumber(payload.destinationDomain)
+      : asNullableNumber(payload.originDomain),
     payload,
   });
 }
@@ -465,17 +512,20 @@ async function handleGeneric(stream: string, id: string, payload: StreamPayload)
   const eventType = asString(payload.event) || "agent.event";
   const signalId = asString(payload.signalId) || asString(payload.signal_id) || null;
   const did = asString(payload.agentDid) || asString(payload.agent_did) || null;
+  const title = asString(payload.title) || (eventType.includes("poai") ? "PoAI attribution" : "Agent event");
+  const summary = asString(payload.summary) || eventType;
   await createWorkflowEvent({
     stream,
     streamEventId: id,
     eventType,
     signalId,
     agentDid: did,
-    agentType: did ? inferAgentTypeFromDid(did) : null,
-    title: "Agent event",
-    summary: eventType,
+    agentType: asString(payload.agentType) || (did ? inferAgentTypeFromDid(did) : null),
+    title,
+    summary,
     txHash: asString(payload.txHash) || asString(payload.tx_hash) || null,
     paymentTxHash: asString(payload.paymentTxHash) || null,
+    chainId: asNullableNumber(payload.chainId),
     payload,
   });
 }

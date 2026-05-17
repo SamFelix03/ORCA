@@ -53,6 +53,12 @@ class ExecutionSettledEvent(BaseModel):
     success: bool
     status: str
     tx_hash: str
+    txChainId: int | None = None
+    vaultTxHash: str | None = None
+    vaultTxChainId: int | None = None
+    poaiTxHash: str | None = None
+    poaiChainId: int | None = None
+    relatedTxs: list[dict[str, object]] = Field(default_factory=list)
     paymentTxHash: str
     paymentAmountWei: str | None = None
     paymentAsset: str | None = None

@@ -23,6 +23,159 @@ function stepActor(event: WorkflowEventRecord) {
   return event.agentType ?? event.agentDid ?? "system";
 }
 
+type SignalTransaction = {
+  key: string;
+  label: string;
+  actor: string;
+  txHash: string;
+  chainId?: number | null;
+  note?: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function asString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function asNumber(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function chainIdFromNetwork(network: string | null | undefined): number | null {
+  const normalized = (network ?? "").toLowerCase();
+  if (normalized.includes("kite")) return 2368;
+  if (normalized.includes("base")) return 84532;
+  if (normalized.includes("arbitrum") || normalized.includes("arb")) return 421614;
+  if (normalized.includes("optimism") || normalized.includes("op-sepolia")) return 11155420;
+  if (normalized.includes("sepolia")) return 11155111;
+  return null;
+}
+
+function eventTransactionLabel(event: WorkflowEventRecord, txKind: "tx" | "payment") {
+  if (txKind === "payment") return `${stepActor(event)} x402 payment`;
+  const eventType = event.eventType.toLowerCase();
+  if (eventType.includes("poai")) return `${stepActor(event)} PoAI attribution`;
+  if (eventType.includes("vault")) return "Executor vault transaction";
+  if (eventType.includes("deposit")) return "Executor destination deposit";
+  if (eventType.includes("approval")) return "Executor token approval";
+  if (eventType.includes("relayer")) return "Relayer transaction";
+  if (event.agentType === "executor") return "Executor transaction";
+  return event.title;
+}
+
+function collectWorkflowTransactions(workflow: SignalWorkflowResponse): SignalTransaction[] {
+  const items: SignalTransaction[] = [];
+  const seen = new Set<string>();
+  const add = (item: Omit<SignalTransaction, "key">) => {
+    if (!item.txHash || item.txHash === "0x0000000000000000000000000000000000000000000000000000000000000000") return;
+    const key = `${item.label}:${item.chainId ?? "unknown"}:${item.txHash.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    items.push({ ...item, key });
+  };
+
+  if (workflow.riskInstruction?.paymentTxHash) {
+    add({
+      label: "Risk x402 payment",
+      actor: workflow.riskInstruction.riskDid,
+      txHash: workflow.riskInstruction.paymentTxHash,
+      chainId: 2368,
+      note: "Risk paid Executor after verdict creation.",
+    });
+  }
+
+  if (workflow.execution?.txHash) {
+    add({
+      label: "Executor settlement",
+      actor: workflow.execution.executorDid,
+      txHash: workflow.execution.txHash,
+      chainId: 2368,
+      note: workflow.execution.status,
+    });
+  }
+
+  for (const event of workflow.events) {
+    if (event.txHash) {
+      add({
+        label: eventTransactionLabel(event, "tx"),
+        actor: stepActor(event),
+        txHash: event.txHash,
+        chainId: event.chainId,
+        note: event.summary,
+      });
+    }
+    if (event.paymentTxHash) {
+      add({
+        label: eventTransactionLabel(event, "payment"),
+        actor: stepActor(event),
+        txHash: event.paymentTxHash,
+        chainId: 2368,
+        note: "Agent micropayment.",
+      });
+    }
+    const payload = isRecord(event.payload) ? event.payload : null;
+    const relatedTxs = Array.isArray(payload?.relatedTxs) ? payload.relatedTxs : [];
+    for (const related of relatedTxs) {
+      if (!isRecord(related)) continue;
+      add({
+        label: asString(related.label) || asString(related.kind) || "Related transaction",
+        actor: stepActor(event),
+        txHash: asString(related.txHash),
+        chainId: asNumber(related.chainId) ?? event.chainId,
+        note: event.summary,
+      });
+    }
+    for (const key of ["poaiTxHash", "vaultTxHash", "dispatchTxHash", "deliveryTxHash"]) {
+      const txHash = payload ? asString(payload[key]) : "";
+      if (!txHash) continue;
+      add({
+        label: key === "poaiTxHash" ? `${stepActor(event)} PoAI attribution` : `${stepActor(event)} ${key}`,
+        actor: stepActor(event),
+        txHash,
+        chainId: asNumber(payload?.[key === "poaiTxHash" ? "poaiChainId" : "chainId"]) ?? event.chainId,
+        note: event.summary,
+      });
+    }
+  }
+
+  for (const payment of workflow.payments) {
+    add({
+      label: "x402 micropayment",
+      actor: `${payment.fromDid ?? "agent"} -> ${payment.toDid}`,
+      txHash: payment.txHash,
+      chainId: chainIdFromNetwork(payment.network) ?? 2368,
+      note: `${formatPieUsdPaymentAmountRaw(payment.amountWei)} PIEUSD`,
+    });
+  }
+
+  for (const message of workflow.relayerMessages) {
+    if (message.dispatchTxHash) {
+      add({
+        label: "Relayer dispatch",
+        actor: `${message.originDomain} -> ${message.destinationDomain}`,
+        txHash: message.dispatchTxHash,
+        chainId: message.originDomain,
+        note: message.status,
+      });
+    }
+    if (message.deliveryTxHash) {
+      add({
+        label: "Relayer delivery",
+        actor: `${message.originDomain} -> ${message.destinationDomain}`,
+        txHash: message.deliveryTxHash,
+        chainId: message.destinationDomain,
+        note: message.status,
+      });
+    }
+  }
+
+  return items;
+}
+
 export function SignalsPage() {
   const { data, loading, error, reload } = useOrcaResource(() => orcaApi.signals(), []);
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
@@ -142,6 +295,7 @@ function SignalWorkflowModal({
   onClose: () => void;
 }) {
   if (typeof document === "undefined" || !selectedSignalId) return null;
+  const transactions = workflow ? collectWorkflowTransactions(workflow) : [];
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true">
@@ -169,6 +323,27 @@ function SignalWorkflowModal({
                 <TraceMetric label="Risk" value={workflow.riskInstruction?.approved ? "approved" : workflow.riskInstruction ? "rejected" : "pending"} />
                 <TraceMetric label="Payments" value={String(workflow.payments.length)} />
               </div>
+
+              <section className="rounded border border-black/10 bg-[#fffdf8]">
+                <div className="border-b border-black/10 px-4 py-3">
+                  <h4 className="text-sm font-semibold">Transactions</h4>
+                </div>
+                <div className="grid gap-2 p-4 md:grid-cols-2">
+                  {transactions.map((tx) => (
+                    <div key={tx.key} className="rounded border border-black/10 bg-[#fffaf0] p-3 text-sm">
+                      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
+                        <div>
+                          <p className="font-semibold text-black">{tx.label}</p>
+                          <p className="mt-1 text-xs text-[#5c564c]">{tx.actor}</p>
+                        </div>
+                        <TxLink txHash={tx.txHash} chainId={tx.chainId} className="text-xs" />
+                      </div>
+                      {tx.note ? <p className="mt-2 line-clamp-2 text-xs text-[#5c564c]">{tx.note}</p> : null}
+                    </div>
+                  ))}
+                  {transactions.length === 0 ? <p className="text-sm text-[#5c564c]">No transactions recorded for this signal yet.</p> : null}
+                </div>
+              </section>
 
               <section className="rounded border border-black/10 bg-[#fffdf8]">
                 <div className="border-b border-black/10 px-4 py-3">

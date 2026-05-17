@@ -127,6 +127,27 @@ class AuditRuntime:
             deliberation=deliberation,
             client=self._http,
         )
+        await self._redis.xadd(
+            self._config.audit_stream_key,
+            {
+                "payload": json.dumps(
+                    {
+                        "event": "audit.poai.recorded",
+                        "signalId": signal_id,
+                        "agentDid": self._config.audit_did,
+                        "agentType": "audit",
+                        "title": "Audit PoAI attribution",
+                        "summary": deliberation.verdict_summary,
+                        "txHash": tx_hash,
+                        "chainId": self._config.kite_chain_id,
+                        "poaiActionType": action_type.value,
+                        "valueDelta": value_delta,
+                    }
+                )
+            },
+            maxlen=10_000,
+            approximate=True,
+        )
         self._logger.info(
             "Audit recorded PoAI action=%s stream=%s tx=%s value_delta=%s summary=%s",
             action_type.value,

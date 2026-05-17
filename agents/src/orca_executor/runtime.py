@@ -129,12 +129,14 @@ class ExecutorRuntime:
                 success=False,
                 status="llm_aborted",
                 tx_hash="0x0000000000000000000000000000000000000000000000000000000000000000",
+                tx_chain_id=self._config.kite_chain_id,
                 llm_deliberation=llm_deliberation,
             )
             return
 
         intent = instruction.execution_intent
         vault_tx_hash: str | None = None
+        related_txs: list[dict[str, object]] = []
         if self._config.executor_submit_vault_tx:
             from eth_account import Account
 
@@ -152,6 +154,14 @@ class ExecutorRuntime:
                     to=kite_addr,
                     data=kite_calldata,
                     value_wei=intent.tx_value_wei,
+                )
+                related_txs.append(
+                    {
+                        "kind": "executor.kite_deposit",
+                        "label": "Executor Kite stub deposit",
+                        "txHash": vault_tx_hash,
+                        "chainId": self._config.kite_chain_id,
+                    }
                 )
                 self._logger.info("Executor: Kite stub deposit tx hash=%s", vault_tx_hash)
             elif execution_path in {"hub_bridge_then_vault", "vault_only"}:
@@ -213,7 +223,7 @@ class ExecutorRuntime:
                         vault_address=intent.vault_address,
                         logger=self._logger,
                     )
-                    spoke_prep.ensure_erc20_allowance(
+                    approve_tx_hash = spoke_prep.ensure_erc20_allowance(
                         rpc_url=rpc,
                         chain_id=dst_chain,
                         private_key=self._config.executor_private_key,
@@ -223,6 +233,15 @@ class ExecutorRuntime:
                         logger=self._logger,
                         owner=beneficiary,
                     )
+                    if approve_tx_hash:
+                        related_txs.append(
+                            {
+                                "kind": "executor.spoke_approval",
+                                "label": "Executor spoke token approval",
+                                "txHash": approve_tx_hash,
+                                "chainId": dst_chain,
+                            }
+                        )
 
                 if not calldata or calldata.lower() == "0x":
                     raise RuntimeError("Missing execution_intent.vault_execute_calldata for vault→OApp spoke path.")
@@ -233,6 +252,14 @@ class ExecutorRuntime:
                         chain_id=self._config.kite_chain_id,
                         private_key=self._config.executor_private_key,
                         intent=intent,
+                    )
+                    related_txs.append(
+                        {
+                            "kind": "executor.vault_execute",
+                            "label": "Executor ClientAgentVault execute",
+                            "txHash": vault_tx_hash,
+                            "chainId": self._config.kite_chain_id,
+                        }
                     )
                     self._logger.info("Executor: ClientAgentVault execute tx hash=%s", vault_tx_hash)
             else:
@@ -253,12 +280,26 @@ class ExecutorRuntime:
         )
 
         tx_hash = vault_tx_hash or poai_tx_hash
+        related_txs.append(
+            {
+                "kind": "executor.poai_attribution",
+                "label": "Executor PoAI attribution",
+                "txHash": poai_tx_hash,
+                "chainId": self._config.kite_chain_id,
+            }
+        )
 
         await self._publish_settled(
             instruction,
             success=True,
             status="executed",
             tx_hash=tx_hash,
+            tx_chain_id=self._config.kite_chain_id,
+            vault_tx_hash=vault_tx_hash,
+            vault_tx_chain_id=self._config.kite_chain_id if vault_tx_hash else None,
+            poai_tx_hash=poai_tx_hash,
+            poai_chain_id=self._config.kite_chain_id,
+            related_txs=related_txs,
             llm_deliberation=llm_deliberation,
         )
 
@@ -270,6 +311,12 @@ class ExecutorRuntime:
         status: str,
         tx_hash: str,
         llm_deliberation: LlmDeliberation,
+        tx_chain_id: int | None = None,
+        vault_tx_hash: str | None = None,
+        vault_tx_chain_id: int | None = None,
+        poai_tx_hash: str | None = None,
+        poai_chain_id: int | None = None,
+        related_txs: list[dict[str, object]] | None = None,
         payment_tx_hash: str | None = None,
     ) -> None:
         if payment_tx_hash is None:
@@ -292,6 +339,12 @@ class ExecutorRuntime:
             success=success,
             status=status,
             tx_hash=tx_hash,
+            txChainId=tx_chain_id,
+            vaultTxHash=vault_tx_hash,
+            vaultTxChainId=vault_tx_chain_id,
+            poaiTxHash=poai_tx_hash,
+            poaiChainId=poai_chain_id,
+            relatedTxs=related_txs or [],
             paymentTxHash=payment_tx_hash,
             paymentAmountWei=str(self._config.x402_max_amount_required_wei),
             paymentAsset=self._config.x402_asset_address,

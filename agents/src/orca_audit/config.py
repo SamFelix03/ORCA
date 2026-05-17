@@ -14,6 +14,7 @@ class AuditConfig(GroqSettingsMixin, BaseSettings):
     scout_signal_stream_key: str = Field(default="orca:signals:scout", alias="SCOUT_REDIS_STREAM_KEY")
     risk_instruction_stream_key: str = Field(default="orca:instructions:risk", alias="RISK_INSTRUCTION_STREAM_KEY")
     execution_stream_key: str = Field(default="orca:executions:executor", alias="EXECUTION_STREAM_KEY")
+    audit_stream_key: str = Field(default="orca:audit", alias="AUDIT_STREAM_KEY")
 
     audit_did: str = Field(alias="AUDIT_AGENT_DID")
     audit_private_key: str = Field(alias="AUDIT_PRIVATE_KEY")

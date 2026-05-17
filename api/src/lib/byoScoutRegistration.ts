@@ -39,7 +39,7 @@ function recoverScoutRegistrationSigner(
   signature: string,
 ): string {
   const attempts: Array<Record<string, unknown>> = [
-    message,
+    { ...message },
     {
       ...message,
       bondAmountWei: message.bondAmountWei.toString(),

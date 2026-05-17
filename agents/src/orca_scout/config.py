@@ -33,6 +33,7 @@ class ScoutConfig(GroqSettingsMixin, BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     redis_url: str = Field(alias="REDIS_URL")
     redis_stream_key: str = Field(default="orca:signals:scout", alias="SCOUT_REDIS_STREAM_KEY")
+    workflow_event_stream_key: str = Field(default="orca:audit", alias="AUDIT_STREAM_KEY")
 
     scout_purchase_id: str = Field(default="", alias="SCOUT_PURCHASE_ID")
     scout_binding_secret: str = Field(default="", alias="SCOUT_BINDING_SECRET")

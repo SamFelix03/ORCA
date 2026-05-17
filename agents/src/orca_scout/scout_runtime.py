@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 
 import httpx
@@ -339,6 +340,26 @@ class ScoutRuntime:
             raise RuntimeError("SignalBroadcaster not initialized (startup preflight incomplete).")
         event_id, signal_hash = await self._broadcaster.broadcast(signal, llm_deliberation)
         poai_tx = await asyncio.to_thread(self._poai_reporter.report_signal, signal, signal_hash)
+        await self._redis.xadd(
+            self._config.workflow_event_stream_key,
+            {
+                "payload": json.dumps(
+                    {
+                        "event": "scout.poai.recorded",
+                        "signalId": signal.signal_id,
+                        "agentDid": self._config.scout_did,
+                        "agentType": "scout",
+                        "title": "Scout PoAI attribution",
+                        "summary": "Scout recorded PoAI attribution for the published signal.",
+                        "txHash": poai_tx,
+                        "chainId": self._config.kite_chain_id,
+                        "poaiActionType": "SIGNAL",
+                    }
+                )
+            },
+            maxlen=10_000,
+            approximate=True,
+        )
 
         self._logger.info(
             "Published signal_id=%s event_id=%s net_delta_apy=%s intent=%s poai_tx=%s",
