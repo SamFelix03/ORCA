@@ -33,17 +33,41 @@ export function buildScoutRegistrationDomain(chainId: number, domainName: string
   };
 }
 
+function recoverScoutRegistrationSigner(
+  domain: ReturnType<typeof buildScoutRegistrationDomain>,
+  message: ScoutRegistrationMessage,
+  signature: string,
+): string {
+  const attempts: Array<Record<string, unknown>> = [
+    message,
+    {
+      ...message,
+      bondAmountWei: message.bondAmountWei.toString(),
+      deadline: message.deadline.toString(),
+    },
+  ];
+  let lastError: unknown;
+  for (const candidate of attempts) {
+    try {
+      return verifyTypedData(domain, SCOUT_REGISTRATION_TYPES, candidate, signature);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Unable to recover scout registration signature");
+}
+
 export function verifyScoutRegistrationSignature(params: {
   domain: ReturnType<typeof buildScoutRegistrationDomain>;
   message: ScoutRegistrationMessage;
   signature: string;
   expectedOwner: string;
 }): string {
-  const recovered = verifyTypedData(params.domain, SCOUT_REGISTRATION_TYPES, params.message, params.signature);
+  const recovered = recoverScoutRegistrationSigner(params.domain, params.message, params.signature);
   if (recovered.toLowerCase() !== params.expectedOwner.toLowerCase()) {
     throw new Error(
       `Signature does not match ownerAddress: recovered signer is ${recovered}, but ownerAddress is ${params.expectedOwner}. ` +
-        "Connect the wallet that signed the EIP-712 message and use that same account for on-chain registration.",
+        "The EIP-712 payload may not match what the wallet signed; retry after refreshing the page.",
     );
   }
   return recovered;

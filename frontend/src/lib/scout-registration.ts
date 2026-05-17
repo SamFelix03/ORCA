@@ -1,7 +1,19 @@
 "use client";
 
 import type { ScoutRegistrationChallengeResponse } from "@orca/shared";
-import { getAddress, Interface, keccak256, toUtf8Bytes } from "ethers";
+import { BrowserProvider, getAddress, Interface, keccak256, toUtf8Bytes, verifyTypedData } from "ethers";
+
+/** Must match api/src/lib/byoScoutRegistration.ts SCOUT_REGISTRATION_TYPES (exclude EIP712Domain). */
+export const SCOUT_REGISTRATION_TYPES: Record<string, Array<{ name: string; type: string }>> = {
+  ScoutRegistration: [
+    { name: "did", type: "string" },
+    { name: "didHash", type: "bytes32" },
+    { name: "vault", type: "address" },
+    { name: "bondAmountWei", type: "uint256" },
+    { name: "nonce", type: "string" },
+    { name: "deadline", type: "uint256" },
+  ],
+};
 
 export type InjectedEthereum = {
   request(args: { method: string; params?: unknown[] }): Promise<unknown>;
@@ -47,23 +59,26 @@ export async function readErc20Allowance(
   return decoded[0] as bigint;
 }
 
-export function buildTypedDataForSigning(
+export function buildScoutRegistrationDomain(challenge: ScoutRegistrationChallengeResponse) {
+  return {
+    name: challenge.domain.name,
+    version: challenge.domain.version,
+    chainId: challenge.domain.chainId,
+  };
+}
+
+/** Message shape must match API verifyTypedData (uint256 fields as bigint). */
+export function buildScoutRegistrationMessage(
   challenge: ScoutRegistrationChallengeResponse,
   params: { did: string; didHashHex: string; vault: string; bondAmountWei: bigint },
 ) {
-  const vault = getAddress(params.vault.trim());
   return {
-    domain: challenge.domain,
-    types: challenge.types,
-    primaryType: challenge.primaryType,
-    message: {
-      did: params.did.trim(),
-      didHash: params.didHashHex,
-      vault,
-      bondAmountWei: params.bondAmountWei.toString(),
-      nonce: challenge.nonce,
-      deadline: challenge.deadline.toString(),
-    },
+    did: params.did.trim(),
+    didHash: params.didHashHex,
+    vault: getAddress(params.vault.trim()),
+    bondAmountWei: params.bondAmountWei,
+    nonce: challenge.nonce,
+    deadline: BigInt(challenge.deadline),
   };
 }
 
@@ -73,12 +88,25 @@ export async function signScoutRegistrationTypedData(
   challenge: ScoutRegistrationChallengeResponse,
   params: { did: string; didHashHex: string; vault: string; bondAmountWei: bigint },
 ): Promise<string> {
-  const signer = getAddress(ownerAddress);
-  const typedData = buildTypedDataForSigning(challenge, params);
-  return (await eth.request({
-    method: "eth_signTypedData_v4",
-    params: [signer, JSON.stringify(typedData)],
-  })) as string;
+  const expected = getAddress(ownerAddress);
+  const domain = buildScoutRegistrationDomain(challenge);
+  const message = buildScoutRegistrationMessage(challenge, params);
+  const provider = new BrowserProvider(eth);
+  const signer = await provider.getSigner();
+  const signerAddress = getAddress(await signer.getAddress());
+  if (signerAddress !== expected) {
+    throw new Error(
+      `Wallet signer is ${signerAddress}, expected ${expected}. Reconnect Privy and retry registration.`,
+    );
+  }
+  const signature = await signer.signTypedData(domain, SCOUT_REGISTRATION_TYPES, message);
+  const recovered = verifyTypedData(domain, SCOUT_REGISTRATION_TYPES, message, signature);
+  if (getAddress(recovered) !== expected) {
+    throw new Error(
+      `Signature verification failed locally (recovered ${recovered}). Try again or contact support.`,
+    );
+  }
+  return signature;
 }
 
 export async function sendEvmTransaction(
