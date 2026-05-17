@@ -41,7 +41,10 @@ export function verifyScoutRegistrationSignature(params: {
 }): string {
   const recovered = verifyTypedData(params.domain, SCOUT_REGISTRATION_TYPES, params.message, params.signature);
   if (recovered.toLowerCase() !== params.expectedOwner.toLowerCase()) {
-    throw new Error("Signature does not match ownerAddress");
+    throw new Error(
+      `Signature does not match ownerAddress: recovered signer is ${recovered}, but ownerAddress is ${params.expectedOwner}. ` +
+        "Connect the wallet that signed the EIP-712 message and use that same account for on-chain registration.",
+    );
   }
   return recovered;
 }

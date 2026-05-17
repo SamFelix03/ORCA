@@ -14,6 +14,7 @@ import {
   encodeErc20Approve,
   encodeErc20Transfer,
   ensureWalletChain,
+  getConnectedAccount,
   getInjectedEthereum,
   readErc20Allowance,
   sendEvmTransaction,
@@ -79,11 +80,14 @@ export function MarketplacePage() {
     }
     setBusy(true);
     try {
+      const signingAccount = await getConnectedAccount(eth);
+      setAccount(signingAccount);
       const challenge = await orcaApi.scoutRegisterChallenge(did.trim());
+      await ensureWalletChain(eth, challenge.domain.chainId);
       const didHashHex = challenge.didHashHex ?? computeDidHashHex(did);
       const bondWei = bondWeiFromUsdc(stakeUsdc, challenge.stakeDecimals);
 
-      const signature = await signScoutRegistrationTypedData(eth, account, challenge, {
+      const { signature, ownerAddress } = await signScoutRegistrationTypedData(eth, signingAccount, challenge, {
         did: did.trim(),
         didHashHex,
         vault: vault.trim(),
@@ -98,7 +102,7 @@ export function MarketplacePage() {
         did: did.trim(),
         vault: vault.trim(),
         bondAmountWei: bondWei.toString(),
-        ownerAddress: account,
+        ownerAddress,
         nonce: challenge.nonce,
         deadline: String(challenge.deadline),
         signature,
@@ -107,12 +111,12 @@ export function MarketplacePage() {
 
       const { scout } = await orcaApi.scoutRegisterAttest(attestBody);
 
-      const allowance = await readErc20Allowance(eth, challenge.stakeTokenAddress, account, challenge.registryAddress);
+      const allowance = await readErc20Allowance(eth, challenge.stakeTokenAddress, ownerAddress, challenge.registryAddress);
       if (allowance < bondWei) {
         setNotice("Approving stake token spend for ORCARegistry...");
         const approveData = encodeErc20Approve(challenge.registryAddress, bondWei);
         const approveHash = await sendEvmTransaction(eth, {
-          from: account,
+          from: ownerAddress,
           to: challenge.stakeTokenAddress,
           data: approveData,
         });
@@ -125,7 +129,7 @@ export function MarketplacePage() {
       setNotice("Submitting registerPermissionlessScout on-chain...");
       const txPayload = await orcaApi.scoutRegisterTxData(scout.id);
       const regHash = await sendEvmTransaction(eth, {
-        from: account,
+        from: ownerAddress,
         to: txPayload.to,
         data: txPayload.data,
       });
@@ -235,7 +239,8 @@ export function MarketplacePage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-[#5c564c]">
-            {"EIP-712 attest -> approve stake token -> call registry -> API confirms the receipt."}
+            EIP-712 attest → approve stake token → call registry → API confirms the receipt. Use the same MetaMask account
+            for Connect wallet, the signature popup, and both on-chain transactions (must match your scout operator EOA).
           </p>
           <input className="w-full rounded border border-black/15 bg-[#fffaf0] px-2 py-1" value={did} onChange={(e) => setDid(e.target.value)} placeholder="Scout DID" />
           <input className="w-full rounded border border-black/15 bg-[#fffaf0] px-2 py-1 font-mono text-sm" value={vault} onChange={(e) => setVault(e.target.value)} placeholder="Vault address (0x...)" />
