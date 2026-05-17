@@ -41,6 +41,8 @@ export async function buildServer() {
     origin: (origin, callback) => {
       callback(null, isAllowedOrigin(origin));
     },
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Orca-Binding-Secret"],
   });
 
   await app.register(websocket);
