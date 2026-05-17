@@ -2,11 +2,11 @@
 
 import type { VaultHoldingRecord } from "@orca/shared";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TxLink } from "@/components/ui/tx-link";
-import { VaultHoldingCard } from "@/components/wallet/vault-holding-card";
+import { ReloadButton, VaultHoldingCard } from "@/components/wallet/vault-holding-card";
 import { orcaApi } from "@/lib/api";
 import { primaryPrivyWalletAddress } from "@/lib/privy-user";
 import { withdrawStubVaultHolding } from "@/lib/stub-vault-withdraw";
@@ -17,24 +17,39 @@ export function PositionsPage() {
   const walletAddress = primaryPrivyWalletAddress(user, wallets);
   const [holdings, setHoldings] = useState<VaultHoldingRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [withdrawTx, setWithdrawTx] = useState<{ chainId: number; txHash: string } | null>(null);
+  const refreshInFlightRef = useRef(false);
 
-  const loadHoldings = useCallback(async () => {
-    if (!walletAddress) return;
-    await Promise.resolve();
-    setLoading(true);
+  const refreshHoldings = useCallback(async (mode: "load" | "manual" = "manual") => {
+    if (!walletAddress) {
+      setHoldings([]);
+      return;
+    }
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
+    if (mode === "load") {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     setError(null);
     try {
-      const next = await orcaApi.myVaultHoldings(null, walletAddress);
+      const next = await orcaApi.refreshVaultHoldings(null, walletAddress);
       setHoldings(next.holdings);
     } catch (err) {
       setHoldings([]);
-      setError(err instanceof Error ? err.message : "Unable to load vault holdings");
+      setError(err instanceof Error ? err.message : mode === "load" ? "Unable to load vault holdings" : "Unable to refresh vault holdings");
     } finally {
-      setLoading(false);
+      if (mode === "load") {
+        setLoading(false);
+      } else {
+        setRefreshing(false);
+      }
+      refreshInFlightRef.current = false;
     }
   }, [walletAddress]);
 
@@ -46,7 +61,7 @@ export function PositionsPage() {
     try {
       const txHash = await withdrawStubVaultHolding({ holding, ownerAddress: walletAddress, wallets });
       setWithdrawTx({ chainId: holding.chainId, txHash });
-      await loadHoldings();
+      await refreshHoldings("load");
     } catch (err) {
       setWithdrawError(err instanceof Error ? err.message : "Withdraw failed");
     } finally {
@@ -60,11 +75,11 @@ export function PositionsPage() {
     }
 
     const timer = window.setTimeout(() => {
-      void loadHoldings();
+      void refreshHoldings("load");
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [authenticated, walletAddress, loadHoldings]);
+  }, [authenticated, walletAddress, refreshHoldings]);
 
   const visibleHoldings = authenticated && walletAddress ? holdings : [];
 
@@ -76,6 +91,7 @@ export function PositionsPage() {
             <CardTitle>Holdings</CardTitle>
             <p className="text-sm text-[#5c564c]">Indexed on-chain balances across configured vaults.</p>
           </div>
+          <ReloadButton onClick={() => void refreshHoldings("manual")} disabled={!walletAddress || refreshing} busy={refreshing} />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
