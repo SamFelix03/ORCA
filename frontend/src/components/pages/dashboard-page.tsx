@@ -6,8 +6,7 @@ import { DataTable, DataTd, DataTh, DataThead } from "@/components/ui/data-table
 import { StatusPill } from "@/components/ui/status-pill";
 import { useOrcaResource } from "./use-orca-resource";
 import { orcaApi } from "@/lib/api";
-import { formatPieUsdPaymentAmountRaw, formatTokenAmountRaw, formatTokenNumber, tokenAmountRawToNumber } from "@/lib/format-chain";
-import { WalletPortfolioCard } from "@/components/wallet/wallet-portfolio-card";
+import { formatPieUsdPaymentAmountRaw, formatTokenBalanceAmountRaw, formatTokenNumber, tokenAmountRawToNumber } from "@/lib/format-chain";
 import { VaultHoldingCard } from "@/components/wallet/vault-holding-card";
 import { LiveEvents } from "@/components/live-events";
 import { connectOrcaEvents } from "@/lib/ws";
@@ -43,10 +42,10 @@ export function DashboardPage() {
     return () => ws.close();
   }, [reload]);
 
-  const activeAgents = data?.agents.agents.filter((item) => item.online).length ?? 0;
   const acceptedSignals = data?.signals.signals.filter((item) => ["approved", "executing", "executed"].includes(item.status)).length ?? 0;
   const portfolioValue = data?.vaultHoldings.holdings.reduce((sum, item) => sum + tokenAmountRawToNumber(item.balanceRaw, item.decimals), 0) ?? 0;
   const treasuryTokens = data?.treasury.treasury.tokenBalances ?? [];
+  const agentPayments = data?.agents.agents.reduce((sum, item) => sum + (item.x402PaymentCount ?? item.spendingUsedUsdc), 0) ?? 0;
   const topHoldings = [...(data?.vaultHoldings.holdings ?? [])]
     .filter((item) => BigInt(item.balanceRaw || "0") > BigInt(0))
     .sort((a, b) => tokenAmountRawToNumber(b.balanceRaw, b.decimals) - tokenAmountRawToNumber(a.balanceRaw, a.decimals))
@@ -63,11 +62,9 @@ export function DashboardPage() {
 
       {error ? <p className="rounded border border-[rgb(var(--danger-6))] bg-[rgb(var(--danger-2))] px-4 py-3 text-sm text-[rgb(var(--danger-12))]">{error}</p> : null}
 
-      <WalletPortfolioCard />
-
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Indexed Vaults" value={loading ? "--" : `${formatTokenNumber(portfolioValue, 18)} USDT`} />
-        <MetricCard label="Online Agents" value={loading ? "--" : `${activeAgents}/4`} />
+        <MetricCard label="Agent Payments" value={loading ? "--" : String(agentPayments)} />
         <MetricCard label="Accepted Signals" value={loading ? "--" : String(acceptedSignals)} />
         <MetricCard label="Treasury Tokens" value={loading ? "--" : String(treasuryTokens.length)} />
       </section>
@@ -98,9 +95,8 @@ export function DashboardPage() {
                 return (
                   <div key={type} className="min-w-0 rounded border border-black/[0.08] bg-[#fffaf0] p-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#5c564c]">{type}</p>
-                    <div className="mt-3 flex min-w-0 items-center justify-between gap-2">
+                    <div className="mt-3 min-w-0">
                       <span className="min-w-0 text-sm font-semibold capitalize text-black">{type} Agent</span>
-                      <StatusPill tone={agent?.online ? "healthy" : "muted"}>{agent?.online ? "online" : "idle"}</StatusPill>
                     </div>
                     <p className="mt-3 truncate text-xs text-[#5c564c]">
                       {agent ? `x402 payments: ${agent.x402PaymentCount ?? agent.spendingUsedUsdc}` : "No runtime events yet"}
@@ -122,7 +118,7 @@ export function DashboardPage() {
               {!loading && data?.treasury.treasury.tokenBalances.map((item) => (
                 <div key={item.address} className="flex items-center justify-between text-sm">
                   <span className="text-[#5c564c]">{item.symbol}</span>
-                  <span className="font-semibold text-black">{formatTokenAmountRaw(item.raw, item.decimals)} {item.symbol}</span>
+                  <span className="font-semibold text-black">{formatTokenBalanceAmountRaw(item.raw, item.decimals)} {item.symbol}</span>
                 </div>
               ))}
             </div>

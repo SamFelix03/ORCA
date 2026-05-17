@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@hugeicons/core-free-icons": "^4.1.1",
+    "@hugeicons/react": "^1.1.6",
     "@orca/shared": "workspace:*",
     "@privy-io/react-auth": "^3.23.1",
     "@solana/kit": "^6.8.0",

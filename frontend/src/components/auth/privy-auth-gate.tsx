@@ -1,8 +1,10 @@
 "use client";
 
+import { Loading03Icon } from "@hugeicons/core-free-icons";
 import { usePrivy } from "@privy-io/react-auth";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { Icon } from "@/components/ui/icon";
 
 const LOGIN_ROUTE = "/sign-in";
 
@@ -28,7 +30,7 @@ export function PrivyAuthGate({ children }: { children: React.ReactNode }) {
   if (!ready) {
     return (
       <div className="grid min-h-screen place-items-center bg-[#fffaf0]" aria-label="Loading">
-        <span className="h-8 w-8 animate-spin rounded-full border-2 border-black/15 border-t-black" />
+        <Icon icon={Loading03Icon} size={32} className="animate-spin text-black" />
       </div>
     );
   }

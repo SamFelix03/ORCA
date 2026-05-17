@@ -5,7 +5,7 @@ import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { orcaApi } from "@/lib/api";
-import { formatTokenAmountRaw } from "@/lib/format-chain";
+import { formatTokenBalanceAmountRaw } from "@/lib/format-chain";
 import { primaryPrivyWalletAddress } from "@/lib/privy-user";
 
 function shortAddress(address: string | null) {
@@ -74,13 +74,13 @@ export function WalletPortfolioCard() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#5c564c]">USDT Balance</p>
           <p className="mt-1 text-xl font-semibold text-black">
-            {loadingBalances ? "..." : balances.usdt ? formatTokenAmountRaw(balances.usdt.raw, balances.usdt.decimals) : "0"} USDT
+            {loadingBalances ? "..." : balances.usdt ? formatTokenBalanceAmountRaw(balances.usdt.raw, balances.usdt.decimals) : "0.000"} USDT
           </p>
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#5c564c]">PIEUSD Balance</p>
           <p className="mt-1 text-xl font-semibold text-black">
-            {loadingBalances ? "..." : balances.pieusd ? formatTokenAmountRaw(balances.pieusd.raw, balances.pieusd.decimals) : "0"} pieUSD
+            {loadingBalances ? "..." : balances.pieusd ? formatTokenBalanceAmountRaw(balances.pieusd.raw, balances.pieusd.decimals) : "0.000"} pieUSD
           </p>
         </div>
         {walletAddress && balanceError ? <p className="sm:col-span-3 text-xs text-[rgb(var(--danger-11))]">{balanceError}</p> : null}

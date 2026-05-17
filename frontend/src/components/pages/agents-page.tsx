@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatusPill } from "@/components/ui/status-pill";
 import { orcaApi } from "@/lib/api";
 import { formatPieUsdPaymentAmountRaw } from "@/lib/format-chain";
 import { connectOrcaEvents } from "@/lib/ws";
@@ -38,10 +37,6 @@ export function AgentsPage() {
               <CardTitle className="capitalize">{agent.type} Agent</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-[#5c564c]">Status</span>
-                <StatusPill tone={agent.online ? "healthy" : "muted"}>{agent.online ? "online" : "offline"}</StatusPill>
-              </div>
               <div className="flex items-center justify-between">
                 <span className="text-[#5c564c]">x402 Payments</span>
                 <span>{agent.x402PaymentCount ?? agent.spendingUsedUsdc}</span>

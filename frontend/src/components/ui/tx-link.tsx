@@ -1,3 +1,5 @@
+import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons";
+import { Icon } from "@/components/ui/icon";
 import { explorerTxUrl, shortTxHash } from "@/lib/format-chain";
 
 export function TxLink({
@@ -19,7 +21,7 @@ export function TxLink({
       rel="noreferrer"
     >
       <span>{label ?? shortTxHash(txHash)}</span>
-      <span aria-hidden="true">↗</span>
+      <Icon icon={ArrowUpRight01Icon} size={12} />
     </a>
   );
 }
