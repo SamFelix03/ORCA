@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from orca_common.llm.deliberation import LlmDeliberation
 from orca_scout.models import ExecutionIntent, YieldSignal
 
 
@@ -12,6 +13,7 @@ class ScoutSignalEvent(BaseModel):
     event: Literal["scout.signal.created"]
     signal: YieldSignal
     paymentTxHash: str
+    llm_deliberation: LlmDeliberation
 
 
 class RiskInstruction(BaseModel):
@@ -37,6 +39,7 @@ class RiskInstructionEvent(BaseModel):
     instruction: RiskInstruction
     sourceSignalHash: str
     paymentTxHash: str
+    llm_deliberation: LlmDeliberation
 
 
 class ExecutionSettledEvent(BaseModel):
@@ -49,3 +52,4 @@ class ExecutionSettledEvent(BaseModel):
     tx_hash: str
     paymentTxHash: str
     timestamp: int
+    llm_deliberation: LlmDeliberation | None = None

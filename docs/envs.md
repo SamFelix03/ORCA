@@ -7,7 +7,7 @@ Node 20+, pnpm (workspace uses pnpm@10.19.0). Run pnpm install from repo root.
 Python agents
 Python ≥ 3.11, then pip install -e . from agents/. Declared deps are in agents/pyproject.toml (redis, web3, httpx, pydantic-settings, etc.).
 API
-Postgres + Redis reachable from DATABASE_URL / REDIS_URL. pnpm --filter @orca/api prisma:generate (and schema sync via prisma db push or migrations).
+Postgres + Redis reachable from DATABASE_URL / REDIS_URL. From repo root: `pnpm db:setup` (Docker + `prisma migrate deploy`) or `pnpm db:migrate` if Postgres is already up. `schema.prisma` is the full model; new clones do not need a separate LLM migration.
 Frontend
 NEXT_PUBLIC_ORCA_API_BASE_URL / NEXT_PUBLIC_ORCA_WS_URL (see frontend/.env.example).
 Contracts

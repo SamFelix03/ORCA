@@ -8,23 +8,24 @@ from redis.asyncio import Redis
 
 from orca_common.registry_client import OrcaRegistryReader
 from orca_scout.config import ScoutConfig
-from orca_scout.integrations.bridge_fee_client import BridgeFeeClient
-from orca_scout.integrations.defillama_client import DefiLlamaClient
-from orca_scout.integrations.goldsky_client import GoldskyClient
-from orca_scout.integrations.lucid_client import LucidClient
-from orca_scout.integrations.passport_cli import PassportCLI
-from orca_scout.integrations.poai_client import PoAIClient
-from orca_scout.integrations.protocol_enrichers import (
+from orca_common.llm import GroqDeliberationClient
+from orca_common.market import (
     AaveUtilizationEnricher,
+    BridgeCostEstimator,
+    BridgeFeeClient,
     CompoundUtilizationEnricher,
+    DefiLlamaClient,
+    GoldskyClient,
+    LucidClient,
     MorphoUtilizationEnricher,
     UniswapUtilizationEnricher,
 )
+from orca_scout.integrations.passport_cli import PassportCLI
+from orca_scout.integrations.poai_client import PoAIClient
 from orca_scout.integrations.x402_client import X402Client
-from orca_scout.services.bridge_cost_estimator import BridgeCostEstimator
 from orca_scout.services.opportunity_ranker import OpportunityRanker
 from orca_scout.services.execution_intent_builder import ExecutionIntentBuilder
-from orca_scout.services.llm_opportunity_selector import LLMOpportunitySelector, pick_with_fallback
+from orca_scout.services.llm_opportunity_selector import LLMOpportunitySelector
 from orca_scout.services.passport_signer import PassportSigner
 from orca_scout.services.poai_reporter import PoAIReporter
 from orca_scout.services.signal_broadcaster import SignalBroadcaster
@@ -126,15 +127,16 @@ class ScoutRuntime:
         if allowed_routes is None:
             self._logger.warning("Route filter disabled (SCOUT_DISABLE_ROUTE_FILTER=true): demo mode is active.")
         self._ranker = OpportunityRanker(self._estimator, allowed_routes)
-        self._llm_selector: LLMOpportunitySelector | None = None
-        if config.scout_llm_enabled:
-            self._llm_selector = LLMOpportunitySelector(
-                api_key=config.groq_api_key,
-                model=config.groq_model,
-                base_url=config.groq_base_url,
-                timeout_seconds=config.groq_timeout_seconds,
-                max_candidates=config.groq_max_candidates,
-            )
+        groq_client = GroqDeliberationClient(
+            api_key=config.groq_api_key,
+            model=config.groq_model,
+            base_url=config.groq_base_url,
+            timeout_seconds=config.groq_timeout_seconds,
+        )
+        self._llm_selector = LLMOpportunitySelector(
+            client=groq_client,
+            max_candidates=config.groq_max_candidates,
+        )
         self._intent_builder = ExecutionIntentBuilder(
             enabled=config.execution_intent_enabled,
             client_agent_vault_address=config.client_agent_vault_address,
@@ -307,26 +309,16 @@ class ScoutRuntime:
             self._logger.info("No opportunities passed threshold %.4f.", self._config.min_net_delta_apy)
             return
 
-        best = ranked[0]
+        best, llm_deliberation = await self._llm_selector.select_best(ranked)
         self._logger.info(
-            "Deterministic best=%s@%d->%s@%d net_delta=%s",
+            "LLM-selected best=%s@%d->%s@%d net_delta=%s summary=%s",
             best.src_protocol,
             best.src_chain,
             best.dst_protocol,
             best.dst_chain,
             str(best.net_delta_apy),
+            llm_deliberation.verdict_summary,
         )
-        if self._llm_selector is not None:
-            llm_choice = await self._llm_selector.select_best(ranked)
-            best = pick_with_fallback(ranked, llm_choice) or ranked[0]
-            self._logger.info(
-                "LLM-selected best=%s@%d->%s@%d net_delta=%s",
-                best.src_protocol,
-                best.src_chain,
-                best.dst_protocol,
-                best.dst_chain,
-                str(best.net_delta_apy),
-            )
         intent = self._intent_builder.build(best)
         if self._registry_gate is not None:
             active = await asyncio.to_thread(
@@ -341,7 +333,7 @@ class ScoutRuntime:
         signal = self._signer.sign_opportunity(best, execution_intent=intent)
         if self._broadcaster is None:
             raise RuntimeError("SignalBroadcaster not initialized (startup preflight incomplete).")
-        event_id, signal_hash = await self._broadcaster.broadcast(signal)
+        event_id, signal_hash = await self._broadcaster.broadcast(signal, llm_deliberation)
         poai_tx = await asyncio.to_thread(self._poai_reporter.report_signal, signal, signal_hash)
 
         self._logger.info(
@@ -365,6 +357,5 @@ class ScoutRuntime:
         await self._goldsky.close()
         if self._bridge_fee is not None:
             await self._bridge_fee.close()
-        if self._llm_selector is not None:
-            await self._llm_selector.close()
+        await self._llm_selector.close()
         await self._x402.close()

@@ -10,6 +10,11 @@
     "dev:full": "node scripts/dev-full.mjs",
     "build:frontend": "pnpm --dir frontend build",
     "build:contracts": "pnpm --dir contracts build",
-    "lint:frontend": "pnpm --dir frontend lint"
+    "lint:frontend": "pnpm --dir frontend lint",
+    "db:migrate": "pnpm --dir api prisma:migrate",
+    "db:setup": "node scripts/setup-db.mjs",
+    "db:up": "docker compose -f infra/docker-compose.yml up -d postgres redis",
+    "test:agents": "cd agents && python -m pytest tests -q",
+    "test:api": "pnpm --dir api test"
   }
 }

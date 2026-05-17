@@ -7,8 +7,10 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from web3 import Web3
 
+from orca_common.llm.settings import GroqSettingsMixin
 
-class ExecutorConfig(BaseSettings):
+
+class ExecutorConfig(GroqSettingsMixin, BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
@@ -23,6 +25,8 @@ class ExecutorConfig(BaseSettings):
     kite_rpc_url: str = Field(alias="KITE_RPC_URL")
     poai_contract_address: str = Field(alias="POAI_CONTRACT_ADDRESS")
     scout_epoch_id: int = Field(default=1, alias="SCOUT_EPOCH_ID")
+    orca_api_base_url: str = Field(default="http://127.0.0.1:4000", alias="ORCA_API_BASE_URL")
+    orca_internal_api_key: str = Field(default="", alias="ORCA_INTERNAL_API_KEY")
 
     x402_service_url: str = Field(alias="X402_SERVICE_URL")
     x402_execute_path: str = Field(default="/execute", alias="X402_EXECUTE_PATH")

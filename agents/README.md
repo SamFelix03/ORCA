@@ -36,7 +36,15 @@ Do **not** append API-only variables (`DATABASE_URL`, `JWT_SECRET`, `WEBHOOK_SEC
 - Legacy Lucid fallback (`LUCID_*`, only if provider mode is `lucid`)
 - Goldsky (`GOLDSKY_*`)
 - Bridge quote provider (`BRIDGE_FEE_*`, optional; defaults to 0 bridge cost when unset)
-- Optional Groq LLM selector (`SCOUT_LLM_ENABLED`, `GROQ_*`) for final opportunity selection
+- Mandatory Groq LLM on all four agents (`GROQ_API_KEY`, `GROQ_*`); chain-of-thought persisted via API/Postgres and shown in Signals workflow UI
+- Risk agent re-fetches DefiLlama/enricher/bridge data and calls `GET /internal/risk-context` before LLM verdict
+
+### LLM setup (required)
+
+1. Copy `agents/.env.example` → `agents/.env` and set `GROQ_API_KEY`.
+2. Set matching internal auth in API: `ORCA_INTERNAL_API_KEY` in `api/.env` (same value as agents).
+3. From repo root: `pnpm db:up` then `pnpm db:migrate` (Postgres + LLM deliberation tables).
+4. Run tests: `pnpm test:agents` and `pnpm test:api`.
 - Passport CLI + session policy (`PASSPORT_*`)
 - x402 config (`X402_*`; run `pnpm dev:x402-provider` for a local `/execute` URL, or `X402_DRY_RUN=true` without HTTP — see `services/x402-provider/README.md`)
   - `X402_EXECUTION_MODE=direct` uses the ORCA direct executor utility and skips Passport discovery allowlisting for internal micropayment rails.

@@ -247,7 +247,15 @@ function TraceMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function evidenceFromVerdict(verdict: unknown): Record<string, unknown> | null {
+  if (!verdict || typeof verdict !== "object" || Array.isArray(verdict)) return null;
+  const nested = (verdict as { evidence?: unknown }).evidence;
+  if (!nested || typeof nested !== "object" || Array.isArray(nested)) return null;
+  return nested as Record<string, unknown>;
+}
+
 function WorkflowStep({ event, index }: { event: WorkflowEventRecord; index: number }) {
+  const evidence = evidenceFromVerdict(event.verdict);
   return (
     <article className="p-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
@@ -256,7 +264,7 @@ function WorkflowStep({ event, index }: { event: WorkflowEventRecord; index: num
             Step {index + 1} / {stepActor(event)}
           </p>
           <h5 className="mt-1 text-base font-semibold">{event.title}</h5>
-          <p className="mt-1 text-sm text-[#5c564c]">{event.summary}</p>
+          <p className="mt-1 text-sm text-[#5c564c]">{event.verdictSummary ?? event.summary}</p>
         </div>
         <div className="space-y-1 text-right font-mono text-xs">
           {event.txHash ? (
@@ -271,6 +279,34 @@ function WorkflowStep({ event, index }: { event: WorkflowEventRecord; index: num
           ) : null}
         </div>
       </div>
+      {evidence ? (
+        <details className="mt-3 rounded border border-black/10 bg-[#fffdf8] p-3" open>
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-[#5c564c]">
+            Evidence
+          </summary>
+          <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs">
+            {JSON.stringify(evidence, null, 2)}
+          </pre>
+        </details>
+      ) : null}
+      {event.chainOfThought && event.chainOfThought.length > 0 ? (
+        <div className="mt-3 rounded border border-black/10 bg-[#fffdf8] p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#5c564c]">Chain of Thought</p>
+          <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-[#3d3830]">
+            {event.chainOfThought.map((step, stepIndex) => (
+              <li key={`${event.id}-cot-${stepIndex}`}>{step}</li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+      {event.verdict ? (
+        <details className="mt-3 rounded border border-black/10 bg-[#fffaf0] p-3">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-[#5c564c]">Verdict</summary>
+          <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs">
+            {JSON.stringify(event.verdict, null, 2)}
+          </pre>
+        </details>
+      ) : null}
       <details className="mt-3 rounded border border-black/10 bg-[#fffaf0] p-3">
         <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-[#5c564c]">Details</summary>
         <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs">

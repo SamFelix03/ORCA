@@ -130,6 +130,10 @@ export function toRiskInstructionRecord(row: RiskInstruction): RiskInstructionRe
 }
 
 export function toWorkflowEventRecord(row: WorkflowEvent): WorkflowEventRecord {
+  const chainRaw = row.chainOfThought;
+  const chainOfThought = Array.isArray(chainRaw)
+    ? chainRaw.filter((item): item is string => typeof item === "string")
+    : undefined;
   return {
     id: row.id,
     signalId: row.signalId,
@@ -141,6 +145,10 @@ export function toWorkflowEventRecord(row: WorkflowEvent): WorkflowEventRecord {
     txHash: row.txHash,
     paymentTxHash: row.paymentTxHash,
     chainId: row.chainId,
+    chainOfThought,
+    verdict: row.verdict ?? undefined,
+    verdictSummary: row.verdictSummary ?? undefined,
+    llmModel: row.llmModel ?? undefined,
     payload: row.payload,
     occurredAt: row.occurredAt.toISOString(),
   };

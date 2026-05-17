@@ -3,8 +3,10 @@ from __future__ import annotations
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from orca_common.llm.settings import GroqSettingsMixin
 
-class AuditConfig(BaseSettings):
+
+class AuditConfig(GroqSettingsMixin, BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
@@ -19,3 +21,5 @@ class AuditConfig(BaseSettings):
     kite_chain_id: int = Field(alias="KITE_CHAIN_ID")
     poai_contract_address: str = Field(alias="POAI_CONTRACT_ADDRESS")
     scout_epoch_id: int = Field(default=1, alias="SCOUT_EPOCH_ID")
+    orca_api_base_url: str = Field(default="http://127.0.0.1:4000", alias="ORCA_API_BASE_URL")
+    orca_internal_api_key: str = Field(default="", alias="ORCA_INTERNAL_API_KEY")

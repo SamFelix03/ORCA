@@ -9,9 +9,12 @@ from hashlib import sha256
 from redis.asyncio import Redis
 
 from orca_common.events import RiskInstruction, RiskInstructionEvent, ScoutSignalEvent
+from orca_common.llm import GroqDeliberationClient
 from orca_common.registry_client import OrcaRegistryReader
 from orca_common.signing import DIDMessageSigner
 from orca_risk.config import RiskConfig
+from orca_risk.services.risk_context_builder import RiskContextBuilder
+from orca_risk.services.risk_llm_advisor import RiskLlmAdvisor
 from orca_scout.integrations.passport_cli import PassportCLI
 from orca_scout.integrations.x402_client import X402Client
 
@@ -50,6 +53,14 @@ class RiskRuntime:
         self._registry: OrcaRegistryReader | None = None
         if reg_addr:
             self._registry = OrcaRegistryReader(rpc_url, reg_addr)
+        groq = GroqDeliberationClient(
+            api_key=config.groq_api_key,
+            model=config.groq_model,
+            base_url=config.groq_base_url,
+            timeout_seconds=config.groq_timeout_seconds,
+        )
+        self._context_builder = RiskContextBuilder(config, self._registry)
+        self._llm_advisor = RiskLlmAdvisor(groq)
 
     async def run_forever(self) -> None:
         await self._run_startup_preflight()
@@ -103,28 +114,54 @@ class RiskRuntime:
         signal_event = ScoutSignalEvent.model_validate(payload)
         signal = signal_event.signal
 
-        policy_ok = signal.net_delta_apy > 0
+        evidence = await self._context_builder.build(signal)
+        llm_deliberation = await self._llm_advisor.deliberate(evidence)
+
+        recommended = bool(llm_deliberation.verdict.get("recommended_approved", False))
+        llm_reason = str(llm_deliberation.verdict.get("reason", llm_deliberation.verdict_summary))
+
         registry_ok = True
         if self._registry is not None:
-            registry_ok = await asyncio.to_thread(
-                self._registry.is_active_agent_for_did_string,
-                signal.scout_did,
-            )
+            registry_ok = bool(evidence.registry.get("scout_active", True))
         allow_raw = self._config.risk_scout_did_allowlist.strip()
         if allow_raw:
             allowed = {d.strip() for d in allow_raw.split(",") if d.strip()}
             allowlist_ok = signal.scout_did.strip() in allowed
         else:
             allowlist_ok = True
-        approved = policy_ok and registry_ok and allowlist_ok
+
+        pf = evidence.preflight
+        approved = (
+            recommended
+            and registry_ok
+            and allowlist_ok
+            and pf["fresh_net_delta_apy_positive"]
+            and pf["signal_net_delta_apy_positive"]
+            and pf["apy_drift_within_tolerance"]
+            and pf["markets_found_for_route"]
+            and pf["min_tvl_ok"]
+            and pf["utilization_below_cap"]
+        )
+
         if not registry_ok:
             reason = "Rejected: scout DID not active on ORCARegistry"
         elif allow_raw and not allowlist_ok:
             reason = "Rejected: scout DID not in RISK_SCOUT_DID_ALLOWLIST"
-        elif not policy_ok:
-            reason = "Rejected: non-positive delta"
+        elif not pf["markets_found_for_route"]:
+            reason = "Rejected: live market data missing for route"
+        elif not pf["signal_net_delta_apy_positive"] or not pf["fresh_net_delta_apy_positive"]:
+            reason = "Rejected: non-positive net delta (signal or fresh)"
+        elif not pf["apy_drift_within_tolerance"]:
+            reason = f"Rejected: APY drift exceeds {self._config.risk_max_apy_drift_bps} bps"
+        elif not pf["min_tvl_ok"]:
+            reason = "Rejected: TVL below minimum threshold"
+        elif not pf["utilization_below_cap"]:
+            reason = "Rejected: utilization above risk cap"
+        elif not recommended:
+            reason = f"Rejected by risk LLM: {llm_reason}"
         else:
-            reason = "Auto-approved by strict risk policy"
+            reason = f"Approved by risk LLM: {llm_reason}"
+
         instruction_id = str(uuid.uuid4())
         signature, timestamp = self._signer.sign_instruction(
             instruction_id=instruction_id,
@@ -167,6 +204,7 @@ class RiskRuntime:
             instruction=instruction,
             sourceSignalHash=source_signal_hash,
             paymentTxHash=payment_tx_hash,
+            llm_deliberation=llm_deliberation,
         )
         await self._redis.xadd(
             self._config.risk_instruction_stream_key,
@@ -174,8 +212,15 @@ class RiskRuntime:
             maxlen=10_000,
             approximate=True,
         )
-        self._logger.info("Published risk instruction signal_id=%s instruction_id=%s", signal.signal_id, instruction_id)
+        self._logger.info(
+            "Published risk instruction signal_id=%s instruction_id=%s approved=%s",
+            signal.signal_id,
+            instruction_id,
+            approved,
+        )
 
     async def close(self) -> None:
+        await self._context_builder.close()
+        await self._llm_advisor.close()
         await self._x402.close()
         await self._redis.aclose()

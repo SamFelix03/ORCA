@@ -6,8 +6,7 @@ from typing import Literal, NotRequired, TypedDict
 
 from pydantic import BaseModel, Field
 
-
-ProtocolName = Literal["aave-v3", "compound-v3", "morpho", "uniswap-v3"]
+from orca_common.models.market import ProtocolName, YieldMarket  # noqa: F401
 
 
 class YieldSignalDict(TypedDict):
@@ -46,16 +45,6 @@ class ActionType(str, Enum):
     RISK_EVAL = "RISK_EVAL"
     EXECUTION = "EXECUTION"
     AUDIT = "AUDIT"
-
-
-class YieldMarket(BaseModel):
-    chain_id: int
-    chain_name: str
-    protocol: ProtocolName
-    apy: Decimal = Field(..., ge=Decimal("0"))
-    tvl_usdc: Decimal = Field(..., ge=Decimal("0"))
-    utilization: Decimal = Field(..., ge=Decimal("0"), le=Decimal("1"))
-    timestamp: int
 
 
 class RankedOpportunity(BaseModel):

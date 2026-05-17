@@ -65,6 +65,10 @@ export interface WorkflowEventRecord {
   txHash?: string | null;
   paymentTxHash?: string | null;
   chainId?: number | null;
+  chainOfThought?: string[];
+  verdict?: unknown;
+  verdictSummary?: string;
+  llmModel?: string;
   payload: unknown;
   occurredAt: string;
 }

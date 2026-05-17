@@ -5,8 +5,11 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from orca_common.llm.settings import GroqSettingsMixin
+from orca_common.market.config import MarketDataSettingsMixin
 
-class RiskConfig(BaseSettings):
+
+class RiskConfig(GroqSettingsMixin, MarketDataSettingsMixin, BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
@@ -20,6 +23,11 @@ class RiskConfig(BaseSettings):
     kite_chain_id: int = Field(alias="KITE_CHAIN_ID")
     kite_rpc_url: str = Field(default="", alias="KITE_RPC_URL")
     orca_registry_address: str = Field(default="", alias="ORCA_REGISTRY_ADDRESS")
+
+    orca_api_base_url: str = Field(default="http://127.0.0.1:4000", alias="ORCA_API_BASE_URL")
+    orca_internal_api_key: str = Field(default="", alias="ORCA_INTERNAL_API_KEY")
+    risk_max_apy_drift_bps: int = Field(default=50, ge=0, alias="RISK_MAX_APY_DRIFT_BPS")
+    risk_max_utilization: float = Field(default=0.95, ge=0, le=1, alias="RISK_MAX_UTILIZATION")
 
     x402_service_url: str = Field(alias="X402_SERVICE_URL")
     x402_execute_path: str = Field(default="/execute", alias="X402_EXECUTE_PATH")

@@ -10,6 +10,8 @@ from pydantic import AliasChoices, BaseModel, Field, field_validator, model_vali
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from web3 import Web3
 
+from orca_common.llm.settings import GroqSettingsMixin
+
 # Mainnet chain IDs → ORCA stub deployment testnets (DefiLlama feed → execution chain).
 DEFAULT_FEED_TO_STUB_CHAIN: dict[int, int] = {
     1: 11155111,
@@ -19,7 +21,7 @@ DEFAULT_FEED_TO_STUB_CHAIN: dict[int, int] = {
 }
 
 
-class ScoutConfig(BaseSettings):
+class ScoutConfig(GroqSettingsMixin, BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     scout_did: str = Field(alias="SCOUT_DID")
@@ -94,11 +96,6 @@ class ScoutConfig(BaseSettings):
         description="Skip kpass x402 execute; emit placeholder tx hash (dev without X402_SERVICE_URL).",
     )
 
-    scout_llm_enabled: bool = Field(default=False, alias="SCOUT_LLM_ENABLED")
-    groq_api_key: str = Field(default="", alias="GROQ_API_KEY")
-    groq_model: str = Field(default="llama-3.1-8b-instant", alias="GROQ_MODEL")
-    groq_base_url: str = Field(default="https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
-    groq_timeout_seconds: float = Field(default=15.0, alias="GROQ_TIMEOUT_SECONDS")
     groq_max_candidates: int = Field(default=5, ge=1, le=20, alias="GROQ_MAX_CANDIDATES")
 
     kite_rpc_url: str = Field(alias="KITE_RPC_URL")
@@ -438,8 +435,6 @@ class ScoutConfig(BaseSettings):
                 "No allowed route pairs configured. Set SCOUT_ALLOWED_ROUTE_PAIRS, provide a valid artifact path, "
                 "or set SCOUT_DISABLE_ROUTE_FILTER=true for demo mode."
             )
-        if self.scout_llm_enabled and not self.groq_api_key.strip():
-            raise ValueError("SCOUT_LLM_ENABLED=true requires GROQ_API_KEY.")
         if self.scout_opportunity_mode == "best_stub_deposit":
             if not self.orca_stub_protocol_manifest_path.strip():
                 raise ValueError(

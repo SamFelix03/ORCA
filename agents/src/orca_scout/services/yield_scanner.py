@@ -4,7 +4,7 @@ import logging
 
 from orca_scout.integrations.goldsky_client import GoldskyClient
 from orca_scout.integrations.protocol_enrichers import UtilizationEnricher
-from orca_scout.models import YieldMarket
+from orca_common.models.market import YieldMarket
 
 
 class YieldScanner:

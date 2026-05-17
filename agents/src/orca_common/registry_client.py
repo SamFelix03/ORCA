@@ -9,7 +9,14 @@ _REGISTRY_ABI = [
         "outputs": [{"internalType": "bool", "type": "bool"}],
         "stateMutability": "view",
         "type": "function",
-    }
+    },
+    {
+        "inputs": [{"internalType": "bytes32", "name": "did", "type": "bytes32"}],
+        "name": "getVaultForAgent",
+        "outputs": [{"internalType": "address", "type": "address"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
 ]
 
 
@@ -24,3 +31,10 @@ class OrcaRegistryReader:
     def is_active_agent_for_did_string(self, did: str) -> bool:
         did_hash = Web3.keccak(text=did.strip())
         return bool(self._contract.functions.isActiveAgent(did_hash).call())
+
+    def get_vault_for_did_string(self, did: str) -> str | None:
+        did_hash = Web3.keccak(text=did.strip())
+        vault = self._contract.functions.getVaultForAgent(did_hash).call()
+        if not vault or str(vault).lower() == "0x" + "0" * 40:
+            return None
+        return Web3.to_checksum_address(vault)

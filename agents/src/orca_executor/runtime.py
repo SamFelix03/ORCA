@@ -6,12 +6,17 @@ import os
 import time
 from pathlib import Path
 
+import httpx
 from redis.asyncio import Redis
 from web3 import Web3
 
-from orca_common.events import ExecutionSettledEvent, RiskInstructionEvent
+from orca_common.events import ExecutionSettledEvent, RiskInstruction, RiskInstructionEvent
+from orca_common.internal_api import post_agent_deliberation
+from orca_common.llm import GroqDeliberationClient
+from orca_common.llm.deliberation import LlmDeliberation
 from orca_executor.config import ExecutorConfig
 from orca_executor import spoke_prep
+from orca_executor.services.executor_llm_advisor import ExecutorLlmAdvisor
 from orca_scout.integrations.passport_cli import PassportCLI
 from orca_scout.integrations.poai_client import PoAIClient
 from orca_scout.integrations.x402_client import X402Client
@@ -46,6 +51,14 @@ class ExecutorRuntime:
             contract_address=config.poai_contract_address,
             signer_private_key=config.executor_private_key,
         )
+        groq = GroqDeliberationClient(
+            api_key=config.groq_api_key,
+            model=config.groq_model,
+            base_url=config.groq_base_url,
+            timeout_seconds=config.groq_timeout_seconds,
+        )
+        self._llm_advisor = ExecutorLlmAdvisor(groq)
+        self._http = httpx.AsyncClient(timeout=15.0)
 
     async def run_forever(self) -> None:
         await self._run_startup_preflight()
@@ -104,9 +117,21 @@ class ExecutorRuntime:
             self._logger.info("Instruction %s rejected by risk agent. Skipping execution.", instruction.instruction_id)
             return
 
-        # Strict path: require execution intent and perform the vault call through configured tx relay path.
         if instruction.execution_intent is None:
             raise RuntimeError(f"Instruction {instruction.instruction_id} missing execution intent")
+
+        llm_deliberation = await self._llm_advisor.deliberate(instruction)
+        execution_path = str(llm_deliberation.verdict.get("execution_path", "abort"))
+        proceed = bool(llm_deliberation.verdict.get("proceed", False))
+        if execution_path == "abort" or not proceed:
+            await self._publish_settled(
+                instruction,
+                success=False,
+                status="llm_aborted",
+                tx_hash="0x0000000000000000000000000000000000000000000000000000000000000000",
+                llm_deliberation=llm_deliberation,
+            )
+            return
 
         intent = instruction.execution_intent
         vault_tx_hash: str | None = None
@@ -115,18 +140,11 @@ class ExecutorRuntime:
 
             from orca_executor.vault_tx import submit_contract_call, submit_vault_execute_intent
 
-            assert intent is not None
             calldata = intent.vault_execute_calldata.strip()
             kite_addr = intent.kite_stub_address.strip()
             kite_calldata = intent.kite_stub_calldata.strip()
-            is_kite_deposit = (
-                instruction.dst_chain == self._config.kite_chain_id
-                and bool(kite_addr)
-                and bool(kite_calldata)
-                and kite_calldata.lower() != "0x"
-            )
 
-            if is_kite_deposit:
+            if execution_path == "kite_deposit":
                 vault_tx_hash = submit_contract_call(
                     rpc_url=self._config.kite_rpc_url,
                     chain_id=self._config.kite_chain_id,
@@ -136,9 +154,13 @@ class ExecutorRuntime:
                     value_wei=intent.tx_value_wei,
                 )
                 self._logger.info("Executor: Kite stub deposit tx hash=%s", vault_tx_hash)
-            else:
+            elif execution_path in {"hub_bridge_then_vault", "vault_only"}:
                 dst_chain = instruction.dst_chain
-                if dst_chain != self._config.kite_chain_id and self._config.executor_auto_bridge:
+                if (
+                    execution_path == "hub_bridge_then_vault"
+                    and dst_chain != self._config.kite_chain_id
+                    and self._config.executor_auto_bridge
+                ):
                     hyp_dest = spoke_prep.CHAIN_ID_TO_HYP_DEST.get(dst_chain)
                     if not hyp_dest:
                         raise RuntimeError(
@@ -190,13 +212,16 @@ class ExecutorRuntime:
                 if not calldata or calldata.lower() == "0x":
                     raise RuntimeError("Missing execution_intent.vault_execute_calldata for vault→OApp spoke path.")
 
-                vault_tx_hash = submit_vault_execute_intent(
-                    rpc_url=self._config.kite_rpc_url,
-                    chain_id=self._config.kite_chain_id,
-                    private_key=self._config.executor_private_key,
-                    intent=intent,
-                )
-                self._logger.info("Executor: ClientAgentVault execute tx hash=%s", vault_tx_hash)
+                if execution_path in {"hub_bridge_then_vault", "vault_only"}:
+                    vault_tx_hash = submit_vault_execute_intent(
+                        rpc_url=self._config.kite_rpc_url,
+                        chain_id=self._config.kite_chain_id,
+                        private_key=self._config.executor_private_key,
+                        intent=intent,
+                    )
+                    self._logger.info("Executor: ClientAgentVault execute tx hash=%s", vault_tx_hash)
+            else:
+                raise RuntimeError(f"Unsupported LLM execution_path: {execution_path}")
 
         # Placeholder strict contract execution surface; in production this must use AA SDK/userop path.
         executor_did_hash = Web3.keccak(text=self._config.executor_agent_did.strip())
@@ -214,27 +239,48 @@ class ExecutorRuntime:
 
         tx_hash = vault_tx_hash or poai_tx_hash
 
-        payment = await self._x402.send_micropayment(
-            to_did=self._config.audit_agent_did,
-            amount_wei=self._config.x402_max_amount_required_wei,
-            network=self._config.x402_network,
-            asset_address=self._config.x402_asset_address,
-            signal_id=instruction.signal_id,
+        await self._publish_settled(
+            instruction,
+            success=True,
+            status="executed",
+            tx_hash=tx_hash,
+            llm_deliberation=llm_deliberation,
+            payment_tx_hash=payment_tx_hash,
         )
-        payment_tx_hash = str(payment.get("txHash", ""))
-        if not payment_tx_hash:
-            raise RuntimeError("Executor x402 payment succeeded without txHash; strict mode requires tx hash.")
+
+    async def _publish_settled(
+        self,
+        instruction: RiskInstruction,
+        *,
+        success: bool,
+        status: str,
+        tx_hash: str,
+        llm_deliberation: LlmDeliberation,
+        payment_tx_hash: str | None = None,
+    ) -> None:
+        if payment_tx_hash is None:
+            payment = await self._x402.send_micropayment(
+                to_did=self._config.audit_agent_did,
+                amount_wei=self._config.x402_max_amount_required_wei,
+                network=self._config.x402_network,
+                asset_address=self._config.x402_asset_address,
+                signal_id=instruction.signal_id,
+            )
+            payment_tx_hash = str(payment.get("txHash", ""))
+            if not payment_tx_hash:
+                raise RuntimeError("Executor x402 payment succeeded without txHash; strict mode requires tx hash.")
 
         settled = ExecutionSettledEvent(
             event="execution.settled",
             instruction_id=instruction.instruction_id,
             signal_id=instruction.signal_id,
             executor_did=self._config.executor_agent_did,
-            success=True,
-            status="executed",
+            success=success,
+            status=status,
             tx_hash=tx_hash,
             paymentTxHash=payment_tx_hash,
             timestamp=int(time.time()),
+            llm_deliberation=llm_deliberation,
         )
         await self._redis.xadd(
             self._config.execution_stream_key,
@@ -242,8 +288,26 @@ class ExecutorRuntime:
             maxlen=10_000,
             approximate=True,
         )
-        self._logger.info("Execution settled instruction_id=%s tx_hash=%s", instruction.instruction_id, tx_hash)
+        await post_agent_deliberation(
+            base_url=self._config.orca_api_base_url,
+            api_key=self._config.orca_internal_api_key,
+            signal_id=instruction.signal_id,
+            agent_type="executor",
+            agent_did=self._config.executor_agent_did,
+            step="executor.execution",
+            deliberation=llm_deliberation,
+            client=self._http,
+        )
+        self._logger.info(
+            "Execution settled instruction_id=%s success=%s status=%s tx_hash=%s",
+            instruction.instruction_id,
+            success,
+            status,
+            tx_hash,
+        )
 
     async def close(self) -> None:
+        await self._llm_advisor.close()
+        await self._http.aclose()
         await self._x402.close()
         await self._redis.aclose()

@@ -7,8 +7,11 @@ import process from "node:process";
 const root = process.cwd();
 const agentsDir = path.join(root, "agents");
 const venvDir = path.join(agentsDir, ".venv");
-const venvPython = path.join(venvDir, "bin", "python");
-const bootstrapPython = process.env.PYTHON_BIN ?? "python3";
+const venvPython =
+  process.platform === "win32"
+    ? path.join(venvDir, "Scripts", "python.exe")
+    : path.join(venvDir, "bin", "python");
+const bootstrapPython = process.env.PYTHON_BIN ?? (process.platform === "win32" ? "python" : "python3");
 
 function runStep(name, command, args, options = {}) {
   console.log(`[setup] ${name}`);
@@ -37,7 +40,9 @@ function ensureAgentsVenv() {
   }
 
   if (!hasAgentDependencies(venvPython)) {
-    runStep("installing agent dependencies", venvPython, ["-m", "pip", "install", "-e", agentsDir]);
+    runStep("installing agent dependencies", venvPython, ["-m", "pip", "install", "-e", ".[dev]"], {
+      cwd: agentsDir,
+    });
   }
 
   return venvPython;

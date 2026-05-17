@@ -4,12 +4,17 @@ import json
 import logging
 import time
 from hashlib import sha256
+from typing import Any
 
+import httpx
 from redis.asyncio import Redis
 from web3 import Web3
 
 from orca_audit.config import AuditConfig
+from orca_audit.services.audit_llm_advisor import AuditLlmAdvisor
 from orca_common.events import ExecutionSettledEvent, RiskInstructionEvent, ScoutSignalEvent
+from orca_common.internal_api import post_agent_deliberation
+from orca_common.llm import GroqDeliberationClient
 from orca_scout.integrations.poai_client import PoAIClient
 from orca_scout.models import ActionType, PoAIRecord
 
@@ -25,6 +30,14 @@ class AuditRuntime:
             contract_address=config.poai_contract_address,
             signer_private_key=config.audit_private_key,
         )
+        groq = GroqDeliberationClient(
+            api_key=config.groq_api_key,
+            model=config.groq_model,
+            base_url=config.groq_base_url,
+            timeout_seconds=config.groq_timeout_seconds,
+        )
+        self._llm_advisor = AuditLlmAdvisor(groq)
+        self._http = httpx.AsyncClient(timeout=15.0)
 
     async def run_forever(self) -> None:
         await self._run_startup_preflight()
@@ -65,27 +78,28 @@ class AuditRuntime:
             raise RuntimeError("Audit PoAI connectivity preflight failed.")
         self._logger.info("Audit PoAI RPC preflight OK.")
 
-    async def _record_event(self, stream_name: str, payload: dict[str, object]) -> None:
+    async def _record_event(self, stream_name: str, payload: dict[str, Any]) -> None:
         action_type = ActionType.AUDIT
-        value_delta = 1
         if stream_name == self._config.scout_signal_stream_key:
-            ScoutSignalEvent.model_validate(payload)
+            event = ScoutSignalEvent.model_validate(payload)
             action_type = ActionType.SIGNAL
-            value_delta = 10
+            signal_id = event.signal.signal_id
         elif stream_name == self._config.risk_instruction_stream_key:
-            RiskInstructionEvent.model_validate(payload)
+            event = RiskInstructionEvent.model_validate(payload)
             action_type = ActionType.RISK_EVAL
-            value_delta = 5
+            signal_id = event.instruction.signal_id
         elif stream_name == self._config.execution_stream_key:
             event = ExecutionSettledEvent.model_validate(payload)
             action_type = ActionType.EXECUTION
-            value_delta = 20 if event.success else -20
+            signal_id = event.signal_id
         else:
             raise RuntimeError(f"Audit received unknown stream: {stream_name}")
 
+        deliberation = await self._llm_advisor.deliberate(stream_name, payload)
+        value_delta = int(deliberation.verdict.get("value_delta", 5))
+
         payload_bytes = json.dumps(payload, sort_keys=True).encode("utf-8")
         digest = sha256(payload_bytes).digest()
-        # PoAI/ORCA DID convention is keccak256(utf8 DID string).
         did_hash = Web3.keccak(text=self._config.audit_did.strip())
         tx_hash = self._poai.record_signal_action(
             self._config.scout_epoch_id,
@@ -98,7 +112,31 @@ class AuditRuntime:
                 timestamp=int(time.time()),
             ),
         )
-        self._logger.info("Audit recorded PoAI action=%s stream=%s tx=%s", action_type.value, stream_name, tx_hash)
+        step = {
+            ActionType.SIGNAL: "audit.signal",
+            ActionType.RISK_EVAL: "audit.risk",
+            ActionType.EXECUTION: "audit.execution",
+        }.get(action_type, "audit.attribution")
+        await post_agent_deliberation(
+            base_url=self._config.orca_api_base_url,
+            api_key=self._config.orca_internal_api_key,
+            signal_id=signal_id,
+            agent_type="audit",
+            agent_did=self._config.audit_did,
+            step=step,
+            deliberation=deliberation,
+            client=self._http,
+        )
+        self._logger.info(
+            "Audit recorded PoAI action=%s stream=%s tx=%s value_delta=%s summary=%s",
+            action_type.value,
+            stream_name,
+            tx_hash,
+            value_delta,
+            deliberation.verdict_summary,
+        )
 
     async def close(self) -> None:
+        await self._llm_advisor.close()
+        await self._http.aclose()
         await self._redis.aclose()

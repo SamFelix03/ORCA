@@ -4,6 +4,11 @@ import { Prisma } from "@prisma/client";
 import { createExecutionRecord } from "../repositories/orca.js";
 import { prisma } from "../db/prisma.js";
 import { broadcast } from "../ws/gateway.js";
+import {
+  deliberationToWorkflowFields,
+  parseLlmDeliberation,
+  persistAgentDeliberation,
+} from "./llm-deliberation.js";
 
 const SIGNAL_STREAM = process.env.SCOUT_REDIS_STREAM_KEY ?? "orca:signals:scout";
 const INSTRUCTION_STREAM = process.env.RISK_INSTRUCTION_STREAM_KEY ?? "orca:instructions:risk";
@@ -67,7 +72,20 @@ async function createWorkflowEvent(params: {
   paymentTxHash?: string | null;
   chainId?: number | null;
   payload: StreamPayload;
+  deliberationStep?: string;
 }) {
+  const deliberation = parseLlmDeliberation(params.payload);
+  const llmFields = deliberation ? deliberationToWorkflowFields(deliberation) : {};
+  const summary = llmFields.verdictSummary ?? params.summary;
+  if (deliberation && params.agentType && params.deliberationStep) {
+    await persistAgentDeliberation({
+      signalId: params.signalId,
+      agentType: params.agentType as "scout" | "risk" | "executor" | "audit",
+      agentDid: params.agentDid,
+      step: params.deliberationStep,
+      deliberation,
+    }).catch(() => undefined);
+  }
   await prisma.workflowEvent.upsert({
     where: { stream_streamEventId: { stream: params.stream, streamEventId: params.streamEventId } },
     update: {
@@ -76,10 +94,14 @@ async function createWorkflowEvent(params: {
       agentDid: params.agentDid,
       agentType: params.agentType,
       title: params.title,
-      summary: params.summary,
+      summary,
       txHash: params.txHash,
       paymentTxHash: params.paymentTxHash,
       chainId: params.chainId,
+      chainOfThought: llmFields.chainOfThought,
+      verdict: llmFields.verdict,
+      verdictSummary: llmFields.verdictSummary,
+      llmModel: llmFields.llmModel,
       payload: jsonValue(params.payload),
     },
     create: {
@@ -90,10 +112,14 @@ async function createWorkflowEvent(params: {
       agentDid: params.agentDid,
       agentType: params.agentType,
       title: params.title,
-      summary: params.summary,
+      summary,
       txHash: params.txHash,
       paymentTxHash: params.paymentTxHash,
       chainId: params.chainId,
+      chainOfThought: llmFields.chainOfThought,
+      verdict: llmFields.verdict,
+      verdictSummary: llmFields.verdictSummary,
+      llmModel: llmFields.llmModel,
       payload: jsonValue(params.payload),
     },
   });
@@ -184,6 +210,7 @@ async function handleScoutSignal(stream: string, id: string, payload: StreamPayl
     payload,
   });
 
+  const deliberation = parseLlmDeliberation(payload);
   await createWorkflowEvent({
     stream,
     streamEventId: id,
@@ -192,10 +219,14 @@ async function handleScoutSignal(stream: string, id: string, payload: StreamPayl
     agentDid: scoutDid,
     agentType: "scout",
     title: "Scout found opportunity",
-    summary: `${asString(signal.src_protocol)} -> ${asString(signal.dst_protocol)} with ${asString(signal.net_delta_apy)}% net delta`,
+    summary:
+      deliberation?.verdict_summary ??
+      deliberation?.verdictSummary ??
+      `${asString(signal.src_protocol)} -> ${asString(signal.dst_protocol)} with ${asString(signal.net_delta_apy)}% net delta`,
     paymentTxHash,
     chainId: asNumber(signal.dst_chain),
     payload,
+    deliberationStep: "scout.selection",
   });
 
   broadcast({
@@ -281,6 +312,7 @@ async function handleRiskInstruction(stream: string, id: string, payload: Stream
     summary: reason,
     paymentTxHash,
     payload,
+    deliberationStep: "risk.approval",
   });
 }
 
@@ -326,6 +358,7 @@ async function handleExecution(stream: string, id: string, payload: StreamPayloa
     txHash,
     paymentTxHash,
     payload,
+    deliberationStep: "executor.execution",
   });
 
   broadcast({

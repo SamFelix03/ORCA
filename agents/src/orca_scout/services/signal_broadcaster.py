@@ -6,6 +6,7 @@ from hashlib import sha256
 from redis.asyncio import Redis
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from orca_common.llm.deliberation import LlmDeliberation
 from orca_scout.integrations.x402_client import X402Client
 from orca_scout.models import YieldSignal
 
@@ -29,7 +30,7 @@ class SignalBroadcaster:
         self._x402_asset_address = x402_asset_address
         self._x402_max_amount_required_wei = x402_max_amount_required_wei
 
-    async def broadcast(self, signal: YieldSignal) -> tuple[str, str]:
+    async def broadcast(self, signal: YieldSignal, llm_deliberation: LlmDeliberation) -> tuple[str, str]:
         payment = await self._x402_client.send_micropayment(
             to_did=self._risk_agent_did,
             amount_wei=self._x402_max_amount_required_wei,
@@ -44,6 +45,7 @@ class SignalBroadcaster:
             "event": "scout.signal.created",
             "signal": signal_wire,
             "paymentTxHash": payment_tx,
+            "llm_deliberation": llm_deliberation.model_dump(),
         }
         event_id = await self._write_event(event_payload)
 

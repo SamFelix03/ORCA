@@ -9,6 +9,9 @@
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "test": "tsx --test src/workers/llm-deliberation.test.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:remove-mock": "tsx src/db/remove-mock-data.ts"
   },

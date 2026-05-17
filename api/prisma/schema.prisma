@@ -146,6 +146,10 @@ model WorkflowEvent {
   txHash         String?
   paymentTxHash  String?
   chainId        Int?
+  chainOfThought Json?
+  verdict        Json?
+  verdictSummary String?
+  llmModel       String?
   payload        Json
   occurredAt     DateTime @default(now())
   createdAt      DateTime @default(now())
@@ -155,6 +159,22 @@ model WorkflowEvent {
   @@index([agentDid])
   @@index([txHash])
   @@index([paymentTxHash])
+}
+
+model AgentDeliberation {
+  id             String    @id @default(cuid())
+  signalId       String?
+  agentType      AgentType
+  agentDid       String?
+  step           String
+  llmModel       String
+  chainOfThought Json
+  verdict        Json
+  verdictSummary String
+  rawContent     String?   @db.Text
+  createdAt      DateTime  @default(now())
+
+  @@index([signalId, agentType])
 }
 
 model X402Payment {
