@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { useState } from "react";
+import { Icon } from "@/components/ui/icon";
 import { SidebarNav } from "./sidebar-nav";
 import { TopHeader } from "./top-header";
 
@@ -46,7 +48,7 @@ export function OrcaShell({ children }: { children: React.ReactNode }) {
                 aria-label="Close navigation"
                 onClick={() => setMobileOpen(false)}
               >
-                x
+                <Icon icon={Cancel01Icon} size={16} />
               </button>
             </div>
             <SidebarNav onNavigate={() => setMobileOpen(false)} />

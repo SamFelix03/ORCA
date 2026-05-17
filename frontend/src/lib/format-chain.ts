@@ -43,6 +43,25 @@ export function formatTokenAmountRaw(
   return trimmed ? `${whole}.${trimmed}` : whole;
 }
 
+function formatFixedTokenAmountRaw(
+  value: bigint | string | number | null | undefined,
+  decimals: number,
+  fractionDigits: number,
+): string {
+  if (value === null || value === undefined || value === "") return "--";
+  const raw = typeof value === "bigint" ? value : BigInt(typeof value === "number" ? Math.trunc(value).toString() : value);
+  const base = BigInt(10) ** BigInt(decimals);
+  const displayBase = BigInt(10) ** BigInt(fractionDigits);
+  const rounded = (raw * displayBase + base / BigInt(2)) / base;
+  const whole = rounded / displayBase;
+  const fraction = (rounded % displayBase).toString().padStart(fractionDigits, "0");
+  return fractionDigits > 0 ? `${whole.toString()}.${fraction}` : whole.toString();
+}
+
+export function formatTokenBalanceAmountRaw(value: bigint | string | number | null | undefined, decimals = 18): string {
+  return formatFixedTokenAmountRaw(value, decimals, 3);
+}
+
 export function formatPieUsdPaymentAmountRaw(value: bigint | string | number | null | undefined): string {
   return formatTokenAmountRaw(value, PIEUSD_PAYMENT_DECIMALS, PIEUSD_PAYMENT_DECIMALS);
 }

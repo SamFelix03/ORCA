@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { orcaApi } from "@/lib/api";
-import { formatTokenAmountRaw, formatTokenNumber } from "@/lib/format-chain";
+import { formatTokenBalanceAmountRaw, formatTokenNumber } from "@/lib/format-chain";
 import { useOrcaResource } from "./use-orca-resource";
 
 export function TreasuryPage() {
@@ -47,7 +47,7 @@ export function TreasuryPage() {
             <div key={item.address} className="rounded border border-black/10 bg-[#fffaf0] p-3">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-black">{item.symbol}</span>
-                <span>{formatTokenAmountRaw(item.raw, item.decimals)} {item.symbol}</span>
+                <span>{formatTokenBalanceAmountRaw(item.raw, item.decimals)} {item.symbol}</span>
               </div>
               <p className="mt-2 break-all font-mono text-xs text-[#5c564c]">{item.address}</p>
             </div>

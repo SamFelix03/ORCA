@@ -1,8 +1,10 @@
 "use client";
 
 import type { VaultHoldingRecord } from "@orca/shared";
+import { ArrowUpRight01Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import type React from "react";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { TxLink } from "@/components/ui/tx-link";
 import { explorerAddressUrl, formatTokenAmountRaw } from "@/lib/format-chain";
 
@@ -32,7 +34,7 @@ export function VaultHoldingCard({
             className="inline-flex h-7 items-center gap-1 rounded border border-black/15 bg-[#fffdf8] px-2 text-[11px] font-semibold text-black hover:bg-black hover:text-[#fffaf0]"
           >
             <span>View vault</span>
-            <span aria-hidden="true">↗</span>
+            <Icon icon={ArrowUpRight01Icon} size={11} />
           </a>
           {holding.sourceTxHash ? (
             <TxLink txHash={holding.sourceTxHash} chainId={holding.chainId} className="text-[11px]" />
@@ -64,9 +66,7 @@ export function ReloadButton({
       className="bg-black px-3 text-[#fffaf0] hover:bg-[#2a2a2a] disabled:opacity-50"
       title="Reload holdings"
     >
-      <span aria-hidden="true" className={busy ? "inline-block animate-spin" : undefined}>
-        ↻
-      </span>
+      <Icon icon={RefreshIcon} size={13} className={busy ? "animate-spin" : undefined} />
       <span className="ml-1">{busy ? "reloading" : "reload"}</span>
     </Button>
   );
