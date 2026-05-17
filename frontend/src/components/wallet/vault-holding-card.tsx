@@ -31,10 +31,10 @@ export function VaultHoldingCard({
             href={explorerAddressUrl(holding.chainId, holding.vaultAddress)}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-7 items-center gap-1 rounded border border-black/15 bg-[#fffdf8] px-2 text-[11px] font-semibold text-black hover:bg-black hover:text-[#fffaf0]"
+            className="group inline-flex h-7 items-center gap-1 rounded border border-black/15 bg-[#fffdf8] px-2 text-[11px] font-semibold text-black hover:bg-black"
           >
-            <span>View vault</span>
-            <Icon icon={ArrowUpRight01Icon} size={11} />
+            <span className="group-hover:text-[#fffaf0]">View vault</span>
+            <Icon icon={ArrowUpRight01Icon} size={11} className="group-hover:text-[#fffaf0]" />
           </a>
           {holding.sourceTxHash ? (
             <TxLink txHash={holding.sourceTxHash} chainId={holding.chainId} className="text-[11px]" />
