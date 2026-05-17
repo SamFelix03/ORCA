@@ -308,3 +308,73 @@ def run_hub_to_dest_bridge(
     except json.JSONDecodeError:
         return None
     return parsed if isinstance(parsed, dict) else None
+
+
+_STUB_SYNC_ABI = [
+    {
+        "name": "syncWarpedDeposit",
+        "type": "function",
+        "stateMutability": "nonpayable",
+        "inputs": [],
+        "outputs": [],
+    }
+]
+
+
+def resolve_destination_stub_address(intent_to_protocol: str) -> str:
+    """`execution_intent.to_protocol` is the stub vault contract on the destination chain."""
+    addr = intent_to_protocol.strip()
+    if not addr or not Web3.is_address(addr):
+        raise ValueError(f"Invalid destination stub address in execution_intent.to_protocol: {addr!r}")
+    return Web3.to_checksum_address(addr)
+
+
+def sync_warped_deposit_stub(
+    *,
+    rpc_url: str,
+    chain_id: int,
+    private_key: str,
+    stub_address: str,
+    logger: logging.Logger,
+) -> str | None:
+    """
+    After Hyperlane warp delivers USDT to the stub contract, credit principal on the vault itself.
+    Returns tx hash or None if nothing to sync.
+    """
+    w3 = web3_for_http_rpc(rpc_url, chain_id=chain_id)
+    signer = w3.eth.account.from_key(private_key)
+    stub = Web3.to_checksum_address(stub_address)
+    c = w3.eth.contract(address=stub, abi=_STUB_SYNC_ABI)
+
+    def _build_tx(nonce: int) -> dict:
+        return c.functions.syncWarpedDeposit().build_transaction(
+            {
+                "from": signer.address,
+                "chainId": chain_id,
+                "nonce": nonce,
+                "maxFeePerGas": w3.to_wei("2", "gwei"),
+                "maxPriorityFeePerGas": w3.to_wei("1", "gwei"),
+            }
+        )
+
+    try:
+        tx_hash, receipt = send_with_nonce_retry(
+            w3=w3,
+            signer=signer,
+            build_tx=_build_tx,
+            estimate_gas_if_missing=True,
+            wait_for_receipt=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        msg = str(exc).lower()
+        if "nothing to sync" in msg or "revert" in msg:
+            logger.info("Executor: syncWarpedDeposit skipped on %s (%s)", stub, exc)
+            return None
+        raise
+
+    if receipt is None:
+        return tx_hash
+    h = receipt["transactionHash"]
+    out = h.hex() if hasattr(h, "hex") else str(h)
+    logger.info("Executor: syncWarpedDeposit stub=%s tx=%s", stub, out)
+    return out

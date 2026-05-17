@@ -56,8 +56,18 @@ function main(): void {
   fs.writeFileSync(stubsPath, JSON.stringify(stubs, null, 2) + "\n");
   // eslint-disable-next-line no-console -- CLI
   console.log("Updated", manifestPath, "and", stubsPath);
+  const stubRecipients: string[] = [];
+  for (const cid of Object.keys(stubs.stubsByChainId)) {
+    for (const addr of Object.values(stubs.stubsByChainId[cid] ?? {})) {
+      stubRecipients.push(addr);
+    }
+  }
+  const relayerExtra = stubRecipients.join(",");
+
   // eslint-disable-next-line no-console -- CLI
   console.log("HYP_TRUSTED_REMOTES=" + trustedRemotes);
+  // eslint-disable-next-line no-console -- CLI
+  console.log("RELAYER_EXTRA_RECIPIENTS=" + relayerExtra);
   // eslint-disable-next-line no-console -- CLI
   console.log(`HYP_TRUSTED_SENDERS=2368:${manifest.orcaOAppKite2368}`);
   // eslint-disable-next-line no-console -- CLI

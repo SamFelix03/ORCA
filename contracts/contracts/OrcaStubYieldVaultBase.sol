@@ -14,6 +14,8 @@ contract OrcaStubYieldVaultBase is Ownable, ReentrancyGuard {
     mapping(address => uint256) public principalOf;
     mapping(address => uint256) public lastAccrualTs;
     uint256 public rewardReserve;
+    /// @notice Underlying balance already credited to `principalOf` (warp direct-to-stub uses `syncWarpedDeposit`).
+    uint256 public accountedUnderlying;
 
     event Deposited(address indexed from, address indexed beneficiary, uint256 amount);
     event Withdrawn(address indexed user, uint256 principal, uint256 yieldPaid, uint256 total);
@@ -48,6 +50,18 @@ contract OrcaStubYieldVaultBase is Ownable, ReentrancyGuard {
     function depositFor(address beneficiary, uint256 amount) external nonReentrant {
         require(beneficiary != address(0), "OrcaStub: zero beneficiary");
         _depositFrom(msg.sender, beneficiary, amount);
+    }
+
+    /// @notice Credit `underlying` already transferred to this contract (e.g. Hyperlane warp `recipient = address(this)`).
+    /// Position is recorded on the vault itself — no external beneficiary pull.
+    function syncWarpedDeposit() external nonReentrant {
+        uint256 bal = underlying.balanceOf(address(this));
+        require(bal > accountedUnderlying, "OrcaStub: nothing to sync");
+        uint256 amount = bal - accountedUnderlying;
+        accountedUnderlying = bal;
+        principalOf[address(this)] += amount;
+        lastAccrualTs[address(this)] = block.timestamp;
+        emit Deposited(msg.sender, address(this), amount);
     }
 
     function _depositFrom(address from, address beneficiary, uint256 amount) internal {

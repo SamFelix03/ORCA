@@ -188,47 +188,54 @@ class ExecutorRuntime:
                     }
                 )
                 self._logger.info("Executor: Kite stub deposit tx hash=%s", vault_tx_hash)
-            elif execution_path in {"hub_bridge_then_vault", "vault_only"}:
+            elif execution_path in {"warp_to_stub", "hub_bridge_then_vault", "vault_only"}:
                 dst_chain = instruction.dst_chain
-                if (
-                    execution_path == "hub_bridge_then_vault"
-                    and dst_chain != self._config.kite_chain_id
-                    and self._config.executor_auto_bridge
-                ):
+                legacy_paths = execution_path in {"hub_bridge_then_vault", "vault_only"}
+                use_warp = self._config.executor_cross_chain_mode == "warp_to_stub" or (
+                    legacy_paths and self._config.executor_cross_chain_mode != "mailbox_oapp"
+                )
+
+                if use_warp:
+                    if dst_chain == self._config.kite_chain_id:
+                        raise RuntimeError("warp_to_stub requires a spoke dst_chain, not Kite hub.")
                     hyp_dest = spoke_prep.CHAIN_ID_TO_HYP_DEST.get(dst_chain)
                     if not hyp_dest:
                         raise RuntimeError(
-                            f"EXECUTOR_AUTO_BRIDGE requires a Hyperlane dest key for chain {dst_chain}; extend CHAIN_ID_TO_HYP_DEST."
+                            f"warp_to_stub requires Hyperlane dest key for chain {dst_chain}; extend CHAIN_ID_TO_HYP_DEST."
                         )
-                    recipient = self._config.cross_chain_beneficiary_address.strip()
-                    if not recipient:
-                        recipient = Account.from_key(self._config.executor_private_key).address
+                    stub_addr = spoke_prep.resolve_destination_stub_address(intent.to_protocol)
                     contracts = Path(self._config.contracts_dir).expanduser()
                     if not contracts.is_absolute():
                         contracts = (Path.cwd() / contracts).resolve()
+                    self._logger.info(
+                        "Executor: warp_to_stub chainId=%s stub=%s amount=%s",
+                        dst_chain,
+                        stub_addr,
+                        instruction.suggested_amount,
+                    )
                     bridge_result = spoke_prep.run_hub_to_dest_bridge(
                         contracts_dir=contracts,
                         hyp_dest=hyp_dest,
                         amount=instruction.suggested_amount,
-                        recipient=recipient,
+                        recipient=stub_addr,
                         snapshot_path=self._config.hyperlane_snapshot_path,
                         warp_asset=self._config.hyperlane_warp_asset,
                         logger=self._logger,
                     )
-                    if bridge_result and bridge_result.get("txHash"):
+                    vault_tx_hash = str((bridge_result or {}).get("txHash", "")) or None
+                    if vault_tx_hash:
                         related_txs.append(
                             {
-                                "kind": "executor.hyperlane_dispatch",
-                                "label": "Executor Hyperlane dispatch",
-                                "txHash": str(bridge_result["txHash"]),
+                                "kind": "executor.hyperlane_warp",
+                                "label": "Hyperlane warp hub→stub (USDT to destination stub)",
+                                "txHash": vault_tx_hash,
                                 "chainId": self._config.kite_chain_id,
-                                "destinationDomain": bridge_result.get("destinationDomain"),
-                                "destination": bridge_result.get("destKey"),
+                                "destinationChainId": dst_chain,
+                                "stubAddress": stub_addr,
                             }
                         )
                     time.sleep(self._config.bridge_wait_seconds)
 
-                if dst_chain != self._config.kite_chain_id:
                     rpc_map_raw = self._config.executor_stub_chain_rpc_map.strip()
                     if not rpc_map_raw:
                         rpc_map_raw = os.environ.get("SCOUT_STUB_CHAIN_RPC_MAP", "").strip()
@@ -236,58 +243,113 @@ class ExecutorRuntime:
                     rpc = rpc_map.get(dst_chain)
                     if not rpc:
                         raise RuntimeError(
-                            f"Spoke execution requires EXECUTOR_STUB_CHAIN_RPC_MAP or SCOUT_STUB_CHAIN_RPC_MAP "
-                            f"with chainId {dst_chain} (e.g. 11155111:https://ethereum-sepolia.publicnode.com,...)"
+                            f"warp_to_stub requires SCOUT_STUB_CHAIN_RPC_MAP with chainId {dst_chain}"
                         )
-                    self._logger.info(
-                        "Executor: spoke prep chainId=%s rpc=%s execution_path=%s",
-                        dst_chain,
-                        rpc,
-                        execution_path,
-                    )
-                    manifest_path = spoke_prep.resolve_collateral_manifest_path(
-                        self._config.collateral_manifest_path
-                    )
-                    manifest = spoke_prep.load_collateral_manifest(manifest_path)
-                    token, adapter = spoke_prep.spoke_collateral_and_adapter(manifest, dst_chain)
-                    from eth_account import Account
-
-                    signer_address = Account.from_key(self._config.executor_private_key).address
-                    beneficiary = spoke_prep.resolve_spoke_beneficiary(
-                        oapp_calldata=intent.oapp_calldata,
-                        config_beneficiary=self._config.cross_chain_beneficiary_address,
-                        signer_address=signer_address,
-                    )
-                    spoke_prep.assert_spoke_beneficiary_can_approve(
-                        beneficiary=beneficiary,
-                        signer_address=signer_address,
-                        vault_address=intent.vault_address,
-                        logger=self._logger,
-                    )
-                    approve_tx_hash = spoke_prep.ensure_erc20_allowance(
+                    sync_tx = spoke_prep.sync_warped_deposit_stub(
                         rpc_url=rpc,
                         chain_id=dst_chain,
                         private_key=self._config.executor_private_key,
-                        token=token,
-                        spender=adapter,
-                        min_amount=intent.amount_for_rule,
+                        stub_address=stub_addr,
                         logger=self._logger,
-                        owner=beneficiary,
                     )
-                    if approve_tx_hash:
+                    if sync_tx:
                         related_txs.append(
                             {
-                                "kind": "executor.spoke_approval",
-                                "label": "Executor spoke token approval",
-                                "txHash": approve_tx_hash,
+                                "kind": "executor.stub_sync_warp",
+                                "label": "Stub syncWarpedDeposit (credit warped USDT)",
+                                "txHash": sync_tx,
                                 "chainId": dst_chain,
+                                "stubAddress": stub_addr,
                             }
                         )
+                else:
+                    if (
+                        execution_path == "hub_bridge_then_vault"
+                        and dst_chain != self._config.kite_chain_id
+                        and self._config.executor_auto_bridge
+                    ):
+                        hyp_dest = spoke_prep.CHAIN_ID_TO_HYP_DEST.get(dst_chain)
+                        if not hyp_dest:
+                            raise RuntimeError(
+                                f"EXECUTOR_AUTO_BRIDGE requires a Hyperlane dest key for chain {dst_chain}; "
+                                "extend CHAIN_ID_TO_HYP_DEST."
+                            )
+                        recipient = self._config.cross_chain_beneficiary_address.strip()
+                        if not recipient:
+                            recipient = Account.from_key(self._config.executor_private_key).address
+                        contracts = Path(self._config.contracts_dir).expanduser()
+                        if not contracts.is_absolute():
+                            contracts = (Path.cwd() / contracts).resolve()
+                        bridge_result = spoke_prep.run_hub_to_dest_bridge(
+                            contracts_dir=contracts,
+                            hyp_dest=hyp_dest,
+                            amount=instruction.suggested_amount,
+                            recipient=recipient,
+                            snapshot_path=self._config.hyperlane_snapshot_path,
+                            warp_asset=self._config.hyperlane_warp_asset,
+                            logger=self._logger,
+                        )
+                        if bridge_result and bridge_result.get("txHash"):
+                            related_txs.append(
+                                {
+                                    "kind": "executor.hyperlane_warp",
+                                    "label": "Hyperlane warp hub→beneficiary (legacy)",
+                                    "txHash": str(bridge_result["txHash"]),
+                                    "chainId": self._config.kite_chain_id,
+                                }
+                            )
+                        time.sleep(self._config.bridge_wait_seconds)
 
-                if not calldata or calldata.lower() == "0x":
-                    raise RuntimeError("Missing execution_intent.vault_execute_calldata for vault→OApp spoke path.")
+                    if dst_chain != self._config.kite_chain_id:
+                        rpc_map_raw = self._config.executor_stub_chain_rpc_map.strip()
+                        if not rpc_map_raw:
+                            rpc_map_raw = os.environ.get("SCOUT_STUB_CHAIN_RPC_MAP", "").strip()
+                        rpc_map = spoke_prep.parse_chain_rpc_map(rpc_map_raw)
+                        rpc = rpc_map.get(dst_chain)
+                        if not rpc:
+                            raise RuntimeError(
+                                f"mailbox_oapp requires SCOUT_STUB_CHAIN_RPC_MAP with chainId {dst_chain}"
+                            )
+                        manifest_path = spoke_prep.resolve_collateral_manifest_path(
+                            self._config.collateral_manifest_path
+                        )
+                        manifest = spoke_prep.load_collateral_manifest(manifest_path)
+                        token, adapter = spoke_prep.spoke_collateral_and_adapter(manifest, dst_chain)
+                        signer_address = Account.from_key(self._config.executor_private_key).address
+                        beneficiary = spoke_prep.resolve_spoke_beneficiary(
+                            oapp_calldata=intent.oapp_calldata,
+                            config_beneficiary=self._config.cross_chain_beneficiary_address,
+                            signer_address=signer_address,
+                        )
+                        spoke_prep.assert_spoke_beneficiary_can_approve(
+                            beneficiary=beneficiary,
+                            signer_address=signer_address,
+                            vault_address=intent.vault_address,
+                            logger=self._logger,
+                        )
+                        approve_tx_hash = spoke_prep.ensure_erc20_allowance(
+                            rpc_url=rpc,
+                            chain_id=dst_chain,
+                            private_key=self._config.executor_private_key,
+                            token=token,
+                            spender=adapter,
+                            min_amount=intent.amount_for_rule,
+                            logger=self._logger,
+                            owner=beneficiary,
+                        )
+                        if approve_tx_hash:
+                            related_txs.append(
+                                {
+                                    "kind": "executor.spoke_approval",
+                                    "label": "Executor spoke token approval",
+                                    "txHash": approve_tx_hash,
+                                    "chainId": dst_chain,
+                                }
+                            )
 
-                if execution_path in {"hub_bridge_then_vault", "vault_only"}:
+                    if not calldata or calldata.lower() == "0x":
+                        raise RuntimeError("Missing execution_intent.vault_execute_calldata for mailbox OApp path.")
+
                     vault_tx_hash = submit_vault_execute_intent(
                         rpc_url=self._config.kite_rpc_url,
                         chain_id=self._config.kite_chain_id,
@@ -297,7 +359,7 @@ class ExecutorRuntime:
                     related_txs.append(
                         {
                             "kind": "executor.vault_execute",
-                            "label": "Executor ClientAgentVault execute",
+                            "label": "Executor ClientAgentVault execute (OApp dispatch)",
                             "txHash": vault_tx_hash,
                             "chainId": self._config.kite_chain_id,
                         }

@@ -64,7 +64,15 @@ class ExecutorConfig(GroqSettingsMixin, BaseSettings):
     executor_auto_bridge: bool = Field(
         default=False,
         alias="EXECUTOR_AUTO_BRIDGE",
-        description="If true and dst is a spoke, run contracts/scripts/hyperlane/transfer-hub-to-dest before vault tx.",
+        description="Legacy mailbox_oapp mode: warp before vault.execute when true.",
+    )
+    executor_cross_chain_mode: Literal["warp_to_stub", "mailbox_oapp"] = Field(
+        default="warp_to_stub",
+        alias="EXECUTOR_CROSS_CHAIN_MODE",
+        description=(
+            "warp_to_stub: Hyperlane warp Kite USDT → destination stub (intent.to_protocol); "
+            "no RemoteAdapter beneficiary pull. mailbox_oapp: legacy OApp dispatch + spoke approve."
+        ),
     )
     hyperlane_snapshot_path: str = Field(
         default="",
