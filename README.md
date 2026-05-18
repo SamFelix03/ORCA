@@ -24,6 +24,11 @@ We **extended Kite to Hyperlane**. Hyperlane was **not available for Kite** out 
 
 > **Funding ask:** We believe deeply in this idea — it solves a real coordination problem we face managing cross-chain USD ourselves. **Mainnet deployment, real-protocol integrations, and production hardening require funded testnet→mainnet cycles.** If you can support grants or sponsorship for real-fund testing and mainnet launch, we would put every dollar toward audited contracts, validator ISMs, and 24/7 relayer ops.
 
+## Run locally
+
+To set up and run the **full stack** (Postgres, Redis, API, frontend, x402 provider, and all four agents on Kite testnet), use the step-by-step guide in **[setup.md](setup.md)**.
+
+That document covers prerequisites, `.env` and JSON config files, `pnpm db:setup` and per-service commands
 ## Deployed Contracts (Kite Testnet)
 
 Kite testnet (chain ID **2368**) has **13 ORCA-authored contracts** plus **Hyperlane protocol contracts** we deployed so Kite could bridge and message. Spoke chains (four Sepolia-family networks) each have **7 ORCA contracts** (NoopISM, RemoteAdapter, four stubs, synthetic USDT via warp) — see [Hyperlane Integration](#hyperlane-integration--architecture-and-innovation).
@@ -61,6 +66,7 @@ Used for hub-local `kite_deposit` execution and Scout ranking on Kite. Demo APY 
 ## Table of Contents
 
 - [Executive Summary](#executive-summary)
+- [Run locally](#run-locally)
 - [Introduction](#introduction)
 - [The Problem We Solve](#the-problem-we-solve)
 - [Example User: Maya and the Yield Gap](#example-user-maya-and-the-yield-gap)

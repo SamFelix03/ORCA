@@ -326,3 +326,175 @@ python -m pytest tests -q
 Full agent checklist: `agents/README.md` (execution intents, `best_stub_deposit` mode, marketplace binding).
 
 ---
+
+## 9. Bring your own Scout agent (marketplace + UI)
+
+> **Work in progress:** The permissionless Scout Marketplace is **implemented but still early**. Listing, purchasing, Redis binding, and creator-side subscriber mode work on testnet, but the flow is **operator-heavy** (many wallet steps, manual `.env` wiring, no hosted scout runtime). We are actively improving the marketplace UX
+
+There are two different goals:
+
+| Goal | What you do |
+|------|-------------|
+| **Run your own Scout locally** | Use your Passport DID and keys in `agents/.env` and run the four-agent stack (sections 1–8). No marketplace required. |
+| **Sell or buy Scout access on the marketplace** | Register on-chain via the UI, or **purchase** someone else’s listing and pipe their signals into **your** Risk → Executor → Audit pipeline. |
+
+The UI lives at **`http://localhost:3001/marketplace`** (sidebar: **Marketplace**). On-chain actions require a **real Privy wallet** with Kite testnet gas and tokens — **demo mode can browse listings but cannot register or buy**.
+
+### Prerequisites (marketplace flows)
+
+Complete sections **1–8** first:
+
+- API (`pnpm dev:api`), frontend (`pnpm dev:frontend`), Postgres/Redis, x402 provider (unless `X402_DRY_RUN=true`)
+- `api/.env` with `KITE_RPC_URL` (purchase tx verification) and marketplace fields from `api/config/orca.api.json` (`PIEUSD_TOKEN_ADDRESS`, `scoutStakeToken`, etc.)
+- Prisma migrated so `ScoutMarketplace` and `ScoutPurchase` tables exist
+
+**Wallets and tokens:**
+
+- **Register (creator):** Privy wallet on Kite testnet + **stake token** balance and approval for `ORCARegistry.registerPermissionlessScout` (stake token address comes from the API registration challenge — see `scoutStakeToken` in `orca.api.json`, typically the testnet stake ERC-20, not PIEUSD).
+- **Buy (consumer):** Privy wallet with **PIEUSD** on Kite for the listing price (default **1 PIEUSD** = `1_000_000` base units unless the API quote differs).
+
+---
+
+### List **your** Scout on the marketplace (creator)
+
+Use this when you want **others** to pay for access to **your** signals and run **their** Risk / Executor / Audit against your stream.
+
+#### 1. Align Passport and agent runtime
+
+1. Create a **unique** Scout DID in Passport (e.g. `did:kite:orca/my-scout-1`).
+2. Generate or import an EOA; set in `agents/.env`:
+   - `SCOUT_DID=<your listing DID>`
+   - `SCOUT_PRIVATE_KEY=0x...` (that scout’s key only)
+3. Keep `REDIS_URL` in `.env` for **local** Scout preflight (your machine’s Redis). Buyer signals will go to **their** Redis after purchase binding (below).
+4. Install deps and run Scout only when you have a buyer (section B.4).
+
+#### 2. Register in the UI
+
+1. Open **`http://localhost:3001`** and **sign in with Privy** (not demo mode).
+2. Go to **Marketplace** → click **Register your scout**.
+3. Fill the modal:
+   - **Scout DID** — must match `SCOUT_DID` in your agent `.env`.
+   - **Vault address** — `ClientAgentVault` or vault you use for this scout (default hub vault from `agents/config/orca.agents.json` → `deployments.clientAgentVault`, e.g. `0x1bcdcf2acc93d01F7F66010BE7B5a647A7cfC40f`).
+   - **Stake (USDC units)** — bond size shown in the form; must meet on-chain `minScoutBond` on `ORCARegistry`.
+4. Click **Register on-chain**. The app will:
+   - Request an EIP-712 challenge from the API (`POST /scouts/register/challenge`).
+   - Ask your wallet to **sign** the attest message.
+   - **Approve** the stake token for `ORCARegistry` if needed.
+   - Send **`registerPermissionlessScout`** on Kite.
+   - Confirm the tx with the API (`POST /scouts/register/confirm`).
+5. After success, your scout appears in the marketplace grid with stake and registration tx link.
+
+#### 3. When someone buys your scout (creator `.env`)
+
+After a buyer completes purchase, they receive a **`purchaseId`** and one-time **`bindingSecret`** (shown in the UI). Share the secret with you securely (not in public chat).
+
+In `agents/.env`, set **all three** (subscriber mode):
+
+```env
+SCOUT_PURCHASE_ID=<uuid from buyer>
+SCOUT_BINDING_SECRET=<secret from buyer>
+SCOUT_BINDING_API_BASE=http://127.0.0.1:4000
+```
+
+Also keep `ORCA_API_BASE_URL` for normal API features; binding fetch uses `SCOUT_BINDING_API_BASE` only.
+
+Run Scout from `agents/`:
+
+```bash
+orca-scout
+```
+
+Scout **polls** `GET /scouts/purchases/:purchaseId/binding` until the buyer saves their Redis URL, then **`XADD`s signals to the buyer’s stream** (default `orca:signals:scout` unless they set a custom key). Your local `REDIS_URL` is still used for preflight; signal delivery uses the buyer’s Redis.
+
+Details: [`agents/README.md`](agents/README.md) (Marketplace purchase / creator-run Scout).
+
+---
+
+### Use someone else’s Scout (buyer — UI + your pipeline)
+
+Use this when you want **their** Scout to feed **your** Risk → Executor → Audit stack (you do **not** run the listing creator’s Risk/Executor on your behalf unless you choose to).
+
+#### 1. Buy access in the UI
+
+1. Complete stack setup (sections 1–8) and open **`http://localhost:3001/marketplace`**.
+2. **Sign in with Privy** (demo mode is read-only for purchases).
+3. Click a scout card in the grid → **Buy for 1 pieUSD** (or quoted PIEUSD amount).
+4. Approve the wallet flow: **PIEUSD `transfer`** to the listing owner on Kite.
+5. On success, the UI shows:
+   - **`purchaseId`**
+   - **`bindingSecret`** — store securely; give only to the scout operator you trust.
+
+#### 2. Bind your Redis (still in the UI)
+
+The buyer must expose a Redis URL so the creator’s Scout can publish signals.
+
+1. On the same scout detail modal, open **Complete binding** (or use the post-purchase panel).
+2. Fill:
+   - **purchaseId** — from step 1.
+   - **binding secret** — from step 1.
+   - **redisUrl** — reachable Redis for your pipeline, e.g. `redis://localhost:6379` (same instance as your agents is fine).
+   - **Scout signal stream key** (optional) — default `orca:signals:scout` if empty.
+3. Click **Save binding**. The API stores the URL; the creator’s Scout picks it up via `SCOUT_BINDING_API_BASE`.
+
+Equivalent API call (if automating):
+
+```http
+PUT /scouts/purchases/:purchaseId/binding
+X-Orca-Binding-Secret: <bindingSecret>
+{ "buyerWallet": "0x...", "redisUrl": "redis://localhost:6379", "scoutSignalStreamKey": "orca:signals:scout" }
+```
+
+#### 3. Configure **your** agents (not the seller’s Scout)
+
+In `agents/.env`:
+
+```env
+# Do NOT run orca-scout unless you ARE the listing creator in subscriber mode.
+
+RISK_SCOUT_DID_ALLOWLIST=did:kite:orca/the-exact-listing-did
+REDIS_URL=redis://localhost:6379
+```
+
+Use the **exact `did`** shown on the marketplace card. Risk will ignore other scouts’ signals.
+
+Start **your** downstream agents (order matters):
+
+```bash
+cd agents
+orca-risk
+orca-executor
+orca-audit
+```
+
+Ask the **scout creator** to run `orca-scout` with `SCOUT_PURCHASE_ID` / `SCOUT_BINDING_SECRET` after you complete binding.
+
+#### 4. Verify in the UI
+
+- **Signals / workflow** pages: events ingested from Redis → Postgres via the API stream worker.
+- You should see scout signals from the **allowlisted DID** only, then Risk instructions, executor settlements, and audit events.
+
+---
+
+### Marketplace flow (reference)
+
+```mermaid
+sequenceDiagram
+  participant Creator as Scout_creator
+  participant UI as Frontend_marketplace
+  participant API as ORCA_API
+  participant Chain as Kite_chain
+  participant Buyer as Pipeline_buyer
+  participant Risk as Risk_agent
+
+  Creator->>UI: Register scout (DID, vault, stake)
+  UI->>API: Attest + register tx
+  API->>Chain: ORCARegistry.registerPermissionlessScout
+  Buyer->>UI: Buy listing (PIEUSD transfer)
+  UI->>API: Confirm purchase
+  Buyer->>API: PUT binding (redisUrl + secret)
+  Creator->>API: Scout polls binding
+  Creator->>API: XADD signals to buyer Redis
+  Buyer->>Risk: RISK_SCOUT_DID_ALLOWLIST
+  Risk->>Risk: Approve + forward instructions
+```
+---
