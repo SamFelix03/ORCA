@@ -208,6 +208,8 @@ Or from root: `pnpm dev` starts **API + frontend** in parallel (not agents).
 pnpm lint:frontend   # optional
 ```
 
+**Hosted UI:** You can skip running the frontend locally and use [https://orca-kite.vercel.app/sign-in](https://orca-kite.vercel.app/sign-in) against your API instead — see [§9 Hosted dashboard + your backend](#9-hosted-dashboard--your-backend).
+
 ---
 
 ## 7. x402 provider (agent micropayments)
@@ -327,7 +329,131 @@ Full agent checklist: `agents/README.md` (execution intents, `best_stub_deposit`
 
 ---
 
-## 9. Bring your own Scout agent (marketplace + UI)
+## 9. Demo the application with our Hosted dashboard + your backend
+
+ORCA publishes a **hosted control plane** at [https://orca-kite.vercel.app/sign-in](https://orca-kite.vercel.app/sign-in). You run the **API, Postgres, Redis, and agents** on your machine (sections 4–8); the Vercel app is only the UI. It stores your API base URL in the browser (`localStorage` key `orca_backend_url`) and calls **your** backend for signals, executions, vault holdings, WebSocket live events, and marketplace data.
+
+You do **not** need to deploy the frontend yourself unless you want a fully local UI (`pnpm dev:frontend` on port **3001** uses the same sign-in flow and can talk to `http://localhost:4000` directly).
+
+### How the hosted UI picks an API
+
+| Mode | Backend URL used | Wallet |
+|------|------------------|--------|
+| **Demo mode** | Build default `NEXT_PUBLIC_ORCA_API_BASE_URL` on Vercel (shared demo API) | Fixed demo address `0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844` — no Privy |
+| **Connect wallet** | URL you enter on sign-in, after **Test** succeeds | Your Privy embedded wallet on Kite testnet |
+
+Implementation: `frontend/src/lib/config.ts` (`getOrcaApiBaseUrl`, `validateOrcaBackendUrl`), `frontend/src/app/sign-in/page.tsx`, `frontend/src/components/auth/current-wallet.tsx`.
+
+### Option A — Demo mode (explore without your stack)
+
+Use this to browse **previous ORCA runs** indexed on the team’s demo API, without running Postgres or agents.
+
+1. Open [https://orca-kite.vercel.app/sign-in](https://orca-kite.vercel.app/sign-in).
+2. Click **Demo mode** (no backend URL required).
+3. You land on the dashboard as wallet **`0x251…b6844`** (`0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844`). The header shows **Demo**.
+
+**What you can see:** Dashboard metrics, **Signals** (workflow / deliberation), **Agents**, **Holdings**, **PoAI**, and **Marketplace** listings backed by the demo database.
+
+**Limitations:** Demo mode does **not** use Privy or a JWT from your API. On-chain marketplace actions (register scout, buy, save binding) and vault withdraw are **disabled** — the UI shows read-only warnings. To drive **your** live pipeline, use Option B.
+
+### Option B — Connect wallet (your live backend)
+
+Use this when you have completed sections **4–8** and want the hosted UI to show **your** agent output as it is written to Postgres/Redis.
+
+#### 1. Run the backend stack
+
+Minimum for a useful dashboard:
+
+```bash
+pnpm db:setup
+pnpm dev:api          # :4000
+pnpm dev:x402-provider   # unless X402_DRY_RUN=true in agents/.env
+# four agents from agents/ (section 8.4)
+```
+
+Confirm locally:
+
+```bash
+curl http://127.0.0.1:4000/health
+# {"status":"ok","service":"orca-api",...}
+```
+
+The API stream worker ingests Redis agent streams into Postgres; the UI reads REST + WebSocket from the same API.
+
+#### 2. Expose your API with HTTPS (required for the Vercel UI)
+
+The sign-in page is served over **HTTPS**. Browsers block calling `http://127.0.0.1:4000` from `https://orca-kite.vercel.app` (mixed content). You must give the UI a **public `https://` URL** that forwards to your API.
+
+Examples:
+
+- [ngrok](https://ngrok.com/): `ngrok http 4000` → use the `https://….ngrok-free.app` origin (no path suffix).
+- Cloudflare Tunnel, Railway, Fly.io, or any host where you deploy the `api` package with TLS.
+
+`validateOrcaBackendUrl` only allows `http://` for `localhost` / `127.0.0.1` — from the **hosted** site you need **https://**.
+
+#### 3. Allow CORS from the hosted frontend
+
+The browser sends `Origin: https://orca-kite.vercel.app`. Add it to API CORS (comma-separated origins):
+
+In `api/.env` (overrides JSON):
+
+```env
+CORS_ORIGIN=http://localhost:3000,http://localhost:3001,https://orca-kite.vercel.app
+```
+
+Or extend `server.corsOrigin` in `api/config/orca.api.json`. Restart the API after changing CORS.
+
+#### 4. Connect on the sign-in page
+
+1. Open [https://orca-kite.vercel.app/sign-in](https://orca-kite.vercel.app/sign-in).
+2. **Backend URL** — paste your public API origin (e.g. `https://abc123.ngrok-free.app`).
+3. Click **Test**. The UI calls `GET {origin}/health` and checks `status: "ok"` and `service: "orca-api"`. On success you see **Backend connected.** and the URL is saved in the browser.
+4. Click **Connect wallet** (enabled only after a successful Test). Complete Privy login; use a wallet that matches how your vault / beneficiary is set up on Kite testnet.
+5. You are redirected to the dashboard. The header shows your address and live token balances from `orcaApi.myTokenBalances`.
+
+`BackendSessionSync` (`frontend/src/components/auth/backend-session-sync.tsx`) exchanges a JWT with your API (`/auth/nonce`, `/auth/verify`) for routes that require auth.
+
+#### 5. What to watch while agents run
+
+| UI area | Route | Data source |
+|---------|-------|-------------|
+| **Dashboard** | `/` | Agents, signals, treasury, vault holdings for your wallet, live WebSocket refresh |
+| **Signals** | `/signals` | Scout signals and workflow steps from your API/DB |
+| **Agents** | `/agents` | Registered agent metadata and x402 payment counts |
+| **Holdings** | `/positions` | On-chain vault holdings; withdraw needs a real wallet (not demo) |
+| **PoAI** | `/poai` | Attribution epochs |
+| **Marketplace** | `/marketplace` | Scout listings and purchases against **your** API |
+
+WebSocket URL is derived from the same backend origin (`wss://…/ws` when the API is `https://`).
+
+#### 6. Local UI instead of Vercel (optional)
+
+If you prefer not to tunnel:
+
+```bash
+pnpm dev:frontend   # http://localhost:3001/sign-in
+```
+
+Use **Backend URL** `http://localhost:4000`, **Test**, then **Connect wallet**. CORS must still include `http://localhost:3001` (default in `orca.api.json`).
+
+### Sign out / change backend
+
+Use **Sign out** in the header. That clears demo mode, the stored backend URL, and the JWT. Return to `/sign-in` to point at a different API or switch between demo and live.
+
+### Troubleshooting (hosted UI)
+
+| Symptom | Likely fix |
+|---------|------------|
+| **Test** fails from Vercel | API not running; wrong URL; tunnel down; health not `orca-api` |
+| CORS error in browser console | Add `https://orca-kite.vercel.app` to `CORS_ORIGIN` and restart API |
+| **Connect wallet** stays disabled | Run **Test** successfully first; URL must match stored validated origin |
+| Empty signals after agents run | Same `REDIS_URL` for API and agents; API stream worker running; check API logs |
+| Holdings empty | Wallet not linked to vault activity; run executor paths that touch your beneficiary |
+| Demo data vs your data | Demo uses `0x251…b6844` and the shared demo API — use **Connect wallet** + your backend URL for live runs |
+
+---
+
+## 10. Bring your own Scout agent (marketplace + UI)
 
 > **Work in progress:** The permissionless Scout Marketplace is **implemented but still early**. Listing, purchasing, Redis binding, and creator-side subscriber mode work on testnet, but the flow is **operator-heavy** (many wallet steps, manual `.env` wiring, no hosted scout runtime). We are actively improving the marketplace UX
 
@@ -479,22 +605,26 @@ Ask the **scout creator** to run `orca-scout` with `SCOUT_PURCHASE_ID` / `SCOUT_
 
 ```mermaid
 sequenceDiagram
-  participant Creator as Scout_creator
-  participant UI as Frontend_marketplace
-  participant API as ORCA_API
-  participant Chain as Kite_chain
-  participant Buyer as Pipeline_buyer
-  participant Risk as Risk_agent
+  participant Creator
+  participant UI as Marketplace UI
+  participant API
+  participant Chain as Kite
+  participant Buyer
+  participant Redis
+  participant Risk
 
-  Creator->>UI: Register scout (DID, vault, stake)
-  UI->>API: Attest + register tx
-  API->>Chain: ORCARegistry.registerPermissionlessScout
-  Buyer->>UI: Buy listing (PIEUSD transfer)
+  Creator->>UI: Register scout
+  UI->>API: Attest and register
+  API->>Chain: On-chain register
+  Buyer->>UI: Buy with PIEUSD
   UI->>API: Confirm purchase
-  Buyer->>API: PUT binding (redisUrl + secret)
-  Creator->>API: Scout polls binding
-  Creator->>API: XADD signals to buyer Redis
-  Buyer->>Risk: RISK_SCOUT_DID_ALLOWLIST
-  Risk->>Risk: Approve + forward instructions
+  Buyer->>API: Save binding
+  Creator->>API: Poll binding
+  Creator->>Redis: Publish scout signals
+  Note over Buyer,Risk: Allowlist listing DID
+  Risk->>Redis: Consume and forward
 ```
+
+More product context: [`README.md` — Scout Marketplace](README.md#scout-marketplace).
+
 ---
