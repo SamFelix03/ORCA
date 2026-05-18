@@ -72,6 +72,7 @@ Used for hub-local `kite_deposit` execution and Scout ranking on Kite. Demo APY 
 - [x402 Module — How Agent Payments Are Settled on Kite](#x402-module--how-agent-payments-are-settled-on-kite)
 - [Hyperlane Integration — Architecture and Innovation](#hyperlane-integration--architecture-and-innovation)
 - [Scout Marketplace](#scout-marketplace)
+- [Product Roadmap](#product-roadmap)
 - [Smart Contracts — Deep Dive](#smart-contracts--deep-dive)
 - [Conclusion](#conclusion)
 
@@ -675,6 +676,68 @@ Per-spoke **NoopISM**, **RemoteAdapter**, **synthetic USDT**, and **four protoco
 
 ---
 
+## Product Roadmap
+
+ORCA’s testnet build proves the four-agent pipeline, Kite settlement, and Hyperlane bridging. The roadmap below is how we take that prototype to production and open the agent layer to external builders.
+
+```mermaid
+flowchart LR
+  M1[Mainnet_Migration]
+  M2[Marketplace_Extension]
+  M3[Auditability_Enhancements]
+  M4[Institutional_Swarm]
+  M1 --> M2 --> M3 --> M4
+```
+
+### 1. Mainnet Migration
+
+Deploy ORCA on **Kite, Ethereum, Arbitrum, Base, and Optimism mainnet** with production-grade Hyperlane ISMs (replacing testnet NoopISM), public relayer/redundancy, and audited control-plane contracts.
+
+**Yield surface:** Replace hackathon **stub vaults** with integrations to real yield protocols (Aave v3, Compound III, Morpho Blue, and related adapters) so Executor paths move real collateral, not demo `principalOf` simulation.
+
+### 2. Marketplace Extension
+
+The Scout Marketplace exists today ([`frontend/src/app/marketplace`](frontend/src/app/marketplace), [`api/src/routes/scouts.ts`](api/src/routes/scouts.ts)), but **listing, buying, and running a third-party scout is still operator-heavy**. That friction is why Marketplace Extension is a dedicated milestone.
+
+**What builders and buyers face now:**
+
+| Step | Today | Friction |
+|------|--------|----------|
+| **List a scout** | Wallet sign-in → typed-data attest → stake approve → `registerPermissionlessScout` on `ORCARegistry` → confirm tx in API | Many manual on-chain steps; creator must know DID, vault address, and stake flow |
+| **Buy access** | PIEUSD `transfer` on Kite → paste tx hash → receive `bindingSecret` out-of-band | No subscription SKU; buyer configures infra by hand |
+| **Connect pipeline** | Buyer `PUT /scouts/purchases/:id/binding` with **their own Redis URL**; set `RISK_SCOUT_DID_ALLOWLIST` in Risk `.env` | Buyer must host Redis and run Risk + Executor + Audit separately |
+| **Run creator scout** | Creator sets `SCOUT_PURCHASE_ID`, `SCOUT_BINDING_SECRET`, `SCOUT_BINDING_API_BASE`; Scout **polls** binding until buyer’s Redis is ready | Creator runs `orca-scout` locally; no hosted runtime |
+| **Earn** | Payment goes to listing `ownerAddress`; PoAI attribution is partial | No automated epoch revenue share tied to signal quality yet |
+
+**What we will ship to make it work:**
+
+- **One-click subscribe** — Purchase in the app provisions entitlements: auto-set Risk allowlist for the scout DID, optional managed Redis/stream (no buyer-supplied `redisUrl`), and a guided “start pipeline” flow for Risk / Executor / Audit.
+- **Hosted scout runtime** — Creators can register a strategy profile and run signals on ORCA-managed infrastructure instead of cloning `agents/.env` and binding secrets by hand.
+- **Developer SDK + listing wizard** — Register custom **Scout strategies** (ranking rules, data sources, chain allowlist) and **Risk models** (preflight templates, drift caps) via API/CLI; wrap today’s attest + registry flow into a single guided path.
+- **Plugin interface** — Load third-party Scout/Risk modules as versioned packages with sandboxed config, so external developers can ship agents without forking the monorepo.
+- **Creator economics** — Tie marketplace listings to **PoAI reputation** and epoch payouts (treasury/multisig batch) so registered agents earn from usage, not only the initial PIEUSD transfer.
+- **Account graph** — Link `User` / wallet ↔ `ScoutPurchase` ↔ active pipeline in the API (called out as open in [`docs/ORCA-Pending-Implementation.md`](docs/ORCA-Pending-Implementation.md)) so the dashboard shows “my subscriptions” and health, not disconnected txs.
+
+Goal: any developer can **list → get discovered → get paid → deliver signals into a buyer’s live ORCA stack**
+
+### 3. Auditability Enhancements
+
+Turn Audit + PoAI from a logging path into a **feedback loop** for the swarm.
+
+- **Self-improving agents** — Use Audit scores and PoAI `value_delta` to adjust prompts, thresholds, and ranking weights over time (with owner opt-in and caps).
+- **Attribution-linked rewards** — Epoch distribution from `PoAIAttribution` + multisig treasury for scouts/risk models with verified contribution history.
+- **Richer audit surface** — UI and API views that tie each `execution.settled` back to scout reasoning, risk preflight flags, and payment tx hashes **settled on Kite**.
+
+### 4. Institutional Swarm Infrastructure
+
+Scale ORCA for **DAOs, funds, and protocols** that need many portfolios and policy templates on one coordination layer.
+
+- Multi-tenant vaults, policy packs, and delegated Passport sessions per strategy.
+- SLA monitoring, alerting, and circuit breakers integrated with treasury multisig / timelock paths.
+- White-label agent coordination: same Scout → Risk → Executor → Audit contract, operator-branded frontends and compliance hooks.
+
+---
+
 ## Conclusion
 
 ORCA is our answer to a question the industry is only starting to ask: **how do specialized AI agents coordinate real money across chains without trusting a single operator?**
@@ -687,8 +750,7 @@ We built:
 - A **Scout Marketplace** that turns signal quality into a purchasable product
 - **On-chain enforcement** via vaults, spending rules, and PoAI attribution
 
-This is not a slide-deck architecture — it runs in this repository: Redis streams move signals, the relayer delivers warp messages, the frontend shows chain-of-thought, and Pieverse **settles** agent payments on Kite testnet.
+Redis streams move signals, the relayer delivers warp messages, the frontend shows chain-of-thought, and Pieverse **settles** agent payments on Kite testnet.
 
-We use ORCA because we need it. With funding for audited mainnet deployment, real protocol adapters, and production ISMs, ORCA can become the coordination layer we want for our own USDC — and for every treasury that refuses to trust a single black-box bot.
+We use ORCA because we need it. With funding for audited mainnet deployment, real protocol adapters, and production ISMs, ORCA can become the coordination layer we want for our own USDC/USDT — and for every treasury that refuses to trust a single black-box bot.
 
-**Thank you for reading. Dive into [`docs/DEV_MODE_SETUP.md`](docs/DEV_MODE_SETUP.md), run a Scout cycle, and watch a rebalance get settled on Kite.**
