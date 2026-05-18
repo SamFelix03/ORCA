@@ -800,7 +800,6 @@ The Scout Marketplace exists today ([`frontend/src/app/marketplace`](frontend/sr
 - **Developer SDK + listing wizard** — Register custom **Scout strategies** (ranking rules, data sources, chain allowlist) and **Risk models** (preflight templates, drift caps) via API/CLI; wrap today’s attest + registry flow into a single guided path.
 - **Plugin interface** — Load third-party Scout/Risk modules as versioned packages with sandboxed config, so external developers can ship agents without forking the monorepo.
 - **Creator economics** — Tie marketplace listings to **PoAI reputation** and epoch payouts (treasury/multisig batch) so registered agents earn from usage, not only the initial PIEUSD transfer.
-- **Account graph** — Link `User` / wallet ↔ `ScoutPurchase` ↔ active pipeline in the API (called out as open in [`docs/ORCA-Pending-Implementation.md`](docs/ORCA-Pending-Implementation.md)) so the dashboard shows “my subscriptions” and health, not disconnected txs.
 
 Goal: any developer can **list → get discovered → get paid → deliver signals into a buyer’s live ORCA stack**
 
