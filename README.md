@@ -5,6 +5,28 @@
 **A decentralized swarm of credentialed AI agents that collaboratively manage cross-chain DeFi yield — with every inter-agent payment settled on Kite, cross-chain collateral moved via Hyperlane, and attribution recorded on-chain.**
 
 ---
+<!-- TOC -->
+## Table of Contents
+
+- [Executive Summary](#executive-summary)
+- [Run locally](#run-locally)
+- [Important Links](#important-links)
+- [Introduction](#introduction)
+- [The Problem We Solve](#the-problem-we-solve)
+- [Example User: Maya and the Yield Gap](#example-user-maya-and-the-yield-gap)
+- [Technology Stack](#technology-stack)
+- [System Architecture](#system-architecture)
+- [The Four Agents](#the-four-agents)
+- [Complete Pipeline Flow](#complete-pipeline-flow)
+- [Kite AI Integrations](#kite-ai-integrations)
+- [x402 Module — How Agent Payments Are Settled on Kite](#x402-module--how-agent-payments-are-settled-on-kite)
+- [Hyperlane Integration — Architecture and Innovation](#hyperlane-integration--architecture-and-innovation)
+- [Scout Marketplace](#scout-marketplace)
+- [Product Roadmap](#product-roadmap)
+- [Smart Contracts — Deep Dive](#smart-contracts--deep-dive)
+- [Conclusion](#conclusion)
+
+---
 
 ## Executive Summary
 
@@ -22,18 +44,24 @@
 
 We **extended Kite to Hyperlane**. Hyperlane was **not available for Kite** out of the box — no public relayer coverage, no validator ISM for domain **2368**, no indexed explorer path. We deployed core mailboxes, **four USDT** to four Sepolia-family spokes, hub `ORCAOApp` messaging, spoke `RemoteAdapter` + **NoopISM**, and an **in-repository relayer** so Kite could participate in Hyperlane messaging and bridging like any other chain.
 
-> **Funding ask:** We believe deeply in this idea — it solves a real coordination problem we face managing cross-chain USD ourselves. **Mainnet deployment, real-protocol integrations, and production hardening require funded testnet→mainnet cycles.** If you can support grants or sponsorship for real-fund testing and mainnet launch, we would put every dollar toward audited contracts, validator ISMs, and 24/7 relayer ops.
+> We believe deeply in this idea — it solves a real coordination problem we face managing cross-chain USD ourselves. **Mainnet deployment, real-protocol integrations, and production hardening require funded testnet→mainnet cycles.** If you can support grants or sponsorship for real-fund testing and mainnet launch, we would put every dollar toward audited contracts, validator ISMs, and 24/7 relayer ops.
 
 ## Run locally
 
 To set up and run the **full stack** (Postgres, Redis, API, frontend, x402 provider, and all four agents on Kite testnet), use the step-by-step guide in **[setup.md](setup.md)**.
 
 That document covers prerequisites, `.env` and JSON config files, `pnpm db:setup` and per-service commands
-## Deployed Contracts (Kite Testnet)
+## Important Links
+
+- Live demo: [https://orca-kite.vercel.app](https://orca-kite.vercel.app)
+- Demo video: [https://www.youtube.com/watch?v=wFkcXo4mtok](https://www.youtube.com/watch?v=wFkcXo4mtok)
+- Pitch deck: [https://www.canva.com/design/DAHJ_tHxJSA/5T-_xzNzx5AsoyCXZNdRXw/view?utm_content=DAHJ_tHxJSA&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=hec3dcc447d](https://www.canva.com/design/DAHJ_tHxJSA/5T-_xzNzx5AsoyCXZNdRXw/view?utm_content=DAHJ_tHxJSA&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=hec3dcc447d)
+
+### Deployed Contracts (Kite Testnet)
 
 Kite testnet (chain ID **2368**) has **13 ORCA-authored contracts** plus **Hyperlane protocol contracts** we deployed so Kite could bridge and message. Spoke chains (four Sepolia-family networks) each have **7 ORCA contracts** (NoopISM, RemoteAdapter, four stubs, synthetic USDT via warp) — see [Hyperlane Integration](#hyperlane-integration--architecture-and-innovation).
 
-### ORCA control plane — 9 contracts (`pnpm deploy` → `kite-testnet.latest.json`)
+#### ORCA control plane — 9 contracts (`pnpm deploy` -> `kite-testnet.latest.json`)
 
 | Contract | Address | Explorer |
 |----------|---------|----------|
@@ -47,7 +75,7 @@ Kite testnet (chain ID **2368**) has **13 ORCA-authored contracts** plus **Hyper
 | ClientAgentVault | `0x1bcdcf2acc93d01F7F66010BE7B5a647A7cfC40f` | [Kitescan](https://testnet.kitescan.ai/address/0x1bcdcf2acc93d01F7F66010BE7B5a647A7cfC40f) |
 | ORCAMultisigTreasury | `0x4b3AEb7ae752827BeB6E5D46aF1Dfa589fE244D4` | [Kitescan](https://testnet.kitescan.ai/address/0x4b3AEb7ae752827BeB6E5D46aF1Dfa589fE244D4) |
 
-### ORCA Kite stub yield vaults — 4 contracts (`deploy-remote-stubs` → `kiteTestnet.stubs.json`)
+#### ORCA Kite stub yield vaults — 4 contracts (`deploy-remote-stubs` -> `kiteTestnet.stubs.json`)
 
 Used for hub-local `kite_deposit` execution and Scout ranking on Kite. Demo APY **500 bps**.
 
@@ -60,27 +88,38 @@ Used for hub-local `kite_deposit` execution and Scout ranking on Kite. Demo APY 
 
 **Artifacts:** [`contracts/deployments/kite-testnet.latest.json`](contracts/deployments/kite-testnet.latest.json) · [`contracts/deployments/kiteTestnet.stubs.json`](contracts/deployments/kiteTestnet.stubs.json) · [`hyperlane/outputs/snapshots/orca-integration.latest.json`](hyperlane/outputs/snapshots/orca-integration.latest.json)
 
----
+### Agent Transactions From One Workflow Run
 
-<!-- TOC -->
-## Table of Contents
+Signal ID: `8dbfe26a-33bb-4ec6-aabd-a1b683e79df9`
 
-- [Executive Summary](#executive-summary)
-- [Run locally](#run-locally)
-- [Introduction](#introduction)
-- [The Problem We Solve](#the-problem-we-solve)
-- [Example User: Maya and the Yield Gap](#example-user-maya-and-the-yield-gap)
-- [Technology Stack](#technology-stack)
-- [System Architecture](#system-architecture)
-- [The Four Agents](#the-four-agents)
-- [Complete Pipeline Flow](#complete-pipeline-flow)
-- [Kite AI Integrations](#kite-ai-integrations)
-- [x402 Module — How Agent Payments Are Settled on Kite](#x402-module--how-agent-payments-are-settled-on-kite)
-- [Hyperlane Integration — Architecture and Innovation](#hyperlane-integration--architecture-and-innovation)
-- [Scout Marketplace](#scout-marketplace)
-- [Product Roadmap](#product-roadmap)
-- [Smart Contracts — Deep Dive](#smart-contracts--deep-dive)
-- [Conclusion](#conclusion)
+#### Scout Agent
+
+- Signal published: [0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515](https://testnet.kitescan.ai/tx/0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515)
+- Scout x402 payment event (Scout -> Risk): [0x0fe7d6c2e852a668ab867f6ede532a386f674c5088e448ac3bacf936d89cafc2](https://testnet.kitescan.ai/tx/0x0fe7d6c2e852a668ab867f6ede532a386f674c5088e448ac3bacf936d89cafc2)
+- Scout PoAI attribution: [0x0b4fe2eb480d692d5b12ea6e86dcc6f45a57313ab31c4ae416b6f4814f7445e9](https://testnet.kitescan.ai/tx/0x0b4fe2eb480d692d5b12ea6e86dcc6f45a57313ab31c4ae416b6f4814f7445e9)
+
+#### Risk Agent
+
+- Risk x402 payment (Risk -> Executor): [0x6d99bbae3334497894600ad2cea3fa80b0437e6cbcf9ce7d699b4cef53286bfa](https://testnet.kitescan.ai/tx/0x6d99bbae3334497894600ad2cea3fa80b0437e6cbcf9ce7d699b4cef53286bfa)
+
+#### Executor Agent
+
+- Executor vault/warp execution: [0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515](https://testnet.kitescan.ai/tx/0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515)
+- Executor x402 payment (Executor -> Audit): [0xb319ebad2c58dafb9936c3cc1f4f62c65ceac836bd151aed6d21bb73ba4105e5](https://testnet.kitescan.ai/tx/0xb319ebad2c58dafb9936c3cc1f4f62c65ceac836bd151aed6d21bb73ba4105e5)
+- Spoke syncWarpedDepositFor on Base Sepolia: [0x13ffbaefe32e8b490f4b113d9d040d687cbe5ab8f1388745962b2bd829980f43](https://sepolia.basescan.org/tx/0x13ffbaefe32e8b490f4b113d9d040d687cbe5ab8f1388745962b2bd829980f43)
+- Executor PoAI attribution: [0x6a935a4792d2713eb8658f452410f530535f9ff66d6418caa3294ccf51bc0a5f](https://testnet.kitescan.ai/tx/0x6a935a4792d2713eb8658f452410f530535f9ff66d6418caa3294ccf51bc0a5f)
+
+#### Audit Agent
+
+- Audit PoAI attribution #1: [0x529b9cadacf01c5f61f4a8fe903674106c57ec053d812a9fd3da3ceb774fe6a8](https://testnet.kitescan.ai/tx/0x529b9cadacf01c5f61f4a8fe903674106c57ec053d812a9fd3da3ceb774fe6a8)
+- Audit PoAI attribution #2: [0x04f3fe5fce074cff7e52529fdd82f07b65d250aca332bf760f45bd9ca82ac307](https://testnet.kitescan.ai/tx/0x04f3fe5fce074cff7e52529fdd82f07b65d250aca332bf760f45bd9ca82ac307)
+- Audit PoAI attribution #3: [0x273268e34b7b589517a40184c6c105229e8c6bb275d43ef9de1d26ab36533ed9](https://testnet.kitescan.ai/tx/0x273268e34b7b589517a40184c6c105229e8c6bb275d43ef9de1d26ab36533ed9)
+
+#### A2A Micropayments (x402 Settlements)
+
+- Scout -> Risk: [0x0fe7d6c2e852a668ab867f6ede532a386f674c5088e448ac3bacf936d89cafc2](https://testnet.kitescan.ai/tx/0x0fe7d6c2e852a668ab867f6ede532a386f674c5088e448ac3bacf936d89cafc2)
+- Risk -> Executor: [0x6d99bbae3334497894600ad2cea3fa80b0437e6cbcf9ce7d699b4cef53286bfa](https://testnet.kitescan.ai/tx/0x6d99bbae3334497894600ad2cea3fa80b0437e6cbcf9ce7d699b4cef53286bfa)
+- Executor -> Audit: [0xb319ebad2c58dafb9936c3cc1f4f62c65ceac836bd151aed6d21bb73ba4105e5](https://testnet.kitescan.ai/tx/0xb319ebad2c58dafb9936c3cc1f4f62c65ceac836bd151aed6d21bb73ba4105e5)
 
 ---
 
@@ -240,6 +279,11 @@ Each agent has a **Kite Passport DID**, private key, Groq **LLM deliberation** (
 | **PoAI reporter** | `PoAIAttribution` on Kite | Optional scout attribution tx |
 | **Execution intent builder** | Hyperlane integration snapshot + stub manifest | `warp_to_stub` metadata, dispatch fee quotes, `HYP_TRUSTED_REMOTES` |
 
+Scout run proof links:
+- Signal publish tx: [0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515](https://testnet.kitescan.ai/tx/0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515)
+- Scout -> Risk x402 settle tx: [0x0fe7d6c2e852a668ab867f6ede532a386f674c5088e448ac3bacf936d89cafc2](https://testnet.kitescan.ai/tx/0x0fe7d6c2e852a668ab867f6ede532a386f674c5088e448ac3bacf936d89cafc2)
+- Scout PoAI tx: [0x0b4fe2eb480d692d5b12ea6e86dcc6f45a57313ab31c4ae416b6f4814f7445e9](https://testnet.kitescan.ai/tx/0x0b4fe2eb480d692d5b12ea6e86dcc6f45a57313ab31c4ae416b6f4814f7445e9)
+
 ### Risk Agent (`orca_risk`)
 
 **Job:** Independently re-validate Scout’s claim; approve or reject; forward instruction to Executor.
@@ -255,6 +299,9 @@ Each agent has a **Kite Passport DID**, private key, Groq **LLM deliberation** (
 
 On every instruction (approve or reject), pays **Executor** via x402 (`Risk → Executor`, **settled on Kite**) before publishing to `orca:risk:instructions`. `DEMO_MODE=true` auto-approves for demos only.
 
+Risk run proof links:
+- Risk -> Executor x402 settle tx: [0x6d99bbae3334497894600ad2cea3fa80b0437e6cbcf9ce7d699b4cef53286bfa](https://testnet.kitescan.ai/tx/0x6d99bbae3334497894600ad2cea3fa80b0437e6cbcf9ce7d699b4cef53286bfa)
+
 ### Executor Agent (`orca_executor`)
 
 **Job:** Execute approved instructions on-chain.
@@ -268,6 +315,12 @@ On every instruction (approve or reject), pays **Executor** via x402 (`Risk → 
 
 After on-chain execution, publishes `execution.settled` and pays **Audit** via x402 (`Executor → Audit`, **settled on Kite**). API ingests the event for the dashboard. Optional `EXECUTOR_SUBMIT_VAULT_TX` for vault calldata submission.
 
+Executor run proof links:
+- Executor vault/warp tx: [0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515](https://testnet.kitescan.ai/tx/0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515)
+- Executor -> Audit x402 settle tx: [0xb319ebad2c58dafb9936c3cc1f4f62c65ceac836bd151aed6d21bb73ba4105e5](https://testnet.kitescan.ai/tx/0xb319ebad2c58dafb9936c3cc1f4f62c65ceac836bd151aed6d21bb73ba4105e5)
+- Spoke sync tx (Base Sepolia): [0x13ffbaefe32e8b490f4b113d9d040d687cbe5ab8f1388745962b2bd829980f43](https://sepolia.basescan.org/tx/0x13ffbaefe32e8b490f4b113d9d040d687cbe5ab8f1388745962b2bd829980f43)
+- Executor PoAI tx: [0x6a935a4792d2713eb8658f452410f530535f9ff66d6418caa3294ccf51bc0a5f](https://testnet.kitescan.ai/tx/0x6a935a4792d2713eb8658f452410f530535f9ff66d6418caa3294ccf51bc0a5f)
+
 ### Audit Agent (`orca_audit`)
 
 **Job:** Listen to scout, risk, and execution streams; score contribution; write **PoAI** `recordAction` on Kite.
@@ -280,11 +333,18 @@ After on-chain execution, publishes `execution.settled` and pays **Audit** via x
 
 LLM assigns `value_delta` ∈ {-20, -5, 5, 10, 20} for attribution economics.
 
+Audit run proof links:
+- Audit PoAI tx #1: [0x529b9cadacf01c5f61f4a8fe903674106c57ec053d812a9fd3da3ceb774fe6a8](https://testnet.kitescan.ai/tx/0x529b9cadacf01c5f61f4a8fe903674106c57ec053d812a9fd3da3ceb774fe6a8)
+- Audit PoAI tx #2: [0x04f3fe5fce074cff7e52529fdd82f07b65d250aca332bf760f45bd9ca82ac307](https://testnet.kitescan.ai/tx/0x04f3fe5fce074cff7e52529fdd82f07b65d250aca332bf760f45bd9ca82ac307)
+- Audit PoAI tx #3: [0x273268e34b7b589517a40184c6c105229e8c6bb275d43ef9de1d26ab36533ed9](https://testnet.kitescan.ai/tx/0x273268e34b7b589517a40184c6c105229e8c6bb275d43ef9de1d26ab36533ed9)
+
 ---
 
 ## Complete Pipeline Flow
 
 ### Phase 1 — Discovery and signal (Scout)
+
+Run tx reference: [0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515](https://testnet.kitescan.ai/tx/0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515) and Scout -> Risk x402 settle [0x0fe7d6c2e852a668ab867f6ede532a386f674c5088e448ac3bacf936d89cafc2](https://testnet.kitescan.ai/tx/0x0fe7d6c2e852a668ab867f6ede532a386f674c5088e448ac3bacf936d89cafc2).
 
 1. **Scan** — Query DefiLlama (hybrid mode) across allowed chains/protocols.
 2. **Enrich** — Attach utilization from protocol APIs where configured.
@@ -298,6 +358,8 @@ LLM assigns `value_delta` ∈ {-20, -5, 5, 10, 20} for attribution economics.
 
 ### Phase 2 — Risk gate (Risk)
 
+Run tx reference: Risk -> Executor x402 settle [0x6d99bbae3334497894600ad2cea3fa80b0437e6cbcf9ce7d699b4cef53286bfa](https://testnet.kitescan.ai/tx/0x6d99bbae3334497894600ad2cea3fa80b0437e6cbcf9ce7d699b4cef53286bfa).
+
 1. **Consume** signal from Redis (new messages only).
 2. **Rebuild evidence** — `RiskContextBuilder`: live markets, drift, preflight booleans.
 3. **LLM verdict** — Approve only if preflight passes (production); demo mode overrides.
@@ -307,6 +369,8 @@ LLM assigns `value_delta` ∈ {-20, -5, 5, 10, 20} for attribution economics.
 
 ### Phase 3 — Execution (Executor)
 
+Run tx references: hub execution [0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515](https://testnet.kitescan.ai/tx/0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515), spoke sync [0x13ffbaefe32e8b490f4b113d9d040d687cbe5ab8f1388745962b2bd829980f43](https://sepolia.basescan.org/tx/0x13ffbaefe32e8b490f4b113d9d040d687cbe5ab8f1388745962b2bd829980f43), Executor -> Audit x402 settle [0xb319ebad2c58dafb9936c3cc1f4f62c65ceac836bd151aed6d21bb73ba4105e5](https://testnet.kitescan.ai/tx/0xb319ebad2c58dafb9936c3cc1f4f62c65ceac836bd151aed6d21bb73ba4105e5).
+
 1. **Consume** approved instruction.
 2. **Preflight** — Spoke RPC map, relayer enabled, beneficiary set.
 3. **Execute** — Hub warp and vault transaction; wait `EXECUTOR_BRIDGE_WAIT_SECONDS`.
@@ -315,6 +379,8 @@ LLM assigns `value_delta` ∈ {-20, -5, 5, 10, 20} for attribution economics.
 6. **PoAI** — Record execution action.
 
 ### Phase 4 — Attribution (Audit)
+
+Run tx references: Executor PoAI [0x6a935a4792d2713eb8658f452410f530535f9ff66d6418caa3294ccf51bc0a5f](https://testnet.kitescan.ai/tx/0x6a935a4792d2713eb8658f452410f530535f9ff66d6418caa3294ccf51bc0a5f), Audit PoAI [0x529b9cadacf01c5f61f4a8fe903674106c57ec053d812a9fd3da3ceb774fe6a8](https://testnet.kitescan.ai/tx/0x529b9cadacf01c5f61f4a8fe903674106c57ec053d812a9fd3da3ceb774fe6a8), [0x04f3fe5fce074cff7e52529fdd82f07b65d250aca332bf760f45bd9ca82ac307](https://testnet.kitescan.ai/tx/0x04f3fe5fce074cff7e52529fdd82f07b65d250aca332bf760f45bd9ca82ac307), [0x273268e34b7b589517a40184c6c105229e8c6bb275d43ef9de1d26ab36533ed9](https://testnet.kitescan.ai/tx/0x273268e34b7b589517a40184c6c105229e8c6bb275d43ef9de1d26ab36533ed9).
 
 1. **Observe** all stream events.
 2. **LLM audit** — Anomalies, value_delta.
@@ -759,4 +825,3 @@ We built:
 Redis streams move signals, the relayer delivers warp messages, the frontend shows chain-of-thought, and Pieverse **settles** agent payments on Kite testnet.
 
 We use ORCA because we need it. With funding for audited mainnet deployment, real protocol adapters, and production ISMs, ORCA can become the coordination layer we want for our own USDC/USDT — and for every treasury that refuses to trust a single black-box bot.
-
