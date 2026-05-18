@@ -1,6 +1,11 @@
 # Project docs/reference snapshots (local-only)
 reference-frontend/
 
+# Internal docs — kept locally; only docs/idea.md is published on GitHub
+docs/*
+!docs/idea.md
+hyperlaneMigration.md
+
 # Dependencies
 node_modules/
 .pnpm-store/
