@@ -342,7 +342,11 @@ Audit run proof links:
 
 ## Complete Pipeline Flow
 
+<img width="1254" height="807" alt="Screenshot 2026-05-18 at 3 03 34 PM" src="https://github.com/user-attachments/assets/c034016e-e611-446a-a5e9-0bfcdacae5a6" />
+
 ### Phase 1 — Discovery and signal (Scout)
+
+<img width="1022" height="669" alt="Screenshot 2026-05-18 at 6 44 27 PM" src="https://github.com/user-attachments/assets/b3009cb1-822e-4721-8caa-0e56aa3cfd3d" />
 
 Run tx reference: [0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515](https://testnet.kitescan.ai/tx/0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515) and Scout -> Risk x402 settle [0x0fe7d6c2e852a668ab867f6ede532a386f674c5088e448ac3bacf936d89cafc2](https://testnet.kitescan.ai/tx/0x0fe7d6c2e852a668ab867f6ede532a386f674c5088e448ac3bacf936d89cafc2).
 
@@ -358,6 +362,8 @@ Run tx reference: [0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb5238
 
 ### Phase 2 — Risk gate (Risk)
 
+<img width="1022" height="836" alt="Screenshot 2026-05-18 at 6 44 58 PM" src="https://github.com/user-attachments/assets/05ddc0bc-6f31-45c8-980f-7fbbf0b1054e" />
+
 Run tx reference: Risk -> Executor x402 settle [0x6d99bbae3334497894600ad2cea3fa80b0437e6cbcf9ce7d699b4cef53286bfa](https://testnet.kitescan.ai/tx/0x6d99bbae3334497894600ad2cea3fa80b0437e6cbcf9ce7d699b4cef53286bfa).
 
 1. **Consume** signal from Redis (new messages only).
@@ -369,6 +375,10 @@ Run tx reference: Risk -> Executor x402 settle [0x6d99bbae3334497894600ad2cea3fa
 
 ### Phase 3 — Execution (Executor)
 
+<img width="1022" height="836" alt="Screenshot 2026-05-18 at 6 45 09 PM" src="https://github.com/user-attachments/assets/e8ac98a1-ca3e-450c-8047-87d404c355a0" />
+
+<img width="1022" height="836" alt="Screenshot 2026-05-18 at 6 45 17 PM" src="https://github.com/user-attachments/assets/5e10e80a-4c41-447b-9970-10577ccb160b" />
+
 Run tx references: hub execution [0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515](https://testnet.kitescan.ai/tx/0x21fe4df260508741d796ded076799a9f89711ed11039a501cc924fb523874515), spoke sync [0x13ffbaefe32e8b490f4b113d9d040d687cbe5ab8f1388745962b2bd829980f43](https://sepolia.basescan.org/tx/0x13ffbaefe32e8b490f4b113d9d040d687cbe5ab8f1388745962b2bd829980f43), Executor -> Audit x402 settle [0xb319ebad2c58dafb9936c3cc1f4f62c65ceac836bd151aed6d21bb73ba4105e5](https://testnet.kitescan.ai/tx/0xb319ebad2c58dafb9936c3cc1f4f62c65ceac836bd151aed6d21bb73ba4105e5).
 
 1. **Consume** approved instruction.
@@ -379,6 +389,8 @@ Run tx references: hub execution [0x21fe4df260508741d796ded076799a9f89711ed11039
 6. **PoAI** — Record execution action.
 
 ### Phase 4 — Attribution (Audit)
+
+<img width="1022" height="836" alt="Screenshot 2026-05-18 at 6 45 33 PM" src="https://github.com/user-attachments/assets/21c43d1f-dfd5-4889-a626-76cd0e48cca3" />
 
 Run tx references: Executor PoAI [0x6a935a4792d2713eb8658f452410f530535f9ff66d6418caa3294ccf51bc0a5f](https://testnet.kitescan.ai/tx/0x6a935a4792d2713eb8658f452410f530535f9ff66d6418caa3294ccf51bc0a5f), Audit PoAI [0x529b9cadacf01c5f61f4a8fe903674106c57ec053d812a9fd3da3ceb774fe6a8](https://testnet.kitescan.ai/tx/0x529b9cadacf01c5f61f4a8fe903674106c57ec053d812a9fd3da3ceb774fe6a8), [0x04f3fe5fce074cff7e52529fdd82f07b65d250aca332bf760f45bd9ca82ac307](https://testnet.kitescan.ai/tx/0x04f3fe5fce074cff7e52529fdd82f07b65d250aca332bf760f45bd9ca82ac307), [0x273268e34b7b589517a40184c6c105229e8c6bb275d43ef9de1d26ab36533ed9](https://testnet.kitescan.ai/tx/0x273268e34b7b589517a40184c6c105229e8c6bb275d43ef9de1d26ab36533ed9).
 
