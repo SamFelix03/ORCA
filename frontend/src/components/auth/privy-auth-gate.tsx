@@ -5,27 +5,29 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Icon } from "@/components/ui/icon";
 import { useCurrentWallet } from "./current-wallet";
+import { getStoredOrcaBackendUrl } from "@/lib/config";
 
 const LOGIN_ROUTE = "/sign-in";
 
 export function PrivyAuthGate({ children }: { children: React.ReactNode }) {
-  const { ready, authenticated } = useCurrentWallet();
+  const { ready, authenticated, isDemoMode } = useCurrentWallet();
   const pathname = usePathname();
   const router = useRouter();
   const onLoginRoute = pathname === LOGIN_ROUTE;
+  const hasBackendUrl = isDemoMode || Boolean(getStoredOrcaBackendUrl());
 
   useEffect(() => {
     if (!ready) {
       return;
     }
-    if (!authenticated && !onLoginRoute) {
+    if ((!authenticated || !hasBackendUrl) && !onLoginRoute) {
       router.replace(LOGIN_ROUTE);
       return;
     }
-    if (authenticated && onLoginRoute) {
+    if (authenticated && hasBackendUrl && onLoginRoute) {
       router.replace("/");
     }
-  }, [authenticated, onLoginRoute, ready, router]);
+  }, [authenticated, hasBackendUrl, onLoginRoute, ready, router]);
 
   if (!ready) {
     return (
@@ -35,7 +37,7 @@ export function PrivyAuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!authenticated && !onLoginRoute) {
+  if ((!authenticated || !hasBackendUrl) && !onLoginRoute) {
     return (
       <div className="grid min-h-screen place-items-center bg-[#fffaf0] text-sm text-[#5c564c]">
         Redirecting to sign in...
@@ -43,7 +45,7 @@ export function PrivyAuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (authenticated && onLoginRoute) {
+  if (authenticated && hasBackendUrl && onLoginRoute) {
     return (
       <div className="grid min-h-screen place-items-center bg-[#fffaf0] text-sm text-[#5c564c]">
         Redirecting to dashboard...
