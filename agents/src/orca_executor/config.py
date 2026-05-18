@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import re
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from web3 import Web3
 
+from orca_common.agent_config import merge_settings_with_agent_config
 from orca_common.llm.settings import GroqSettingsMixin
 
 
@@ -112,6 +113,11 @@ class ExecutorConfig(GroqSettingsMixin, BaseSettings):
         alias="SCOUT_CROSS_CHAIN_BENEFICIARY",
         description="Hyperlane RECIPIENT / RemoteAdapter transferFrom beneficiary; defaults to executor EOA when empty.",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _merge_agent_file_defaults(cls, data: Any) -> Any:
+        return merge_settings_with_agent_config(data)
 
     @field_validator("executor_auto_bridge", mode="before")
     @classmethod

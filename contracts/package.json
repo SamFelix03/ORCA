@@ -5,6 +5,7 @@
   "scripts": {
     "build": "hardhat compile",
     "test": "hardhat test",
+    "test:config": "tsx --test scripts/lib/orca-contracts-config.test.ts",
     "deploy:stubs": "hardhat run scripts/deploy-remote-stubs.ts",
     "deploy:spoke": "hardhat run scripts/deploy-spoke.ts",
     "deploy:spoke:base": "hardhat run scripts/deploy-spoke.ts --network baseSepolia",

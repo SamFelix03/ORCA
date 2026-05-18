@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from orca_common.agent_config import merge_settings_with_agent_config
 from orca_common.llm.settings import GroqSettingsMixin
 from orca_common.market.config import MarketDataSettingsMixin
 from orca_common.market.feed_stub_chain import parse_feed_to_stub_chain_map
@@ -78,6 +79,11 @@ class RiskConfig(GroqSettingsMixin, MarketDataSettingsMixin, BaseSettings):
 
     def feed_to_stub_chain_remap(self) -> dict[int, int]:
         return parse_feed_to_stub_chain_map(self.scout_feed_to_stub_chain_map)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _merge_agent_file_defaults(cls, data: Any) -> Any:
+        return merge_settings_with_agent_config(data)
 
     @field_validator("demo_mode", mode="before")
     @classmethod

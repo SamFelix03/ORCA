@@ -9,5 +9,8 @@ from dotenv import load_dotenv
 
 def load_agents_dotenv() -> None:
     """Resolve `agents/` from `agents/src/orca_common/agents_env.py` → parents[2]."""
-    agents_dir = Path(__file__).resolve().parents[2]
-    load_dotenv(agents_dir / ".env")
+    agents_root = Path(__file__).resolve().parents[2]
+    load_dotenv(agents_root / ".env")
+    from orca_common.agent_config import apply_agent_config_defaults
+
+    apply_agent_config_defaults(agents_root)

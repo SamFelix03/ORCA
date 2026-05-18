@@ -1,8 +1,0 @@
-{
-  "name": "@orca/indexer",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "info": "echo 'Goldsky integration scaffold pending implementation'"
-  }
-}

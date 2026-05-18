@@ -1,3 +1,4 @@
+import "../../scripts/lib/load-contracts-env.js";
 import { JsonRpcProvider, Wallet } from "ethers";
 import { loadRelayerConfig } from "./config.js";
 import { deliverMessage, fetchMessageFromDispatchTx, isDelivered } from "./deliver.js";

@@ -42,9 +42,6 @@ This package contains ORCA control-plane contracts for registry, spending rules,
 - **Sepolia delivery prerequisites (read-only):** `pnpm check:sepolia-prereqs` — prints vault Sepolia USDT **balance / allowance** to `RemoteAdapter`, **`trustedSender(2368)`**, and whether the message id is marked processed. Use after a dispatch to see if `handle` can succeed.
 - **Fund spoke beneficiary (EOA) before cross-chain pull:** `pnpm prepare:sepolia-e2e` — warp **Kite faucet USDT** (`0x0fF539…` collateral, see `orca-integration.latest.json` `USDT/…` routes) to Sepolia synthetic USDT, then `approve(RemoteAdapter)`. **PIEUSD is payments-only** (marketplace / x402), not this path. The hub **vault** hex often has no contract on Sepolia; E2E defaults **`E2E_SPOKE_BENEFICIARY`** to hub `owner`.
 
-Copy `.env.example` to `.env` and fill:
+Copy `.env.example` to `.env` and fill **secrets** (`DEPLOYER_PRIVATE_KEY`, optional `RELAYER_PRIVATE_KEY`).
 
-- RPC + deploy key (`KITE_*`, `DEPLOYER_PRIVATE_KEY`)
-- deployment owner/operator addresses (`INITIAL_OWNER`, `EXECUTOR_VAULT`, `TREASURY_MULTISIG`)
-- Hyperlane mailbox/domain/trusted-remote config and bridge threshold controls
-- default spending limits for enforcer bootstrapping
+Static settings (RPC URLs, operator addresses, Hyperlane domains/mailboxes/trust maps, deployment addresses, spending policy, relayer defaults) live in [`config/orca.contracts.json`](config/orca.contracts.json). At startup, Hardhat and the in-repo relayer load `.env` first, then fill any **unset** variables from that JSON (`ORCA_CONTRACTS_CONFIG` overrides the file path). Existing `.env` values always win. `HYP_TRUSTED_REMOTES` / `HYP_TRUSTED_SENDERS` are read from the Hyperlane integration snapshot when not set in `.env`.

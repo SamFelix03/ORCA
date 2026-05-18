@@ -1,6 +1,7 @@
 /**
  * Diagnostics port of hyperlane/fix.md relay.js (ethers v6).
  */
+import "../../scripts/lib/load-contracts-env.js";
 import { Contract, JsonRpcProvider } from "ethers";
 import { loadRelayerConfig } from "./config.js";
 import { decodeMessage, messageIdFromBytes, recipientAddressFromBytes32 } from "./message.js";

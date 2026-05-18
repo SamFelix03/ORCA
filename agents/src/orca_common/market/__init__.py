@@ -1,7 +1,6 @@
 from orca_common.market.bridge_cost_estimator import BridgeCostEstimator
 from orca_common.market.bridge_fee_client import BridgeFeeClient
 from orca_common.market.defillama_client import DefiLlamaClient
-from orca_common.market.goldsky_client import GoldskyClient
 from orca_common.market.lucid_client import LucidClient
 from orca_common.market.protocol_enrichers import (
     AaveUtilizationEnricher,
@@ -17,7 +16,6 @@ __all__ = [
     "BridgeFeeClient",
     "CompoundUtilizationEnricher",
     "DefiLlamaClient",
-    "GoldskyClient",
     "LucidClient",
     "MorphoUtilizationEnricher",
     "UniswapUtilizationEnricher",

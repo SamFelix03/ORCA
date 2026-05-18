@@ -28,13 +28,16 @@ pip install -e .
 
 ## Configure
 
-Copy `.env.example` to `.env` and fill all required live integrations.
+Copy `.env.example` to `.env` and fill **secrets and environment-specific URLs** (private keys, DIDs, `REDIS_URL`, `KITE_RPC_URL`, Groq, x402, Passport, beneficiary wallet).
+
+**Static testnet settings** (contract addresses, Hyperlane paths, stub RPC map, scout/executor/risk tuning) live in [`config/orca.agents.json`](config/orca.agents.json). Copy [`config/orca.agents.example.json`](config/orca.agents.example.json) when bootstrapping a new network. At startup, `load_agents_dotenv()` loads `.env` first, then fills any **unset** variables from that JSON. Existing `.env` values always win. Optional override: `ORCA_AGENTS_CONFIG=/path/to/custom.json`.
+
+`HYP_TRUSTED_REMOTES` and `SCOUT_ALLOWED_ROUTE_PAIRS` are derived from the Hyperlane integration snapshot (`paths.hyperlaneIntegrationSnapshot`) when not set in `.env`.
 
 Do **not** append API-only variables (`DATABASE_URL`, `JWT_SECRET`, `WEBHOOK_SECRET`) here: if `REDIS_URL` is set twice, the later empty value overrides the real URL and agents crash at startup.
 
 - Market data providers (`SCOUT_MARKET_DATA_PROVIDER`, `DEFILLAMA_*`, optional protocol enrichers)
 - Legacy Lucid fallback (`LUCID_*`, only if provider mode is `lucid`)
-- Goldsky (`GOLDSKY_*`)
 - Bridge quote provider (`BRIDGE_FEE_*`, optional; defaults to 0 bridge cost when unset)
 - Mandatory Groq LLM on all four agents (`GROQ_API_KEY`, `GROQ_*`); chain-of-thought persisted via API/Postgres and shown in Signals workflow UI
 - Risk agent re-fetches DefiLlama/enricher/bridge data and calls `GET /internal/risk-context` before LLM verdict
@@ -49,19 +52,18 @@ Do **not** append API-only variables (`DATABASE_URL`, `JWT_SECRET`, `WEBHOOK_SEC
 - x402 config (`X402_*`; run `pnpm dev:x402-provider` for a local `/execute` URL, or `X402_DRY_RUN=true` without HTTP — see `services/x402-provider/README.md`)
   - `X402_EXECUTION_MODE=direct` uses the ORCA direct executor utility and skips Passport discovery allowlisting for internal micropayment rails.
   - `X402_EXECUTION_MODE=passport` keeps `kpass agent:session execute` behavior.
-- Kite chain + PoAI contract (`KITE_*`, `POAI_CONTRACT_ADDRESS`, optional `POAI_MAX_FEE_GWEI` / `POAI_PRIORITY_FEE_GWEI` if you hit replacement-underpriced with a shared signer)
-- Allowed Hyperlane route pairs (`SCOUT_ALLOWED_ROUTE_PAIRS`)
-- Optional route auto-load artifact (`SCOUT_ROUTES_ARTIFACT_PATH`)
+- Kite chain + PoAI contract (`KITE_RPC_URL` in `.env`; `KITE_CHAIN_ID` / `POAI_CONTRACT_ADDRESS` default from `orca.agents.json`, optional `POAI_MAX_FEE_GWEI` / `POAI_PRIORITY_FEE_GWEI` if you hit replacement-underpriced with a shared signer)
+- Allowed Hyperlane route pairs (from snapshot via config, or `SCOUT_ALLOWED_ROUTE_PAIRS` override)
+- Optional route artifact override (`SCOUT_ROUTES_ARTIFACT_PATH`)
 - Risk / Executor / Audit (`RISK_PRIVATE_KEY`, `EXECUTOR_AGENT_DID`, `EXECUTOR_PRIVATE_KEY`, `AUDIT_AGENT_DID`, `AUDIT_PRIVATE_KEY`; see `.env.example` stream keys)
 
 - Optional **`SCOUT_OPPORTUNITY_MODE=best_stub_deposit`**: ranks **DefiLlama / Lucid** APY against stub manifest slots (with mainnet→testnet chain remap); see **Best stub deposit mode** below.
 
-Additional execution-intent requirements (when `SCOUT_EXECUTION_INTENT_ENABLED=true`):
+Additional execution-intent requirements (when `SCOUT_EXECUTION_INTENT_ENABLED=true`; defaults from `orca.agents.json` + stub manifest):
 
-- `CLIENT_AGENT_VAULT_ADDRESS`
-- `ORCA_OAPP_ADDRESS`
-- `SCOUT_PROTOCOL_ADDRESS_MAP` (strict CSV format: `chainId:protocol:0xAddress`)
-- `HYP_TRUSTED_REMOTES` (strict CSV format: `domain:0xBytes32`)
+- `CLIENT_AGENT_VAULT_ADDRESS`, `ORCA_OAPP_ADDRESS` (in config `deployments`)
+- `ORCA_STUB_PROTOCOL_MANIFEST_PATH` or `SCOUT_PROTOCOL_ADDRESS_MAP` (`chainId:protocol:0xAddress`)
+- `HYP_TRUSTED_REMOTES` (from Hyperlane snapshot `env` block, or override in `.env`)
 
 ## Preflight Checklist (Before Run)
 
@@ -131,7 +133,7 @@ The Scout **polls** `GET /scouts/purchases/:id/binding` until the buyer has stor
 
 ## Module Map
 
-- `SC-01`: `services/yield_scanner.py` + `integrations/lucid_client.py` / `integrations/goldsky_client.py`
+- `SC-01`: `services/yield_scanner.py` + DefiLlama / Lucid market feeds
 - `SC-02`: `services/bridge_cost_estimator.py` + `integrations/bridge_fee_client.py`
 - `SC-03`: `services/opportunity_ranker.py`
 - `SC-04`: `services/signal_broadcaster.py` + `integrations/x402_client.py`

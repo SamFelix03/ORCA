@@ -16,7 +16,6 @@ from orca_common.market import (
     BridgeFeeClient,
     CompoundUtilizationEnricher,
     DefiLlamaClient,
-    GoldskyClient,
     LucidClient,
     MorphoUtilizationEnricher,
     UniswapUtilizationEnricher,
@@ -75,13 +74,6 @@ class ScoutRuntime:
                 config.lucid_market_path,
             )
             self._enrichers = []
-        self._goldsky = GoldskyClient(
-            config.goldsky_api_base_url,
-            config.goldsky_api_key,
-            config.goldsky_timeout_seconds,
-            config.goldsky_query_path,
-            config.goldsky_subgraph_id,
-        )
         self._bridge_fee: BridgeFeeClient | None = None
         if config.bridge_fee_api_base_url and config.bridge_fee_api_key:
             self._bridge_fee = BridgeFeeClient(
@@ -123,7 +115,7 @@ class ScoutRuntime:
             config.scout_private_key,
         )
 
-        self._scanner = YieldScanner(self._market_feed, self._goldsky, enrichers=self._enrichers)
+        self._scanner = YieldScanner(self._market_feed, enrichers=self._enrichers)
         self._estimator = BridgeCostEstimator(self._bridge_fee, config.settlement_asset_symbol)
         allowed_routes = None if config.scout_disable_route_filter else config.allowed_route_pairs_set()
         if allowed_routes is None:
@@ -274,7 +266,7 @@ class ScoutRuntime:
     async def _run_single_scan(self) -> None:
         markets = await self._scanner.scan()
         if not markets:
-            self._logger.warning("No markets received from market providers/Goldsky.")
+            self._logger.warning("No markets received from market providers.")
             return
 
         if self._config.scout_opportunity_mode == "best_stub_deposit":
@@ -386,7 +378,6 @@ class ScoutRuntime:
             await close_feed()
         for enricher in self._enrichers:
             await enricher.close()
-        await self._goldsky.close()
         if self._bridge_fee is not None:
             await self._bridge_fee.close()
         await self._llm_selector.close()

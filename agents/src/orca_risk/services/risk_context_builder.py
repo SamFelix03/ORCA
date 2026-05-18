@@ -36,16 +36,13 @@ class RiskContextBuilder:
         self._config = config
         self._registry = registry
         self._logger = logging.getLogger("orca_risk.context")
-        self._feed, self._enrichers, self._goldsky, self._estimator = build_market_stack(config)
+        self._feed, self._enrichers, self._estimator = build_market_stack(config)
         self._http = httpx.AsyncClient(timeout=15.0)
 
     async def build(self, signal: YieldSignal) -> RiskEvidencePack:
         markets = await self._feed.fetch_markets()
         for enricher in self._enrichers:
             markets = await enricher.enrich(markets)
-        if self._goldsky is not None:
-            await self._goldsky.fetch_recent_protocol_events()
-
         feed_to_stub = self._config.feed_to_stub_chain_remap()
         src, src_feed_chain = find_market_for_exec_chain(
             markets, signal.src_chain, str(signal.src_protocol), feed_to_stub
@@ -198,8 +195,6 @@ class RiskContextBuilder:
             await close_feed()
         for enricher in self._enrichers:
             await enricher.close()
-        if self._goldsky is not None:
-            await self._goldsky.close()
         bridge = getattr(self._estimator, "_fee_client", None)
         if bridge is not None:
             await bridge.close()

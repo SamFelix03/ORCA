@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from pydantic import Field
+from typing import Any
+
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from orca_common.agent_config import merge_settings_with_agent_config
 from orca_common.llm.settings import GroqSettingsMixin
 
 
@@ -24,3 +27,8 @@ class AuditConfig(GroqSettingsMixin, BaseSettings):
     scout_epoch_id: int = Field(default=1, alias="SCOUT_EPOCH_ID")
     orca_api_base_url: str = Field(default="http://127.0.0.1:4000", alias="ORCA_API_BASE_URL")
     orca_internal_api_key: str = Field(default="", alias="ORCA_INTERNAL_API_KEY")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _merge_agent_file_defaults(cls, data: Any) -> Any:
+        return merge_settings_with_agent_config(data)

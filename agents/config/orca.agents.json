@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "network": "kite-testnet",
+  "kiteChainId": 2368,
+  "deployments": {
+    "poai": "0xF2e85C0A2dcCdb2D55AB48Ee974aC57b30f9462E",
+    "clientAgentVault": "0x1bcdcf2acc93d01F7F66010BE7B5a647A7cfC40f",
+    "orcaOApp": "0x4BbD1962B86738c322DCB48dc34e5D6CD69de885",
+    "orcaRegistry": "0x79F21CfDcdd463F9267e7fa37A5052Ea9aB0D6fe",
+    "spendingRuleEnforcer": "0xa64DAF0613508F57a35E18F7b9240Fc171b85768",
+    "lzBridgeGuard": "0x6D84Cecfc348738C5F44254A704881AA7b758ca7",
+    "pieUsd": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A"
+  },
+  "paths": {
+    "hyperlaneIntegrationSnapshot": "../hyperlane/outputs/snapshots/orca-integration.latest.json",
+    "stubProtocolManifest": "config/orca-stub-protocols.json",
+    "collateralManifest": "../contracts/config/orca-collateral.manifest.json",
+    "contractsDir": "../contracts"
+  },
+  "chainRpcByChainId": {
+    "11155111": "https://ethereum-sepolia.publicnode.com",
+    "421614": "https://sepolia-rollup.arbitrum.io/rpc",
+    "11155420": "https://sepolia.optimism.io",
+    "84532": "https://sepolia.base.org"
+  },
+  "hyperlane": {
+    "warpAsset": "USDT"
+  },
+  "scout": {
+    "scanIntervalSeconds": 30,
+    "minNetDeltaApy": 0.05,
+    "defaultSuggestedAmount": "100000000000000000",
+    "maxSuggestedAmount": "200000000000000000",
+    "marketDataProvider": "hybrid",
+    "opportunityMode": "best_stub_deposit",
+    "executionIntentEnabled": true
+  },
+  "executor": {
+    "submitVaultTx": true,
+    "crossChainMode": "warp_to_stub",
+    "deterministicRouting": true,
+    "autoBridge": true,
+    "bridgeWaitSeconds": 60
+  },
+  "risk": {
+    "maxApyDriftBps": 50,
+    "maxUtilization": 0.95
+  },
+  "x402": {
+    "executionMode": "direct",
+    "maxAmountRequiredWei": "100000000000000000",
+    "network": "kite-testnet"
+  },
+  "policy": {
+    "spendingMaxPerTx": "500000000000000000000",
+    "bridgeGuardThresholdUsdc": "50000000000000000000000"
+  }
+}

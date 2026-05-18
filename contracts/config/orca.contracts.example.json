@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "network": "kite-testnet",
+  "defaultDeployNetwork": "kiteTestnet",
+  "rpc": {
+    "kiteMainnet": "https://rpc.gokite.ai",
+    "kiteTestnet": "https://rpc-testnet.gokite.ai",
+    "sepolia": "https://ethereum-sepolia-rpc.publicnode.com",
+    "arbitrumSepolia": "https://sepolia-rollup.arbitrum.io/rpc",
+    "optimismSepolia": "https://sepolia.optimism.io",
+    "baseSepolia": "https://sepolia.base.org"
+  },
+  "operators": {
+    "initialOwner": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+    "executorVault": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+    "treasuryMultisig": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+    "multisigSigners": "0x2514844F312c02Ae3C9d4fEb40db4eC8830b6844",
+    "multisigThreshold": 1
+  },
+  "tokens": {
+    "settlement": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+    "underlying": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+    "scoutStakeToken": "0x0309764915AFC7a2a7CDd1E64c58a57c1F1705E3"
+  },
+  "deployments": {
+    "orcaRegistry": "0x79F21CfDcdd463F9267e7fa37A5052Ea9aB0D6fe",
+    "poai": "0xF2e85C0A2dcCdb2D55AB48Ee974aC57b30f9462E",
+    "orcaOApp": "0x4BbD1962B86738c322DCB48dc34e5D6CD69de885",
+    "clientAgentVault": "0x1bcdcf2acc93d01F7F66010BE7B5a647A7cfC40f",
+    "spendingRuleEnforcer": "0xa64DAF0613508F57a35E18F7b9240Fc171b85768",
+    "lzBridgeGuard": "0x6D84Cecfc348738C5F44254A704881AA7b758ca7"
+  },
+  "paths": {
+    "hyperlaneIntegrationSnapshot": "../hyperlane/outputs/snapshots/orca-integration.latest.json",
+    "collateralManifest": "config/orca-collateral.manifest.json"
+  },
+  "hyperlane": {
+    "warpAsset": "USDT",
+    "domains": {
+      "kite": 2368,
+      "sepolia": 11155111,
+      "arbitrumSepolia": 421614,
+      "optimismSepolia": 11155420,
+      "baseSepolia": 84532
+    },
+    "mailboxes": {
+      "kite": "0x0d5b681C5887617d68200B45F3947c99Cf402188",
+      "sepolia": "0xCDF3D9c1E132e4b37A362CF0f11f384b673Aa908",
+      "arbitrumSepolia": "0x25f442fd07fc3eaC3a27F3E6AcaaBa0f15F3dbaD",
+      "optimismSepolia": "0x0866f40D55E96b2D74995203Caff032aD81c14B0",
+      "baseSepolia": "0x68e89453029DC14351bF72104dC30248BB766b69"
+    },
+    "trustedSenderKite": "0x4BbD1962B86738c322DCB48dc34e5D6CD69de885",
+    "trustedDomainBaseSepolia": 84532,
+    "trustedRemoteBaseSepolia": "0x8c1fC785b71A6a095878fB49BDdcb5788D553C2D"
+  },
+  "policy": {
+    "bridgeGuardThresholdUsdc": "50000000000000000000000",
+    "defaultSpendingWindowSeconds": "86400",
+    "defaultSpendingBudgetUsdc": "5000000000000000000000",
+    "defaultMaxPerTxUsdc": "500000000000000000000"
+  },
+  "relayer": {
+    "pollMs": 8000,
+    "logSkips": "0",
+    "extraRecipients": []
+  }
+}

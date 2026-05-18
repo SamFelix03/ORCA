@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from decimal import Decimal
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from web3 import Web3
 
+from orca_common.agent_config import merge_settings_with_agent_config, resolve_trusted_remotes
 from orca_common.llm.settings import GroqSettingsMixin
 from orca_common.market.feed_stub_chain import parse_feed_to_stub_chain_map
 
@@ -68,12 +70,6 @@ class ScoutConfig(GroqSettingsMixin, BaseSettings):
     compound_data_api_base_url: str = Field(default="", alias="COMPOUND_DATA_API_BASE_URL")
     morpho_data_api_base_url: str = Field(default="", alias="MORPHO_DATA_API_BASE_URL")
     uniswap_data_api_base_url: str = Field(default="", alias="UNISWAP_DATA_API_BASE_URL")
-
-    goldsky_api_base_url: str = Field(alias="GOLDSKY_API_BASE_URL")
-    goldsky_api_key: str = Field(alias="GOLDSKY_API_KEY")
-    goldsky_timeout_seconds: float = Field(default=10.0, alias="GOLDSKY_TIMEOUT_SECONDS")
-    goldsky_query_path: str = Field(default="/query", alias="GOLDSKY_QUERY_PATH")
-    goldsky_subgraph_id: str = Field(alias="GOLDSKY_SUBGRAPH_ID")
 
     bridge_fee_api_base_url: str = Field(default="", alias="BRIDGE_FEE_API_BASE_URL")
     bridge_fee_api_key: str = Field(default="", alias="BRIDGE_FEE_API_KEY")
@@ -387,6 +383,11 @@ class ScoutConfig(GroqSettingsMixin, BaseSettings):
                 raise ValueError(f"Invalid SCOUT_FEED_TO_STUB_CHAIN_MAP item '{entry}'.")
         return value
 
+    @model_validator(mode="before")
+    @classmethod
+    def _merge_agent_file_defaults(cls, data: Any) -> Any:
+        return merge_settings_with_agent_config(data)
+
     @field_validator("trusted_remote_map")
     @classmethod
     def _validate_trusted_remote_map(cls, value: str) -> str:
@@ -446,10 +447,20 @@ class ScoutConfig(GroqSettingsMixin, BaseSettings):
                     "Execution intent is enabled; set SCOUT_PROTOCOL_ADDRESS_MAP or ORCA_STUB_PROTOCOL_MANIFEST_PATH."
                 )
             self._check_protocol_csv(resolved)
+            trusted = self.trusted_remote_map.strip()
+            if not trusted:
+                collateral = os.environ.get("EXECUTOR_COLLATERAL_MANIFEST_PATH", "").strip()
+                trusted = resolve_trusted_remotes(
+                    self.scout_routes_artifact_path,
+                    collateral_manifest_path=collateral,
+                    hub_chain_id=self.kite_chain_id,
+                )
+                if trusted:
+                    self.trusted_remote_map = trusted
             if not self.trusted_remote_map.strip():
                 raise ValueError(
                     "Execution intent is enabled; set HYP_TRUSTED_REMOTES (destination RemoteAdapter as bytes32 per "
-                    "domain). Do not use warp router addresses from the Hyperlane export."
+                    "domain), or provide a Hyperlane integration snapshot with env.HYP_TRUSTED_REMOTES."
                 )
         if self.scout_require_registry:
             if not self.orca_registry_address.strip():
@@ -468,7 +479,6 @@ class ScoutConfig(GroqSettingsMixin, BaseSettings):
 
 class EndpointHealth(BaseModel):
     lucid_ok: bool
-    goldsky_ok: bool
     bridge_fee_ok: bool
     x402_ok: bool
     redis_ok: bool

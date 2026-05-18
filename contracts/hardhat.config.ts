@@ -2,8 +2,10 @@ import path from "node:path";
 import dotenv from "dotenv";
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+import { applyContractsConfigDefaults } from "./scripts/lib/orca-contracts-config";
 
 dotenv.config({ path: path.join(__dirname, ".env") });
+applyContractsConfigDefaults(__dirname);
 
 const PRIVATE_KEYS =
   process.env.PRIVATE_KEY

@@ -28,12 +28,6 @@ class H(BaseHTTPRequestHandler):
         else:
             self._send(404, {"error": "not found"})
 
-    def do_POST(self):
-        if self.path == '/query':
-            self._send(200, {"data": {"subgraph": {"id": "mock-subgraph"}}})
-        else:
-            self._send(404, {"error": "not found"})
-
 if __name__ == '__main__':
     server = HTTPServer(('127.0.0.1', 9091), H)
     print('mock-market-indexer listening on 127.0.0.1:9091', flush=True)

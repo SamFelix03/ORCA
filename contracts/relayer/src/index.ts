@@ -1,3 +1,4 @@
+import "../../scripts/lib/load-contracts-env.js";
 import { loadRelayerConfig } from "./config.js";
 import { processPendingDispatches } from "./watch.js";
 

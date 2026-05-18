@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "network": "kite-testnet",
+  "kiteChainId": 2368,
+  "server": {
+    "port": 4000,
+    "host": "0.0.0.0",
+    "corsOrigin": "http://localhost:3000,http://localhost:3001"
+  },
+  "deployments": {
+    "poai": "0xF2e85C0A2dcCdb2D55AB48Ee974aC57b30f9462E",
+    "orcaRegistry": "0x79F21CfDcdd463F9267e7fa37A5052Ea9aB0D6fe",
+    "spendingRuleEnforcer": "0xa64DAF0613508F57a35E18F7b9240Fc171b85768",
+    "lzBridgeGuard": "0x6D84Cecfc348738C5F44254A704881AA7b758ca7",
+    "scoutStakeToken": "0x0309764915AFC7a2a7CDd1E64c58a57c1F1705E3",
+    "pieUsd": "0x38129cf4CE5E183eFF248F42A7D345Bb1B47621A",
+    "usdt": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63"
+  },
+  "marketplace": {
+    "scoutStakeDecimals": 6,
+    "scoutEip712DomainName": "ORCA_BYO_SCOUT",
+    "pieUsdPurchasePriceWei": "1000000"
+  },
+  "paths": {
+    "stubProtocolManifest": "../agents/config/orca-stub-protocols.json"
+  },
+  "chainRpcByChainId": {
+    "11155111": "https://ethereum-sepolia.publicnode.com",
+    "421614": "https://sepolia-rollup.arbitrum.io/rpc",
+    "11155420": "https://sepolia.optimism.io",
+    "84532": "https://sepolia.base.org"
+  },
+  "agents": {
+    "scoutDid": "did:kite:orca/scout-1",
+    "riskDid": "did:kite:orca/risk-1",
+    "executorDid": "did:kite:orca/executor-1",
+    "auditDid": "did:kite:orca/audit-1"
+  },
+  "redisStreams": {
+    "scoutSignal": "orca:signals:scout",
+    "riskInstruction": "orca:instructions:risk",
+    "execution": "orca:executions:executor",
+    "audit": "orca:audit"
+  }
+}

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 
-from orca_scout.integrations.goldsky_client import GoldskyClient
 from orca_scout.integrations.protocol_enrichers import UtilizationEnricher
 from orca_common.models.market import YieldMarket
 
@@ -11,18 +10,13 @@ class YieldScanner:
     def __init__(
         self,
         market_feed_client: object,
-        goldsky_client: GoldskyClient,
         enrichers: list[UtilizationEnricher] | None = None,
     ) -> None:
         self._market_feed_client = market_feed_client
-        self._goldsky = goldsky_client
         self._enrichers = enrichers or []
         self._logger = logging.getLogger("orca_scout.yield_scanner")
 
     async def scan(self) -> list[YieldMarket]:
-        # Keep the Goldsky pull in the control loop even when Lucid is the main APY source.
-        await self._goldsky.fetch_recent_protocol_events()
-
         fetch_markets = getattr(self._market_feed_client, "fetch_markets")
         markets = await fetch_markets()
         self._logger.info("Market feed returned markets=%d", len(markets))
@@ -35,7 +29,8 @@ class YieldScanner:
             self._logger.info(
                 "Scan top_markets=%s",
                 " | ".join(
-                    f"{item.protocol}@{item.chain_id}:apy={item.apy} util={item.utilization} tvl={item.tvl_usdc}" for item in top
+                    f"{item.protocol}@{item.chain_id}:apy={item.apy} util={item.utilization} tvl={item.tvl_usdc}"
+                    for item in top
                 ),
             )
         return markets
