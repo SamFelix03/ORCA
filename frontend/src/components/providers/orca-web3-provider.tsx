@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { WagmiProvider } from "wagmi";
 import { BackendSessionSync } from "@/components/auth/backend-session-sync";
+import { CurrentWalletProvider } from "@/components/auth/current-wallet";
 import { PrivyAuthGate } from "@/components/auth/privy-auth-gate";
 import { wagmiConfig } from "@/lib/wagmi-config";
 
@@ -37,8 +38,10 @@ export function OrcaWeb3Provider({ children }: { children: ReactNode }) {
     >
       <WagmiProvider config={wagmiConfig}>
         <QueryClientProvider client={client}>
-          <BackendSessionSync />
-          <PrivyAuthGate>{children}</PrivyAuthGate>
+          <CurrentWalletProvider>
+            <BackendSessionSync />
+            <PrivyAuthGate>{children}</PrivyAuthGate>
+          </CurrentWalletProvider>
         </QueryClientProvider>
       </WagmiProvider>
     </PrivyProvider>

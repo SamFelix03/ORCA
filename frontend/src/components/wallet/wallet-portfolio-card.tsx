@@ -1,12 +1,11 @@
 "use client";
 
 import type { TokenBalanceRecord } from "@orca/shared";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useEffect, useMemo, useState } from "react";
+import { useCurrentWallet } from "@/components/auth/current-wallet";
 import { Card, CardContent } from "@/components/ui/card";
 import { orcaApi } from "@/lib/api";
 import { formatTokenBalanceAmountRaw } from "@/lib/format-chain";
-import { primaryPrivyWalletAddress } from "@/lib/privy-user";
 
 function shortAddress(address: string | null) {
   if (!address) return "--";
@@ -18,9 +17,7 @@ function tokenBalance(symbol: string, balances: TokenBalanceRecord[]) {
 }
 
 export function WalletPortfolioCard() {
-  const { user } = usePrivy();
-  const { wallets } = useWallets();
-  const walletAddress = primaryPrivyWalletAddress(user, wallets);
+  const { walletAddress } = useCurrentWallet();
   const [tokenBalances, setTokenBalances] = useState<TokenBalanceRecord[]>([]);
   const [loadingBalances, setLoadingBalances] = useState(false);
   const [balanceError, setBalanceError] = useState<string | null>(null);

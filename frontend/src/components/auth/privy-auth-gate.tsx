@@ -1,15 +1,15 @@
 "use client";
 
 import { Loading03Icon } from "@hugeicons/core-free-icons";
-import { usePrivy } from "@privy-io/react-auth";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Icon } from "@/components/ui/icon";
+import { useCurrentWallet } from "./current-wallet";
 
 const LOGIN_ROUTE = "/sign-in";
 
 export function PrivyAuthGate({ children }: { children: React.ReactNode }) {
-  const { ready, authenticated } = usePrivy();
+  const { ready, authenticated } = useCurrentWallet();
   const pathname = usePathname();
   const router = useRouter();
   const onLoginRoute = pathname === LOGIN_ROUTE;

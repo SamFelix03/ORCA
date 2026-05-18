@@ -2,13 +2,12 @@
 
 import type { TokenBalanceRecord } from "@orca/shared";
 import { CheckmarkCircle02Icon, Copy01Icon, Logout03Icon, Menu01Icon } from "@hugeicons/core-free-icons";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useEffect, useMemo, useState } from "react";
+import { useCurrentWallet } from "@/components/auth/current-wallet";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { orcaApi } from "@/lib/api";
 import { formatTokenBalanceAmountRaw } from "@/lib/format-chain";
-import { primaryPrivyWalletAddress } from "@/lib/privy-user";
 
 function shortAddress(address: string | null) {
   if (!address) return "No wallet";
@@ -20,9 +19,7 @@ function tokenBalance(symbol: string, balances: TokenBalanceRecord[]) {
 }
 
 export function TopHeader({ onOpenNavigation }: { onOpenNavigation: () => void }) {
-  const { logout, user } = usePrivy();
-  const { wallets } = useWallets();
-  const walletAddress = primaryPrivyWalletAddress(user, wallets);
+  const { isDemoMode, signOut: endCurrentWalletSession, walletAddress } = useCurrentWallet();
   const [tokenBalances, setTokenBalances] = useState<TokenBalanceRecord[]>([]);
   const [loadingBalances, setLoadingBalances] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -56,11 +53,8 @@ export function TopHeader({ onOpenNavigation }: { onOpenNavigation: () => void }
     pieusd: tokenBalance("PIEUSD", tokenBalances) ?? tokenBalance("pieUSD", tokenBalances),
   }), [tokenBalances]);
 
-  async function signOut() {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("orca_jwt");
-    }
-    await logout();
+  async function handleSignOut() {
+    await endCurrentWalletSession();
   }
 
   async function copyWalletAddress() {
@@ -111,6 +105,7 @@ export function TopHeader({ onOpenNavigation }: { onOpenNavigation: () => void }
           aria-label="Copy wallet address"
         >
           <span className="truncate">{shortAddress(walletAddress)}</span>
+          {isDemoMode ? <span className="hidden text-[#5c564c] sm:inline">Demo</span> : null}
           <Icon icon={copied ? CheckmarkCircle02Icon : Copy01Icon} size={14} className="text-[#5c564c]" />
         </button>
         <Button
@@ -118,7 +113,7 @@ export function TopHeader({ onOpenNavigation }: { onOpenNavigation: () => void }
           size="sm"
           variant="secondary"
           className="h-8 w-8 px-0 text-base"
-          onClick={() => void signOut()}
+          onClick={() => void handleSignOut()}
           aria-label="Sign out"
           title="Sign out"
         >

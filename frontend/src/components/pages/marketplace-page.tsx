@@ -1,17 +1,16 @@
 "use client";
 
 import type { ScoutMarketplaceRecord } from "@orca/shared";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { useCurrentWallet } from "@/components/auth/current-wallet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TxLink } from "@/components/ui/tx-link";
 import { useOrcaResource } from "./use-orca-resource";
 import { orcaApi } from "@/lib/api";
 import { formatPieUsdPaymentAmountRaw } from "@/lib/format-chain";
-import { primaryPrivyWalletAddress } from "@/lib/privy-user";
 import {
   bondWeiFromUsdc,
   computeDidHashHex,
@@ -26,9 +25,7 @@ import { ensureWalletOnChain, resolveEthereumProvider } from "@/lib/wallet-provi
 import { getAddress } from "ethers";
 
 export function MarketplacePage() {
-  const { authenticated, user } = usePrivy();
-  const { wallets } = useWallets();
-  const walletAddress = primaryPrivyWalletAddress(user, wallets);
+  const { authenticated, isDemoMode, walletAddress, wallets } = useCurrentWallet();
 
   const scouts = useOrcaResource(() => orcaApi.scouts(), []);
   const [did, setDid] = useState("did:kite:orca/scout-1");
@@ -59,6 +56,9 @@ export function MarketplacePage() {
   async function requireWalletContext() {
     if (!authenticated || !ownerAddress) {
       throw new Error("Sign in with Privy to use your embedded wallet for marketplace transactions.");
+    }
+    if (isDemoMode) {
+      throw new Error("Demo mode can browse marketplace data, but on-chain marketplace transactions require a connected wallet.");
     }
     const eth = await resolveEthereumProvider(wallets, ownerAddress);
     return { eth, ownerAddress };
@@ -274,7 +274,9 @@ export function MarketplacePage() {
           <div className="space-y-3">
             {error ? <p className="rounded border border-[rgb(var(--danger-6))] bg-[rgb(var(--danger-2))] px-3 py-2 text-sm text-[rgb(var(--danger-12))]">{error}</p> : null}
             {notice ? <p className="rounded border border-black/10 bg-[#fffdf8] px-3 py-2 text-sm text-[#5c564c]">{notice}</p> : null}
-            {!authenticated || !ownerAddress ? (
+            {isDemoMode ? (
+              <p className="text-sm text-[rgb(var(--warning-11))]">Demo mode is read-only for on-chain scout registration.</p>
+            ) : !authenticated || !ownerAddress ? (
               <p className="text-sm text-[rgb(var(--warning-11))]">Sign in to register a scout with your Privy wallet.</p>
             ) : (
               <p className="font-mono text-xs text-[#5c564c]">Privy wallet: {ownerAddress}</p>
@@ -288,7 +290,7 @@ export function MarketplacePage() {
               onChange={(e) => setStakeUsdc(Number(e.target.value))}
               placeholder="Stake (USDC units)"
             />
-            <Button type="button" onClick={registerOnChain} disabled={busy || !ownerAddress}>
+            <Button type="button" onClick={registerOnChain} disabled={busy || isDemoMode || !ownerAddress}>
               {busy ? "Working..." : "Register on-chain"}
             </Button>
           </div>
@@ -327,7 +329,7 @@ export function MarketplacePage() {
             ) : (
               <Button
                 type="button"
-                disabled={busy || buyingId !== null || !ownerAddress}
+                disabled={busy || isDemoMode || buyingId !== null || !ownerAddress}
                 onClick={() => buyScoutAccess(selectedScout.id, selectedScout.did)}
               >
                 {buyingId === selectedScout.id ? "Buying..." : "Buy for 1 pieUSD"}
@@ -363,7 +365,7 @@ export function MarketplacePage() {
                   onChange={(e) => setBindStreamKey(e.target.value)}
                   placeholder="scout signal stream key (optional)"
                 />
-                <Button type="button" onClick={submitBinding} disabled={bindBusy || busy || !ownerAddress}>
+                <Button type="button" onClick={submitBinding} disabled={bindBusy || busy || isDemoMode || !ownerAddress}>
                   {bindBusy ? "Saving..." : "Save binding"}
                 </Button>
               </div>

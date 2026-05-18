@@ -1,20 +1,17 @@
 "use client";
 
 import type { VaultHoldingRecord } from "@orca/shared";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useCurrentWallet } from "@/components/auth/current-wallet";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TxLink } from "@/components/ui/tx-link";
 import { ReloadButton, VaultHoldingCard } from "@/components/wallet/vault-holding-card";
 import { orcaApi } from "@/lib/api";
-import { primaryPrivyWalletAddress } from "@/lib/privy-user";
 import { withdrawStubVaultHolding } from "@/lib/stub-vault-withdraw";
 
 export function PositionsPage() {
-  const { authenticated, user } = usePrivy();
-  const { wallets } = useWallets();
-  const walletAddress = primaryPrivyWalletAddress(user, wallets);
+  const { authenticated, isDemoMode, walletAddress, wallets } = useCurrentWallet();
   const [holdings, setHoldings] = useState<VaultHoldingRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,7 +51,7 @@ export function PositionsPage() {
   }, [walletAddress]);
 
   const withdrawHolding = async (holding: VaultHoldingRecord) => {
-    if (!walletAddress || withdrawingId) return;
+    if (!walletAddress || isDemoMode || withdrawingId) return;
     setWithdrawError(null);
     setWithdrawTx(null);
     setWithdrawingId(holding.id);
@@ -119,7 +116,7 @@ export function PositionsPage() {
                       variant="outline"
                       size="sm"
                       className="h-7 px-2 text-xs"
-                      disabled={!authenticated || !walletAddress || !canWithdraw || busy || Boolean(withdrawingId)}
+                      disabled={!authenticated || isDemoMode || !walletAddress || !canWithdraw || busy || Boolean(withdrawingId)}
                       onClick={() => void withdrawHolding(holding)}
                     >
                       {busy ? "Withdrawing..." : "Withdraw"}

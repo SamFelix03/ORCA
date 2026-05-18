@@ -1,17 +1,14 @@
 "use client";
 
-import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useEffect, useRef } from "react";
 import { orcaApi } from "@/lib/api";
-import { primaryPrivyWalletAddress } from "@/lib/privy-user";
+import { useCurrentWallet } from "./current-wallet";
 
 const JWT_KEY = "orca_jwt";
 
 export function BackendSessionSync() {
-  const { ready, authenticated, user } = usePrivy();
-  const { wallets } = useWallets();
+  const { ready, authenticated, isDemoMode, walletAddress } = useCurrentWallet();
   const syncing = useRef(false);
-  const walletAddress = primaryPrivyWalletAddress(user, wallets);
 
   useEffect(() => {
     let mounted = true;
@@ -22,6 +19,12 @@ export function BackendSessionSync() {
       }
 
       if (!authenticated) {
+        localStorage.removeItem(JWT_KEY);
+        syncing.current = false;
+        return;
+      }
+
+      if (isDemoMode) {
         localStorage.removeItem(JWT_KEY);
         syncing.current = false;
         return;
@@ -59,7 +62,7 @@ export function BackendSessionSync() {
     return () => {
       mounted = false;
     };
-  }, [authenticated, ready, walletAddress]);
+  }, [authenticated, isDemoMode, ready, walletAddress]);
 
   return null;
 }
