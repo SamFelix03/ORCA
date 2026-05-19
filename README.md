@@ -56,6 +56,7 @@ That document covers prerequisites, `.env` and JSON config files, `pnpm db:setup
 - Live demo: [https://orca-kite.vercel.app](https://orca-kite.vercel.app)
 - Demo video: [https://www.youtube.com/watch?v=wFkcXo4mtok](https://www.youtube.com/watch?v=wFkcXo4mtok)
 - Pitch deck: [https://www.canva.com/design/DAHJ_tHxJSA/5T-_xzNzx5AsoyCXZNdRXw/view?utm_content=DAHJ_tHxJSA&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=hec3dcc447d](https://www.canva.com/design/DAHJ_tHxJSA/5T-_xzNzx5AsoyCXZNdRXw/view?utm_content=DAHJ_tHxJSA&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=hec3dcc447d)
+- feedback document: [View Here](https://github.com/SamFelix03/ORCA/blob/main/feedback.md)
 
 ### Deployed Contracts (Kite Testnet)
 
