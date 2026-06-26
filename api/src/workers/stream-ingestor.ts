@@ -21,19 +21,6 @@ const CONSUMER = `api-${process.pid}`;
 
 type StreamPayload = Record<string, unknown>;
 
-function createRedisClient(redisUrl: string, onError: (error: Error) => void): Redis {
-  const redis = new Redis(redisUrl, {
-    // Railway private networking is IPv6-first; ioredis defaults to IPv4-only DNS.
-    family: 0,
-    // Blocking XREADGROUP must not retry per command (ioredis default breaks long polls).
-    maxRetriesPerRequest: null,
-    connectTimeout: 20_000,
-    retryStrategy: (times) => Math.min(times * 200, 5_000),
-  });
-  redis.on("error", onError);
-  return redis;
-}
-
 async function ensureGroup(redis: Redis, stream: string): Promise<void> {
   try {
     await redis.xgroup("CREATE", stream, GROUP, "0", "MKSTREAM");
@@ -624,9 +611,7 @@ async function handlePayload(stream: string, id: string, payload: StreamPayload)
 }
 
 export async function startStreamIngestor(app: FastifyInstance, redisUrl: string): Promise<() => Promise<void>> {
-  const redis = createRedisClient(redisUrl, (error) => {
-    app.log.warn({ error }, "Redis connection error");
-  });
+  const redis = new Redis(redisUrl);
   const bootstrapped = await bootstrapAgentsFromEnv();
   if (bootstrapped > 0) {
     app.log.info({ count: bootstrapped }, "Bootstrapped agents from env");
@@ -665,30 +650,25 @@ export async function startStreamIngestor(app: FastifyInstance, redisUrl: string
   };
   const loop = async () => {
     while (running) {
-      try {
-        await recoverPending();
-        const entries = await redis.xreadgroup(
-          "GROUP",
-          GROUP,
-          CONSUMER,
-          "COUNT",
-          "20",
-          "BLOCK",
-          "30000",
-          "STREAMS",
-          ...streams,
-          ...streams.map(() => ">"),
-        );
-        if (!entries) continue;
-        const streamEntries = entries as [string, string[][]][];
-        for (const [stream, records] of streamEntries) {
-          for (const [id, fields] of records as [string, string[]][]) {
-            await processRecord(stream, id, fields);
-          }
+      await recoverPending();
+      const entries = await redis.xreadgroup(
+        "GROUP",
+        GROUP,
+        CONSUMER,
+        "COUNT",
+        "20",
+        "BLOCK",
+        "30000",
+        "STREAMS",
+        ...streams,
+        ...streams.map(() => ">"),
+      );
+      if (!entries) continue;
+      const streamEntries = entries as [string, string[][]][];
+      for (const [stream, records] of streamEntries) {
+        for (const [id, fields] of records as [string, string[]][]) {
+          await processRecord(stream, id, fields);
         }
-      } catch (error) {
-        app.log.error({ error }, "Redis stream ingestor error; retrying");
-        await new Promise((resolve) => setTimeout(resolve, 2_000));
       }
     }
   };
